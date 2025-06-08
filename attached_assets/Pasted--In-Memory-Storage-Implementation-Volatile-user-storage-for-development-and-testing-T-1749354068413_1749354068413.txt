@@ -1,0 +1,112 @@
+/**
+ * In-Memory Storage Implementation - Volatile user storage for development and testing
+ * 
+ * This implementation provides a simple, fast storage mechanism that doesn't require
+ * external dependencies. Data is stored in application memory and will be lost when
+ * the application restarts.
+ * 
+ * Use cases:
+ * - Development environments where data persistence isn't critical
+ * - Testing scenarios that need clean state between test runs
+ * - Prototype deployments with minimal infrastructure requirements
+ * 
+ * Limitations:
+ * - Data loss on application restart
+ * - No persistence across deployments
+ * - Memory usage grows with user count
+ * - Not suitable for production at scale
+ * 
+ * Performance characteristics:
+ * - O(1) lookup by ID using Map data structure
+ * - O(n) lookup by username requiring full scan
+ * - Minimal latency since all data is in memory
+ */
+export class MemStorage implements IStorage {
+  // Private Map for efficient user storage with O(1) ID-based access
+  private users: Map<number, User>;
+  
+  // Auto-incrementing ID counter for generating unique user identifiers
+  currentId: number;
+
+  /**
+   * Initialize empty storage with starting ID counter
+   * 
+   * Sets up the internal data structures needed for user storage
+   * and initializes the ID counter for unique user identification.
+   */
+  constructor() {
+    this.users = new Map(); // Initialize empty user storage
+    this.currentId = 1;     // Start ID counter at 1 for human-friendly IDs
+  }
+
+  /**
+   * Retrieve user by unique identifier
+   * 
+   * Provides fast O(1) lookup using the Map data structure.
+   * Returns undefined for non-existent users rather than throwing errors
+   * to simplify error handling in consuming code.
+   * 
+   * @param id - Unique numeric identifier for the user
+   * @returns Promise resolving to User object or undefined if not found
+   */
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  /**
+   * Retrieve user by username for authentication purposes
+   * 
+   * Performs linear search through all users to find matching username.
+   * This operation is O(n) but acceptable for development scenarios with
+   * limited user counts.
+   * 
+   * Production consideration: For large user bases, this should be optimized
+   * with a secondary index or replaced with database storage.
+   * 
+   * @param username - Unique username string for user identification
+   * @returns Promise resolving to User object or undefined if not found
+   */
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.username === username,
+    );
+  }
+
+  /**
+   * Create new user with auto-generated ID and default field handling
+   * 
+   * Generates a unique ID for the new user and converts the InsertUser format
+   * (which may have undefined fields) to the full User format (which uses null
+   * for missing optional fields).
+   * 
+   * Field transformation: Converts undefined values to null to match the User
+   * type definition and ensure consistent data representation.
+   * 
+   * ID generation: Uses simple auto-increment for predictable, human-friendly
+   * user IDs. In production, UUIDs might be preferred for security.
+   * 
+   * @param insertUser - User data for creation with optional fields as undefined
+   * @returns Promise resolving to complete User object with generated ID
+   */
+  async createUser(insertUser: InsertUser): Promise<User> {
+    // Generate unique ID and increment counter for next user
+    const id = this.currentId++;
+    
+    // Transform InsertUser to User format with proper null handling
+    const user: User = {
+      id,
+      username: insertUser.username,
+      displayName: insertUser.displayName ?? null, // Convert undefined to null
+      githubId: insertUser.githubId ?? null,       // Convert undefined to null
+      avatar: insertUser.avatar ?? null,           // Convert undefined to null
+    };
+    
+    // Store user in Map with ID as key for efficient retrieval
+    this.users.set(id, user);
+    return user;
+  }
+}
+
+// Export singleton instance for application-wide use
+// This ensures consistent user data across all parts of the application
+export const storage = new MemStorage();
