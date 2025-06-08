@@ -1,0 +1,372 @@
+~/workspace$ jest
+ PASS  test/unit/storage.test.js
+  MemStorage Class
+    constructor
+      ✓ should initialize with empty users Map (5 ms)
+      ✓ should initialize currentId to 1
+      ✓ should create independent instances (1 ms)
+    createUser
+      ✓ should create user with auto-generated ID (1 ms)
+      ✓ should increment ID for subsequent users (1 ms)
+      ✓ should convert undefined fields to null (1 ms)
+      ✓ should preserve null values (1 ms)
+      ✓ should preserve falsy non-null values
+      ✓ should store user with all fields (1 ms)
+    getUser
+      ✓ should return user by ID (1 ms)
+      ✓ should return undefined for non-existent user (1 ms)
+      ✓ should return undefined for invalid ID types (1 ms)
+    getUserByUsername
+      ✓ should return user by username (1 ms)
+      ✓ should return undefined for non-existent username
+      ✓ should handle case-sensitive username search (1 ms)
+      ✓ should find correct user among multiple users
+    getAllUsers
+      ✓ should return empty array when no users exist (1 ms)
+      ✓ should return all users (1 ms)
+      ✓ should return new array (not reference to internal storage) (2 ms)
+    deleteUser
+      ✓ should delete existing user and return true (1 ms)
+      ✓ should return false for non-existent user (1 ms)
+      ✓ should handle multiple deletions (1 ms)
+    clear
+      ✓ should remove all users
+      ✓ should reset ID counter
+      ✓ should handle clearing empty storage (1 ms)
+  Storage Singleton
+    ✓ should export singleton instance (1 ms)
+    ✓ should maintain state across module imports
+
+ FAIL  test/unit/http-utils.test.js
+  HTTP Utils Module
+    sendNotFound function
+      ✓ should send 404 status with custom message (10 ms)
+      ✕ should handle empty message (7 ms)
+      ✕ should handle null message (2 ms)
+      ✕ should handle undefined message (1 ms)
+      ✓ should handle long message (1 ms)
+      ✓ should handle special characters in message (1 ms)
+      ✓ should return response object for chaining (1 ms)
+
+  ● HTTP Utils Module › sendNotFound function › should handle empty message
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+      Object {
+    -   "message": "",
+    +   "message": "Not found",
+      },
+
+    Number of calls: 1
+
+      28 |       
+      29 |       expect(mockRes.status).toHaveBeenCalledWith(404);
+    > 30 |       expect(mockRes.json).toHaveBeenCalledWith({ message: '' });
+         |                            ^
+      31 |     });
+      32 |
+      33 |     test('should handle null message', () => {
+
+      at Object.<anonymous> (test/unit/http-utils.test.js:30:28)
+
+  ● HTTP Utils Module › sendNotFound function › should handle null message
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+      Object {
+    -   "message": null,
+    +   "message": "Not found",
+      },
+
+    Number of calls: 1
+
+      35 |       
+      36 |       expect(mockRes.status).toHaveBeenCalledWith(404);
+    > 37 |       expect(mockRes.json).toHaveBeenCalledWith({ message: null });
+         |                            ^
+      38 |     });
+      39 |
+      40 |     test('should handle undefined message', () => {
+
+      at Object.<anonymous> (test/unit/http-utils.test.js:37:28)
+
+  ● HTTP Utils Module › sendNotFound function › should handle undefined message
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+      Object {
+    -   "message": undefined,
+    +   "message": "Not found",
+      },
+
+    Number of calls: 1
+
+      42 |       
+      43 |       expect(mockRes.status).toHaveBeenCalledWith(404);
+    > 44 |       expect(mockRes.json).toHaveBeenCalledWith({ message: undefined });
+         |                            ^
+      45 |     });
+      46 |
+      47 |     test('should handle long message', () => {
+
+      at Object.<anonymous> (test/unit/http-utils.test.js:44:28)
+
+ FAIL  test/integration/workflows.test.js
+  ● Test suite failed to run
+
+    Jest encountered an unexpected token
+
+    Jest failed to parse a file. This happens e.g. when your code or its dependencies use non-standard JavaScript syntax, or when Jest is not configured to support such syntax.
+
+    Out of the box Jest supports Babel, which will be used to transform your files into valid JS based on your Babel configuration.
+
+    By default "node_modules" folder is ignored by transformers.
+
+    Here's what you can do:
+     • If you are trying to use ECMAScript Modules, see https://jestjs.io/docs/ecmascript-modules for how to enable it.
+     • If you are trying to use TypeScript, see https://jestjs.io/docs/getting-started#using-typescript
+     • To have some of your "node_modules" files transformed, you can specify a custom "transformIgnorePatterns" in your config.
+     • If you need a custom transformation specify a "transform" option in your config.
+     • If you simply want to mock your non-JS modules (e.g. binary assets) you can stub them out with the "moduleNameMapper" config option.
+
+    You'll find more details and examples of these config options in the docs:
+    https://jestjs.io/docs/configuration
+    For information about custom transformations, see:
+    https://jestjs.io/docs/code-transformation
+
+    Details:
+
+    /home/runner/workspace/test/integration/workflows.test.js:25
+    const { sendNotFound } = require('../../lib/http-utils');
+            ^
+
+    SyntaxError: Identifier 'sendNotFound' has already been declared
+
+      at Runtime.createScriptFromCode (node_modules/jest-runtime/build/index.js:1505:14)
+
+ PASS  test/unit/utils.test.js
+  Utils module
+    greet function
+      ✓ should return greeting with provided name (1 ms)
+      ✓ should handle empty string
+      ✓ should handle special characters (1 ms)
+    add function
+      ✓ should add positive numbers correctly
+      ✓ should add negative numbers correctly
+      ✓ should handle zero (1 ms)
+      ✓ should handle decimal numbers (1 ms)
+      ✓ should handle infinity
+    isEven function
+      ✓ should return true for even numbers (1 ms)
+      ✓ should return false for odd numbers (1 ms)
+      ✓ should handle negative numbers (1 ms)
+      ✓ should handle decimal numbers (2 ms)
+
+ FAIL  test/integration/module.test.js
+  QMemory Module Integration
+    ✓ should export all expected functions and classes (6 ms)
+    ✓ should provide working storage singleton (2 ms)
+    ✓ should allow multiple MemStorage instances (1 ms)
+    ✓ should provide consistent HTTP response helpers (1 ms)
+    ✓ should handle cross-module interactions (1 ms)
+    ✓ should maintain singleton state across multiple imports
+    ✕ should handle error scenarios gracefully (5 ms)
+
+  ● QMemory Module Integration › should handle error scenarios gracefully
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+      Object {
+    -   "message": null,
+    +   "message": "Not found",
+      },
+
+    Number of calls: 1
+
+      136 |     qmemory.sendNotFound(mockRes, null);
+      137 |     expect(mockRes.status).toHaveBeenCalledWith(404);
+    > 138 |     expect(mockRes.json).toHaveBeenCalledWith({ message: null });
+          |                          ^
+      139 |
+      140 |     // Test storage with edge cases
+      141 |     await qmemory.storage.clear();
+
+      at Object.<anonymous> (test/integration/module.test.js:138:26)
+
+ FAIL  test/unit/database-utils.test.js
+  Database Utils module
+    ensureMongoDB function
+      ✕ should return true when database is connected (8 ms)
+      ✓ should return false and send 503 when database is disconnected (2 ms)
+      ✓ should return false and send 503 when database is connecting (1 ms)
+      ✕ should handle connection state check errors (1 ms)
+    ensureUnique function
+      ✓ should return true when no duplicate is found (1 ms)
+      ✓ should return false and send 409 when duplicate is found (1 ms)
+      ✓ should throw error when database query fails (1 ms)
+
+  ● Database Utils module › ensureMongoDB function › should return true when database is connected
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      29 |       const result = ensureMongoDB(mockRes);
+      30 |
+    > 31 |       expect(result).toBe(true);
+         |                      ^
+      32 |       expect(mockRes.status).not.toHaveBeenCalled();
+      33 |       expect(mockRes.json).not.toHaveBeenCalled();
+      34 |     });
+
+      at Object.<anonymous> (test/unit/database-utils.test.js:31:22)
+
+  ● Database Utils module › ensureMongoDB function › should handle connection state check errors
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: 500
+    Received: 503
+
+    Number of calls: 1
+
+      62 |
+      63 |       expect(result).toBe(false);
+    > 64 |       expect(mockRes.status).toHaveBeenCalledWith(500);
+         |                              ^
+      65 |       expect(mockRes.json).toHaveBeenCalledWith({ message: 'Error checking database connection' });
+      66 |     });
+      67 |   });
+
+      at Object.<anonymous> (test/unit/database-utils.test.js:64:30)
+
+ FAIL  test/unit/document-ops.test.js
+  Document Operations Module
+    performUserDocOp
+      ✓ should execute operation callback and return result (7 ms)
+      ✓ should return null for CastError (invalid ObjectId) (1 ms)
+      ✓ should re-throw non-CastError errors (3 ms)
+      ✓ should handle null result from operation (1 ms)
+    findUserDoc
+      ✓ should find document by ID and user
+      ✓ should return null when document not found (1 ms)
+      ✕ should handle invalid ObjectId gracefully (1 ms)
+    deleteUserDoc
+      ✓ should delete document by ID and user (1 ms)
+      ✓ should return null when document not found for deletion (1 ms)
+    userDocActionOr404
+      ✓ should return document when action succeeds (1 ms)
+      ✓ should send 404 when action returns null
+      ✓ should re-throw errors from action (1 ms)
+    fetchUserDocOr404
+      ✓ should return document when found
+      ✓ should send 404 when document not found (1 ms)
+    deleteUserDocOr404
+      ✓ should return deleted document when found (1 ms)
+      ✓ should send 404 when document not found for deletion
+    listUserDocs
+      ✓ should return all user documents with sorting (1 ms)
+      ✓ should return empty array when no documents found
+      ✓ should handle null sort parameter (1 ms)
+    createUniqueDoc
+      ✕ should create document when unique (1 ms)
+      ✓ should return undefined when duplicate exists (1 ms)
+      ✓ should re-throw database errors (1 ms)
+    updateUserDoc
+      ✕ should update document when found and unique (4 ms)
+      ✓ should return undefined when document not found
+      ✓ should return undefined when uniqueness check fails
+      ✓ should skip uniqueness check when unique fields not changing (1 ms)
+      ✓ should handle update without uniqueness constraint
+
+  ● Document Operations Module › findUserDoc › should handle invalid ObjectId gracefully
+
+    expect(received).toBeNull()
+
+    Received: undefined
+
+      114 |       const result = await findUserDoc(mockModel, 'invalid', 'testuser');
+      115 |
+    > 116 |       expect(result).toBeNull();
+          |                      ^
+      117 |     });
+      118 |   });
+      119 |
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:116:22)
+
+  ● Document Operations Module › createUniqueDoc › should create document when unique
+
+    TypeError: model is not a constructor
+
+      356 |     
+      357 |     // Create new document instance with provided fields
+    > 358 |     const doc = new model(fields);
+          |                 ^
+      359 |     
+      360 |     // Save to database with full validation and middleware execution
+      361 |     const saved = await doc.save();
+
+      at createUniqueDoc (lib/document-ops.js:358:17)
+      at Object.<anonymous> (test/unit/document-ops.test.js:280:22)
+
+  ● Document Operations Module › updateUserDoc › should update document when found and unique
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+      {"create": [Function mockConstructor], "find": [Function mockConstructor], "findById": [Function mockConstructor], "findOne": [Function mockConstructor], "findOneAndDelete": [Function mockConstructor], "mockImplementation": [Function mockConstructor]},
+      Object {
+    +   "_id": Object {
+    +     "$ne": "123",
+    +   },
+        "title": "Updated Title",
+      },
+      {"json": [Function mockConstructor], "status": [Function mockConstructor]},
+      "Duplicate",
+
+    Number of calls: 1
+
+      350 |       );
+      351 |
+    > 352 |       expect(ensureUnique).toHaveBeenCalledWith(mockModel, uniqueQuery, mockRes, 'Duplicate');
+          |                            ^
+      353 |       expect(mockDocInstance.save).toHaveBeenCalled();
+      354 |       expect(result.title).toBe('Updated Title');
+      355 |     });
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:352:28)
+
+-|---------|----------|---------|---------|-------------------
+ | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-|---------|----------|---------|---------|-------------------
+ |   89.51 |    96.87 |     100 |   89.51 |                   
+  |     100 |      100 |     100 |     100 |                   
+   |     100 |      100 |     100 |     100 |                   
+  |   89.13 |    96.87 |     100 |   89.13 |                   
+   |   79.16 |       75 |     100 |   79.16 | 76-86             
+   |    88.5 |      100 |     100 |    88.5 | ...63-364,448-449 
+   |     100 |      100 |     100 |     100 |                   
+   |     100 |      100 |     100 |     100 |                   
+   |     100 |      100 |     100 |     100 |                   
+-|---------|----------|---------|---------|-------------------
+Test Suites: 5 failed, 2 passed, 7 total
+Tests:       9 failed, 78 passed, 87 total
+Snapshots:   0 total
+Time:        1.34 s, estimated 2 s
+Ran all test suites.
