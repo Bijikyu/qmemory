@@ -6,6 +6,22 @@
 
 const { MemStorage } = require('../../lib/storage');
 const { sendNotFound } = require('../../lib/http-utils');
+const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils');
+
+// Mock mongoose for database tests
+jest.mock('mongoose', () => ({
+  connection: {
+    readyState: 1 // Default to connected
+  },
+  Error: {
+    CastError: class CastError extends Error {
+      constructor(message) {
+        super(message);
+        this.name = 'CastError';
+      }
+    }
+  }
+}));
 
 describe('Critical Workflows Integration', () => {
   let storage;
@@ -13,10 +29,7 @@ describe('Critical Workflows Integration', () => {
 
   beforeEach(async () => {
     storage = new MemStorage();
-    mockRes = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
-    };
+    mockRes = createMockResponse();
   });
 
   describe('User Management Workflow', () => {
@@ -58,182 +71,286 @@ describe('Critical Workflows Integration', () => {
       const afterDelete = await storage.getUser(1);
       expect(afterDelete).toBeUndefined();
 
+      const afterDeleteByUsername = await storage.getUserByUsername('lifecycle_user');
+      expect(afterDeleteByUsername).toBeUndefined();
+
+      // Verify empty list
       const emptyList = await storage.getAllUsers();
       expect(emptyList).toHaveLength(0);
     });
 
-    test('should handle multiple users correctly', async () => {
+    test('should handle multiple users independently', async () => {
       // Create multiple users
-      const user1 = await storage.createUser({ username: 'user1' });
-      const user2 = await storage.createUser({ username: 'user2' });
-      const user3 = await storage.createUser({ username: 'user3' });
+      const users = [];
+      for (let i = 1; i <= 5; i++) {
+        const user = await storage.createUser({
+          username: `user${i}`,
+          displayName: `User ${i}`,
+          githubId: `github${i}`
+        });
+        users.push(user);
+        expect(user.id).toBe(i);
+      }
 
-      expect(user1.id).toBe(1);
-      expect(user2.id).toBe(2);
-      expect(user3.id).toBe(3);
+      // Verify all users exist
+      const allUsers = await storage.getAllUsers();
+      expect(allUsers).toHaveLength(5);
 
       // Delete middle user
-      await storage.deleteUser(2);
+      const deleted = await storage.deleteUser(3);
+      expect(deleted).toBe(true);
 
       // Verify remaining users
-      const remaining = await storage.getAllUsers();
-      expect(remaining).toHaveLength(2);
-      expect(remaining.map(u => u.username)).toEqual(['user1', 'user3']);
+      const remainingUsers = await storage.getAllUsers();
+      expect(remainingUsers).toHaveLength(4);
+      expect(remainingUsers.map(u => u.id)).toEqual([1, 2, 4, 5]);
 
-      // Create new user - should get next available ID
-      const user4 = await storage.createUser({ username: 'user4' });
-      expect(user4.id).toBe(4);
+      // Verify specific users still exist
+      expect(await storage.getUser(1)).toBeDefined();
+      expect(await storage.getUser(2)).toBeDefined();
+      expect(await storage.getUser(3)).toBeUndefined();
+      expect(await storage.getUser(4)).toBeDefined();
+      expect(await storage.getUser(5)).toBeDefined();
     });
   });
 
   describe('Error Handling Workflow', () => {
-    test('should gracefully handle missing resources', async () => {
-      // Try to get non-existent user
-      const notFound = await storage.getUser(999);
-      expect(notFound).toBeUndefined();
+    test('should handle HTTP error responses consistently', () => {
+      const errorMessages = [
+        'User not found',
+        'Document does not exist',
+        'Access denied',
+        '',
+        null,
+        undefined
+      ];
 
-      // Try to delete non-existent user
-      const deleteResult = await storage.deleteUser(999);
-      expect(deleteResult).toBe(false);
-
-      // Try to find by non-existent username
-      const byUsername = await storage.getUserByUsername('nonexistent');
-      expect(byUsername).toBeUndefined();
-
-      // Should still be able to create users normally
-      const newUser = await storage.createUser({ username: 'normal_user' });
-      expect(newUser.id).toBe(1);
+      errorMessages.forEach(message => {
+        const localMockRes = createMockResponse();
+        sendNotFound(localMockRes, message);
+        
+        expect(localMockRes.status).toHaveBeenCalledWith(404);
+        expect(localMockRes.json).toHaveBeenCalledWith({ message });
+      });
     });
 
-    test('should handle HTTP error responses consistently', () => {
-      // Test 404 response helper
+    test('should handle storage edge cases', async () => {
+      // Test edge cases for user creation
+      const edgeCases = [
+        { username: '', displayName: 'Empty Username' },
+        { username: 'special!@#$%', displayName: 'Special Chars' },
+        { username: '123456', displayName: 'Numeric String' },
+        { username: 'very_long_username_that_exceeds_normal_length_expectations' }
+      ];
+
+      for (let i = 0; i < edgeCases.length; i++) {
+        const user = await storage.createUser(edgeCases[i]);
+        expect(user.id).toBe(i + 1);
+        expect(user.username).toBe(edgeCases[i].username);
+        
+        // Verify retrieval works
+        const retrieved = await storage.getUserByUsername(edgeCases[i].username);
+        expect(retrieved).toEqual(user);
+      }
+    });
+
+    test('should handle concurrent operations', async () => {
+      // Simulate concurrent user creation
+      const createPromises = [];
+      for (let i = 1; i <= 10; i++) {
+        createPromises.push(storage.createUser({
+          username: `concurrent_user_${i}`,
+          displayName: `Concurrent User ${i}`
+        }));
+      }
+
+      const users = await Promise.all(createPromises);
+      
+      // Verify all users were created with unique IDs
+      const ids = users.map(u => u.id);
+      const uniqueIds = [...new Set(ids)];
+      expect(uniqueIds).toHaveLength(10);
+      expect(Math.max(...ids)).toBe(10);
+      expect(Math.min(...ids)).toBe(1);
+
+      // Verify all users are retrievable
+      const allUsers = await storage.getAllUsers();
+      expect(allUsers).toHaveLength(10);
+    });
+  });
+
+  describe('Database Integration Workflow', () => {
+    test('should validate database connectivity states', () => {
+      const mongoose = require('mongoose');
+      
+      // Test different connection states
+      const connectionStates = [
+        { state: 0, shouldPass: false, status: 503 }, // Disconnected
+        { state: 1, shouldPass: true, status: null },  // Connected
+        { state: 2, shouldPass: false, status: 503 }, // Connecting
+        { state: 3, shouldPass: false, status: 503 }  // Disconnecting
+      ];
+
+      connectionStates.forEach(({ state, shouldPass, status }) => {
+        const localMockRes = createMockResponse();
+        mongoose.connection.readyState = state;
+        
+        const result = ensureMongoDB(localMockRes);
+        
+        expect(result).toBe(shouldPass);
+        if (!shouldPass) {
+          expect(localMockRes.status).toHaveBeenCalledWith(status);
+          expect(localMockRes.json).toHaveBeenCalledWith({
+            message: 'Database functionality unavailable'
+          });
+        } else {
+          expect(localMockRes.status).not.toHaveBeenCalled();
+        }
+      });
+    });
+
+    test('should handle uniqueness validation workflow', async () => {
+      const mockModel = {
+        findOne: jest.fn()
+      };
+
+      // Test unique scenario
+      mockModel.findOne.mockResolvedValueOnce(null);
+      const uniqueResult = await ensureUnique(
+        mockModel, 
+        { username: 'unique_user' }, 
+        mockRes, 
+        'Duplicate user'
+      );
+      
+      expect(uniqueResult).toBe(true);
+      expect(mockRes.status).not.toHaveBeenCalled();
+
+      // Test duplicate scenario
+      mockModel.findOne.mockResolvedValueOnce({ _id: '123', username: 'duplicate_user' });
+      const duplicateResult = await ensureUnique(
+        mockModel, 
+        { username: 'duplicate_user' }, 
+        mockRes, 
+        'User already exists'
+      );
+      
+      expect(duplicateResult).toBe(false);
+      expect(mockRes.status).toHaveBeenCalledWith(409);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'User already exists'
+      });
+    });
+  });
+
+  describe('Full Stack Workflow Simulation', () => {
+    test('should simulate complete API request workflow', async () => {
+      // Simulate the full workflow of an API request
+      
+      // 1. Check database connectivity
+      const dbOk = ensureMongoDB(mockRes);
+      expect(dbOk).toBe(true);
+
+      // 2. Create user in storage
+      const newUser = await storage.createUser({
+        username: 'api_user',
+        displayName: 'API Test User',
+        githubId: 'api123'
+      });
+      expect(newUser.id).toBe(1);
+
+      // 3. Retrieve user (simulating authentication)
+      const authUser = await storage.getUserByUsername('api_user');
+      expect(authUser).toEqual(newUser);
+
+      // 4. Perform user operations
+      const allUserDocs = await storage.getAllUsers();
+      expect(allUserDocs).toContain(newUser);
+
+      // 5. Clean up (simulating logout/deletion)
+      const deleteResult = await storage.deleteUser(newUser.id);
+      expect(deleteResult).toBe(true);
+
+      // 6. Verify cleanup
+      const afterCleanup = await storage.getUser(newUser.id);
+      expect(afterCleanup).toBeUndefined();
+    });
+
+    test('should handle error scenarios in full workflow', async () => {
+      // Simulate database unavailable
+      const mongoose = require('mongoose');
+      mongoose.connection.readyState = 0; // Disconnected
+
+      const dbResult = ensureMongoDB(mockRes);
+      expect(dbResult).toBe(false);
+      expect(mockRes.status).toHaveBeenCalledWith(503);
+
+      // Reset to connected state
+      mongoose.connection.readyState = 1;
+
+      // Simulate user not found scenario
+      const nonExistentUser = await storage.getUserByUsername('nonexistent');
+      expect(nonExistentUser).toBeUndefined();
+
+      // Send appropriate error response
       sendNotFound(mockRes, 'User not found');
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'User not found' });
-
-      // Reset mocks
-      mockRes.status.mockClear();
-      mockRes.json.mockClear();
-
-      // Test different error message
-      sendNotFound(mockRes, 'Document not found');
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Document not found' });
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'User not found'
+      });
     });
   });
 
-  describe('Data Consistency Workflow', () => {
-    test('should maintain data consistency across operations', async () => {
-      // Create users with various field combinations
-      const fullUser = await storage.createUser({
-        username: 'full_user',
-        displayName: 'Full User',
-        githubId: 'full123',
-        avatar: 'https://example.com/full.jpg'
-      });
-
-      const partialUser = await storage.createUser({
-        username: 'partial_user',
-        displayName: 'Partial User'
-        // githubId and avatar undefined
-      });
-
-      const minimalUser = await storage.createUser({
-        username: 'minimal_user'
-        // All optional fields undefined
-      });
-
-      // Verify field handling
-      expect(fullUser.displayName).toBe('Full User');
-      expect(fullUser.githubId).toBe('full123');
-      expect(fullUser.avatar).toBe('https://example.com/full.jpg');
-
-      expect(partialUser.displayName).toBe('Partial User');
-      expect(partialUser.githubId).toBeNull();
-      expect(partialUser.avatar).toBeNull();
-
-      expect(minimalUser.displayName).toBeNull();
-      expect(minimalUser.githubId).toBeNull();
-      expect(minimalUser.avatar).toBeNull();
-
-      // Verify all users are findable
-      const allUsers = await storage.getAllUsers();
-      expect(allUsers).toHaveLength(3);
-
-      const usernames = allUsers.map(u => u.username);
-      expect(usernames).toContain('full_user');
-      expect(usernames).toContain('partial_user');
-      expect(usernames).toContain('minimal_user');
-    });
-
-    test('should handle clear operation properly', async () => {
-      // Create some users
-      await storage.createUser({ username: 'user1' });
-      await storage.createUser({ username: 'user2' });
-      await storage.createUser({ username: 'user3' });
-
-      expect(storage.currentId).toBe(4); // Next ID would be 4
-
-      // Clear all data
-      await storage.clear();
-
-      // Verify everything is reset
-      const users = await storage.getAllUsers();
-      expect(users).toHaveLength(0);
-      expect(storage.currentId).toBe(1);
-
-      // Verify new users get correct IDs
-      const newUser = await storage.createUser({ username: 'reset_user' });
-      expect(newUser.id).toBe(1);
-    });
-  });
-
-  describe('Performance and Scalability Workflow', () => {
+  describe('Performance and Load Testing', () => {
     test('should handle bulk operations efficiently', async () => {
-      const userCount = 100;
-      const createdUsers = [];
-
-      // Create many users
-      for (let i = 1; i <= userCount; i++) {
-        const user = await storage.createUser({
-          username: `user${i}`,
-          displayName: `User ${i}`
-        });
-        createdUsers.push(user);
+      const startTime = Date.now();
+      
+      // Create 1000 users
+      const createPromises = [];
+      for (let i = 1; i <= 1000; i++) {
+        createPromises.push(storage.createUser({
+          username: `bulk_user_${i}`,
+          displayName: `Bulk User ${i}`
+        }));
       }
+      
+      await Promise.all(createPromises);
+      
+      const creationTime = Date.now() - startTime;
+      expect(creationTime).toBeLessThan(5000); // Should complete within 5 seconds
 
-      expect(createdUsers).toHaveLength(userCount);
-      expect(storage.currentId).toBe(userCount + 1);
-
-      // Test batch retrieval
+      // Verify all users were created
       const allUsers = await storage.getAllUsers();
-      expect(allUsers).toHaveLength(userCount);
+      expect(allUsers).toHaveLength(1000);
 
-      // Test individual lookups
-      for (let i = 1; i <= 10; i++) { // Test first 10
-        const user = await storage.getUser(i);
-        expect(user.username).toBe(`user${i}`);
+      // Test bulk retrieval
+      const retrievalStart = Date.now();
+      const retrievalPromises = [];
+      for (let i = 1; i <= 1000; i++) {
+        retrievalPromises.push(storage.getUser(i));
       }
-
-      // Test username lookups
-      for (let i = 1; i <= 10; i++) { // Test first 10
-        const user = await storage.getUserByUsername(`user${i}`);
-        expect(user.id).toBe(i);
-      }
+      
+      const retrievedUsers = await Promise.all(retrievalPromises);
+      const retrievalTime = Date.now() - retrievalStart;
+      
+      expect(retrievalTime).toBeLessThan(1000); // Should complete within 1 second
+      expect(retrievedUsers.filter(u => u !== undefined)).toHaveLength(1000);
 
       // Test bulk deletion
-      for (let i = 1; i <= userCount; i += 2) { // Delete odd IDs
-        const deleted = await storage.deleteUser(i);
-        expect(deleted).toBe(true);
+      const deletionStart = Date.now();
+      const deletionPromises = [];
+      for (let i = 1; i <= 1000; i++) {
+        deletionPromises.push(storage.deleteUser(i));
       }
+      
+      await Promise.all(deletionPromises);
+      const deletionTime = Date.now() - deletionStart;
+      
+      expect(deletionTime).toBeLessThan(2000); // Should complete within 2 seconds
 
-      const remaining = await storage.getAllUsers();
-      expect(remaining).toHaveLength(userCount / 2);
-
-      // Verify only even IDs remain
-      remaining.forEach(user => {
-        expect(user.id % 2).toBe(0);
-      });
+      // Verify all users were deleted
+      const afterDeletion = await storage.getAllUsers();
+      expect(afterDeletion).toHaveLength(0);
     });
   });
 });

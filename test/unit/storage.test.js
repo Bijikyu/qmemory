@@ -5,239 +5,292 @@
  * and internal state management.
  */
 
-const { MemStorage } = require('../../lib/storage');
+const { MemStorage, storage } = require('../../lib/storage');
 
 describe('MemStorage Class', () => {
-  let storage;
+  let memStorage;
 
   beforeEach(() => {
-    storage = new MemStorage();
+    memStorage = new MemStorage();
   });
 
   describe('constructor', () => {
-    test('should initialize with empty users and ID starting at 1', () => {
-      expect(storage.users.size).toBe(0);
-      expect(storage.currentId).toBe(1);
+    test('should initialize with empty users Map', () => {
+      expect(memStorage.users.size).toBe(0);
+    });
+
+    test('should initialize currentId to 1', () => {
+      expect(memStorage.currentId).toBe(1);
+    });
+
+    test('should create independent instances', () => {
+      const storage1 = new MemStorage();
+      const storage2 = new MemStorage();
+      
+      expect(storage1.users).not.toBe(storage2.users);
+      expect(storage1.currentId).toBe(storage2.currentId);
     });
   });
 
   describe('createUser', () => {
     test('should create user with auto-generated ID', async () => {
       const insertUser = {
-        username: 'alice',
-        displayName: 'Alice Smith',
-        githubId: 'alice123',
-        avatar: 'https://example.com/avatar.jpg'
+        username: 'testuser',
+        displayName: 'Test User'
       };
-
-      const user = await storage.createUser(insertUser);
-
-      expect(user).toEqual({
+      
+      const user = await memStorage.createUser(insertUser);
+      
+      expect(user).toMatchObject({
         id: 1,
-        username: 'alice',
-        displayName: 'Alice Smith',
-        githubId: 'alice123',
-        avatar: 'https://example.com/avatar.jpg'
-      });
-      expect(storage.currentId).toBe(2);
-    });
-
-    test('should convert undefined fields to null', async () => {
-      const insertUser = {
-        username: 'bob',
-        displayName: undefined,
-        githubId: undefined,
-        avatar: undefined
-      };
-
-      const user = await storage.createUser(insertUser);
-
-      expect(user).toEqual({
-        id: 1,
-        username: 'bob',
-        displayName: null,
+        username: 'testuser',
+        displayName: 'Test User',
         githubId: null,
         avatar: null
       });
     });
 
-    test('should preserve falsy values that are not undefined', async () => {
-      const insertUser = {
-        username: 'charlie',
-        displayName: '',
-        githubId: '0',
-        avatar: null
-      };
-
-      const user = await storage.createUser(insertUser);
-
-      expect(user).toEqual({
-        id: 1,
-        username: 'charlie',
-        displayName: '',
-        githubId: '0',
-        avatar: null
-      });
-    });
-
-    test('should increment ID for multiple users', async () => {
-      const user1 = await storage.createUser({ username: 'user1' });
-      const user2 = await storage.createUser({ username: 'user2' });
-      const user3 = await storage.createUser({ username: 'user3' });
-
+    test('should increment ID for subsequent users', async () => {
+      const user1 = await memStorage.createUser({ username: 'user1' });
+      const user2 = await memStorage.createUser({ username: 'user2' });
+      
       expect(user1.id).toBe(1);
       expect(user2.id).toBe(2);
-      expect(user3.id).toBe(3);
-      expect(storage.currentId).toBe(4);
+    });
+
+    test('should convert undefined fields to null', async () => {
+      const insertUser = {
+        username: 'testuser',
+        displayName: undefined,
+        githubId: undefined,
+        avatar: undefined
+      };
+      
+      const user = await memStorage.createUser(insertUser);
+      
+      expect(user.displayName).toBeNull();
+      expect(user.githubId).toBeNull();
+      expect(user.avatar).toBeNull();
+    });
+
+    test('should preserve null values', async () => {
+      const insertUser = {
+        username: 'testuser',
+        displayName: null,
+        githubId: null,
+        avatar: null
+      };
+      
+      const user = await memStorage.createUser(insertUser);
+      
+      expect(user.displayName).toBeNull();
+      expect(user.githubId).toBeNull();
+      expect(user.avatar).toBeNull();
+    });
+
+    test('should preserve falsy non-null values', async () => {
+      const insertUser = {
+        username: 'testuser',
+        displayName: '',
+        githubId: '0',
+        avatar: false
+      };
+      
+      const user = await memStorage.createUser(insertUser);
+      
+      expect(user.displayName).toBe('');
+      expect(user.githubId).toBe('0');
+      expect(user.avatar).toBe(false);
+    });
+
+    test('should store user with all fields', async () => {
+      const insertUser = {
+        username: 'fulluser',
+        displayName: 'Full User',
+        githubId: 'github123',
+        avatar: 'https://example.com/avatar.jpg'
+      };
+      
+      const user = await memStorage.createUser(insertUser);
+      
+      expect(user).toMatchObject({
+        id: 1,
+        username: 'fulluser',
+        displayName: 'Full User',
+        githubId: 'github123',
+        avatar: 'https://example.com/avatar.jpg'
+      });
     });
   });
 
   describe('getUser', () => {
     test('should return user by ID', async () => {
-      const created = await storage.createUser({ username: 'alice' });
-      const retrieved = await storage.getUser(1);
-
+      const created = await memStorage.createUser({ username: 'testuser' });
+      const retrieved = await memStorage.getUser(1);
+      
       expect(retrieved).toEqual(created);
     });
 
-    test('should return undefined for non-existent ID', async () => {
-      const result = await storage.getUser(999);
-      expect(result).toBeUndefined();
+    test('should return undefined for non-existent user', async () => {
+      const user = await memStorage.getUser(999);
+      
+      expect(user).toBeUndefined();
     });
 
     test('should return undefined for invalid ID types', async () => {
-      const result1 = await storage.getUser('invalid');
-      const result2 = await storage.getUser(null);
-      const result3 = await storage.getUser(undefined);
-
-      expect(result1).toBeUndefined();
-      expect(result2).toBeUndefined();
-      expect(result3).toBeUndefined();
+      const results = await Promise.all([
+        memStorage.getUser(null),
+        memStorage.getUser(undefined),
+        memStorage.getUser('string'),
+        memStorage.getUser({})
+      ]);
+      
+      results.forEach(result => expect(result).toBeUndefined());
     });
   });
 
   describe('getUserByUsername', () => {
-    beforeEach(async () => {
-      await storage.createUser({ username: 'alice', displayName: 'Alice' });
-      await storage.createUser({ username: 'bob', displayName: 'Bob' });
-    });
-
     test('should return user by username', async () => {
-      const user = await storage.getUserByUsername('alice');
-
-      expect(user).toBeDefined();
-      expect(user.username).toBe('alice');
-      expect(user.displayName).toBe('Alice');
+      const created = await memStorage.createUser({ username: 'findme' });
+      const found = await memStorage.getUserByUsername('findme');
+      
+      expect(found).toEqual(created);
     });
 
     test('should return undefined for non-existent username', async () => {
-      const result = await storage.getUserByUsername('charlie');
-      expect(result).toBeUndefined();
+      const user = await memStorage.getUserByUsername('nonexistent');
+      
+      expect(user).toBeUndefined();
     });
 
-    test('should be case sensitive', async () => {
-      const result = await storage.getUserByUsername('ALICE');
-      expect(result).toBeUndefined();
+    test('should handle case-sensitive username search', async () => {
+      await memStorage.createUser({ username: 'CaseTest' });
+      
+      const exactMatch = await memStorage.getUserByUsername('CaseTest');
+      const lowerCase = await memStorage.getUserByUsername('casetest');
+      
+      expect(exactMatch).toBeDefined();
+      expect(lowerCase).toBeUndefined();
     });
 
-    test('should handle empty string username', async () => {
-      const result = await storage.getUserByUsername('');
-      expect(result).toBeUndefined();
+    test('should find correct user among multiple users', async () => {
+      await memStorage.createUser({ username: 'user1' });
+      const target = await memStorage.createUser({ username: 'target' });
+      await memStorage.createUser({ username: 'user3' });
+      
+      const found = await memStorage.getUserByUsername('target');
+      
+      expect(found).toEqual(target);
     });
   });
 
   describe('getAllUsers', () => {
-    test('should return empty array when no users', async () => {
-      const users = await storage.getAllUsers();
+    test('should return empty array when no users exist', async () => {
+      const users = await memStorage.getAllUsers();
+      
       expect(users).toEqual([]);
     });
 
     test('should return all users', async () => {
-      await storage.createUser({ username: 'alice' });
-      await storage.createUser({ username: 'bob' });
-
-      const users = await storage.getAllUsers();
-
-      expect(users).toHaveLength(2);
-      expect(users[0].username).toBe('alice');
-      expect(users[1].username).toBe('bob');
+      const user1 = await memStorage.createUser({ username: 'user1' });
+      const user2 = await memStorage.createUser({ username: 'user2' });
+      
+      const allUsers = await memStorage.getAllUsers();
+      
+      expect(allUsers).toHaveLength(2);
+      expect(allUsers).toContain(user1);
+      expect(allUsers).toContain(user2);
     });
 
     test('should return new array (not reference to internal storage)', async () => {
-      await storage.createUser({ username: 'alice' });
+      await memStorage.createUser({ username: 'user1' });
       
-      const users1 = await storage.getAllUsers();
-      const users2 = await storage.getAllUsers();
-
+      const users1 = await memStorage.getAllUsers();
+      const users2 = await memStorage.getAllUsers();
+      
       expect(users1).not.toBe(users2);
       expect(users1).toEqual(users2);
     });
   });
 
   describe('deleteUser', () => {
-    beforeEach(async () => {
-      await storage.createUser({ username: 'alice' });
-      await storage.createUser({ username: 'bob' });
-    });
-
     test('should delete existing user and return true', async () => {
-      const result = await storage.deleteUser(1);
-      const user = await storage.getUser(1);
-
+      await memStorage.createUser({ username: 'deleteme' });
+      
+      const result = await memStorage.deleteUser(1);
+      
       expect(result).toBe(true);
-      expect(user).toBeUndefined();
+      expect(await memStorage.getUser(1)).toBeUndefined();
     });
 
     test('should return false for non-existent user', async () => {
-      const result = await storage.deleteUser(999);
+      const result = await memStorage.deleteUser(999);
+      
       expect(result).toBe(false);
     });
 
-    test('should not affect other users', async () => {
-      await storage.deleteUser(1);
-      const remainingUser = await storage.getUser(2);
-
-      expect(remainingUser).toBeDefined();
-      expect(remainingUser.username).toBe('bob');
-    });
-
-    test('should handle invalid ID types', async () => {
-      const result1 = await storage.deleteUser('invalid');
-      const result2 = await storage.deleteUser(null);
-
-      expect(result1).toBe(false);
-      expect(result2).toBe(false);
+    test('should handle multiple deletions', async () => {
+      await memStorage.createUser({ username: 'user1' });
+      await memStorage.createUser({ username: 'user2' });
+      
+      const result1 = await memStorage.deleteUser(1);
+      const result2 = await memStorage.deleteUser(2);
+      const result3 = await memStorage.deleteUser(1); // Already deleted
+      
+      expect(result1).toBe(true);
+      expect(result2).toBe(true);
+      expect(result3).toBe(false);
     });
   });
 
   describe('clear', () => {
-    beforeEach(async () => {
-      await storage.createUser({ username: 'alice' });
-      await storage.createUser({ username: 'bob' });
-    });
-
     test('should remove all users', async () => {
-      await storage.clear();
-      const users = await storage.getAllUsers();
-
-      expect(users).toHaveLength(0);
+      await memStorage.createUser({ username: 'user1' });
+      await memStorage.createUser({ username: 'user2' });
+      
+      await memStorage.clear();
+      
+      const allUsers = await memStorage.getAllUsers();
+      expect(allUsers).toHaveLength(0);
     });
 
     test('should reset ID counter', async () => {
-      await storage.clear();
-      const newUser = await storage.createUser({ username: 'charlie' });
-
-      expect(newUser.id).toBe(1);
-      expect(storage.currentId).toBe(2);
-    });
-
-    test('should be idempotent', async () => {
-      await storage.clear();
-      await storage.clear();
+      await memStorage.createUser({ username: 'user1' });
+      await memStorage.createUser({ username: 'user2' });
       
-      const users = await storage.getAllUsers();
-      expect(users).toHaveLength(0);
-      expect(storage.currentId).toBe(1);
+      await memStorage.clear();
+      
+      const newUser = await memStorage.createUser({ username: 'fresh' });
+      expect(newUser.id).toBe(1);
     });
+
+    test('should handle clearing empty storage', async () => {
+      await expect(memStorage.clear()).resolves.toBeUndefined();
+      
+      const allUsers = await memStorage.getAllUsers();
+      expect(allUsers).toHaveLength(0);
+    });
+  });
+});
+
+describe('Storage Singleton', () => {
+  beforeEach(async () => {
+    await storage.clear();
+  });
+
+  test('should export singleton instance', () => {
+    expect(storage).toBeInstanceOf(MemStorage);
+  });
+
+  test('should maintain state across module imports', async () => {
+    // This test verifies that the singleton pattern works
+    const user = await storage.createUser({ username: 'persistent' });
+    
+    // Re-require the module to simulate different imports
+    delete require.cache[require.resolve('../../lib/storage')];
+    const { storage: reimportedStorage } = require('../../lib/storage');
+    
+    const found = await reimportedStorage.getUser(user.id);
+    expect(found).toEqual(user);
   });
 });

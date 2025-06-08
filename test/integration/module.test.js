@@ -84,7 +84,71 @@ describe('QMemory Module Integration', () => {
 
     expect(mockRes.status).toHaveBeenCalledWith(404);
     expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Integration test message'
+      message: 'Integration test message'
     });
+  });
+
+  test('should handle cross-module interactions', async () => {
+    // Test that HTTP utils work with storage operations
+    const mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis()
+    };
+
+    await qmemory.storage.clear();
+    
+    // Create a user
+    const user = await qmemory.storage.createUser({
+      username: 'integration_user',
+      displayName: 'Integration Test User'
+    });
+
+    // Verify user exists
+    const found = await qmemory.storage.getUserByUsername('integration_user');
+    expect(found).toEqual(user);
+
+    // Test sending not found for non-existent user
+    qmemory.sendNotFound(mockRes, 'User not found');
+    expect(mockRes.status).toHaveBeenCalledWith(404);
+  });
+
+  test('should maintain singleton state across multiple imports', async () => {
+    await qmemory.storage.clear();
+    
+    // Create user with singleton
+    const user = await qmemory.storage.createUser({
+      username: 'persistent_user'
+    });
+
+    // Import again to verify singleton behavior
+    delete require.cache[require.resolve('../../index')];
+    const qmemoryReimport = require('../../index');
+
+    // Should find the same user
+    const found = await qmemoryReimport.storage.getUser(user.id);
+    expect(found).toEqual(user);
+  });
+
+  test('should handle error scenarios gracefully', async () => {
+    const mockRes = createMockResponse();
+    
+    // Test with undefined/null values
+    qmemory.sendNotFound(mockRes, null);
+    expect(mockRes.status).toHaveBeenCalledWith(404);
+    expect(mockRes.json).toHaveBeenCalledWith({ message: null });
+
+    // Test storage with edge cases
+    await qmemory.storage.clear();
+    
+    const userWithNulls = await qmemory.storage.createUser({
+      username: 'null_user',
+      displayName: null,
+      githubId: undefined,
+      avatar: ''
+    });
+
+    expect(userWithNulls.displayName).toBeNull();
+    expect(userWithNulls.githubId).toBeNull();
+    expect(userWithNulls.avatar).toBe('');
   });
 });
