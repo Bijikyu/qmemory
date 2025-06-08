@@ -1,160 +1,266 @@
 
-# My NPM Module
+# qmemory
 
-A simple Node.js module with basic utility functions.
+A comprehensive Node.js utility library providing MongoDB document operations, HTTP utilities, and in-memory storage for development and testing.
 
 ## Installation
 
 ```bash
-npm install my-npm-module
+npm install qmemory
 ```
+
+## Features
+
+- **MongoDB Document Operations**: High-level utilities for user-owned document CRUD operations
+- **HTTP Utilities**: Express.js response helpers for consistent API responses
+- **Database Utilities**: MongoDB connection validation and uniqueness checking
+- **In-Memory Storage**: Volatile user storage for development and testing environments
 
 ## Usage
 
+### Basic Import
+
 ```javascript
-const { greet, add, isEven, ensureMongoDB } = require('my-npm-module');
+const {
+  // HTTP utilities
+  sendNotFound,
+  
+  // Database utilities
+  ensureMongoDB,
+  ensureUnique,
+  
+  // Document operations
+  findUserDoc,
+  deleteUserDoc,
+  fetchUserDocOr404,
+  deleteUserDocOr404,
+  listUserDocs,
+  createUniqueDoc,
+  updateUserDoc,
+  
+  // Storage
+  MemStorage,
+  storage
+} = require('qmemory');
+```
 
-// Greet function
-console.log(greet()); // "Hello, World!"
-console.log(greet('Alice')); // "Hello, Alice!"
+## API Reference
 
-// Add function
-console.log(add(2, 3)); // 5
+### HTTP Utilities
 
-// IsEven function
-console.log(isEven(4)); // true
-console.log(isEven(5)); // false
+#### sendNotFound(res, message)
+Sends a standardized 404 Not Found response.
 
-// Database validation (requires Express response object)
-// Use in Express routes to check MongoDB connectivity
+- `res` (Express Response): Express response object
+- `message` (string): Custom error message
+- **Usage**: `sendNotFound(res, 'User not found')`
+
+### Database Utilities
+
+#### ensureMongoDB(res)
+Validates MongoDB connection before database operations.
+
+- `res` (Express Response): Express response object for error handling
+- **Returns**: `boolean` - true if database is available
+- **Side effects**: Sends 503/500 responses when database is unavailable
+- **Usage**: Use in Express routes before database operations
+
+```javascript
 app.get('/users', (req, res) => {
-  if (!ensureMongoDB(res)) return; // Exits early if DB unavailable
+  if (!ensureMongoDB(res)) return;
   // Proceed with database operations...
 });
 ```
 
-## API
+#### ensureUnique(model, query, res, duplicateMsg)
+Checks for document uniqueness before creation/updates.
 
-### greet(name)
-- `name` (string, optional): Name to greet. Defaults to 'World'.
-- Returns: Greeting message string
+- `model` (Mongoose Model): Model to query against
+- `query` (Object): MongoDB query to check for duplicates
+- `res` (Express Response): Response object for conflict responses
+- `duplicateMsg` (string): Message for duplicate conflicts
+- **Returns**: `Promise<boolean>` - true if unique, false if duplicate
 
-### add(a, b)
-- `a` (number): First number
-- `b` (number): Second number
-- Returns: Sum of the two numbers
+### Document Operations
 
-### isEven(num)
-- `num` (number): Number to check
-- Returns: Boolean indicating if the number is even
-
-### ensureMongoDB(res)
-- `res` (Express Response object): Express response object for error handling
-- Returns: Boolean indicating if MongoDB connection is available
-- Side effects: Sends HTTP error responses (503/500) when database is unavailable
-- Note: Requires mongoose to be connected to MongoDB
-
-### MongoDB Document Utilities
+All document operations enforce user ownership and provide consistent error handling.
 
 #### findUserDoc(model, id, username)
-- Finds a document by ID that belongs to a specific user
-- Returns: Document or null if not found/invalid ID
+Finds a document by ID that belongs to a specific user.
+
+- `model` (Mongoose Model): Model to query
+- `id` (string): Document ID
+- `username` (string): Username that must own the document
+- **Returns**: `Promise<Object|null>` - Document or null if not found
 
 #### deleteUserDoc(model, id, username)
-- Deletes a document by ID that belongs to a specific user
-- Returns: Deleted document or null if not found
+Deletes a user-owned document by ID.
+
+- **Returns**: `Promise<Object|null>` - Deleted document or null if not found
 
 #### fetchUserDocOr404(model, id, user, res, msg)
-- Fetches a user document or sends 404 response if not found
-- Returns: Document or undefined (with 404 response sent)
+Fetches a user document or sends 404 response.
+
+- **Returns**: `Promise<Object|undefined>` - Document if found, undefined if 404 sent
 
 #### deleteUserDocOr404(model, id, user, res, msg)
-- Deletes a user document or sends 404 response if not found
-- Returns: Deleted document or undefined (with 404 response sent)
+Deletes a user document or sends 404 response.
+
+- **Returns**: `Promise<Object|undefined>` - Deleted document if found, undefined if 404 sent
 
 #### listUserDocs(model, username, sort)
-- Lists all documents owned by a user with optional sorting
-- Returns: Array of documents
+Lists all documents owned by a user with optional sorting.
+
+- `sort` (Object): MongoDB sort object (e.g., `{ createdAt: -1 }`)
+- **Returns**: `Promise<Array>` - Array of user documents
 
 #### createUniqueDoc(model, fields, uniqueQuery, res, duplicateMsg)
-- Creates a new document after checking for uniqueness
-- Returns: Created document or undefined (with 409 response if duplicate)
+Creates a new document after verifying uniqueness.
+
+- `fields` (Object): Document field values
+- `uniqueQuery` (Object): Query to check for duplicates
+- **Returns**: `Promise<Object|undefined>` - Created document or undefined if duplicate
 
 #### updateUserDoc(model, id, username, fieldsToUpdate, uniqueQuery, res, duplicateMsg)
-- Updates a user-owned document with optional uniqueness validation
-- Returns: Updated document or undefined
+Updates a user-owned document with optional uniqueness validation.
 
-#### Helper Functions
-- `sendNotFound(res, message)`: Sends 404 response
-- `ensureUnique(model, query, res, duplicateMsg)`: Checks document uniqueness
+- `fieldsToUpdate` (Object): Fields to update
+- `uniqueQuery` (Object): Optional uniqueness constraint query
+- **Returns**: `Promise<Object|undefined>` - Updated document or undefined if error
 
 ### In-Memory Storage
 
 #### MemStorage Class
-A volatile user storage implementation for development and testing that stores data in application memory.
+Volatile user storage for development and testing environments.
 
-**Limitations:**
-- Data is lost on application restart
-- Not suitable for production at scale
-- Memory usage grows with user count
-
-**Performance:**
-- O(1) lookup by ID using Map data structure
-- O(n) lookup by username requiring full scan
-- Minimal latency since all data is in memory
-
-#### MemStorage Methods
-
-##### getUser(id)
-- `id` (number): Unique user identifier
-- Returns: Promise resolving to User object or undefined
-
-##### getUserByUsername(username)
-- `username` (string): Username to search for
-- Returns: Promise resolving to User object or undefined
-
-##### createUser(insertUser)
-- `insertUser` (object): User data with optional fields
-  - `username` (string): Required username
-  - `displayName` (string, optional): Display name
-  - `githubId` (string, optional): GitHub user ID
-  - `avatar` (string, optional): Avatar URL
-- Returns: Promise resolving to created User object with auto-generated ID
-
-##### getAllUsers()
-- Returns: Promise resolving to array of all users
-
-##### deleteUser(id)
-- `id` (number): User ID to delete
-- Returns: Promise resolving to boolean (true if deleted, false if not found)
-
-##### clear()
-- Clears all users and resets ID counter
-- Returns: Promise resolving to void
-
-#### Storage Instance
-A singleton instance `storage` is exported for application-wide use:
+**Important**: Data is lost on application restart. Not suitable for production.
 
 ```javascript
-const { storage } = require('my-npm-module');
+const { MemStorage } = require('qmemory');
+const userStorage = new MemStorage();
+```
 
-// Create a user
+#### Storage Methods
+
+##### createUser(insertUser)
+Creates a new user with auto-generated ID.
+
+```javascript
 const user = await storage.createUser({
   username: 'alice',
   displayName: 'Alice Smith',
-  githubId: 'alice123'
+  githubId: 'alice123',
+  avatar: 'https://example.com/avatar.jpg'
+});
+// Returns: { id: 1, username: 'alice', displayName: 'Alice Smith', ... }
+```
+
+##### getUser(id)
+Retrieves user by numeric ID.
+
+```javascript
+const user = await storage.getUser(1);
+```
+
+##### getUserByUsername(username)
+Retrieves user by username.
+
+```javascript
+const user = await storage.getUserByUsername('alice');
+```
+
+##### getAllUsers()
+Returns all stored users.
+
+```javascript
+const allUsers = await storage.getAllUsers();
+```
+
+##### deleteUser(id)
+Deletes a user by ID.
+
+```javascript
+const wasDeleted = await storage.deleteUser(1); // returns boolean
+```
+
+##### clear()
+Removes all users and resets ID counter.
+
+```javascript
+await storage.clear();
+```
+
+#### Singleton Storage Instance
+A ready-to-use storage instance is exported for application-wide use:
+
+```javascript
+const { storage } = require('qmemory');
+
+// Use immediately without instantiation
+const user = await storage.createUser({ username: 'bob' });
+```
+
+## Example: Express Route with Document Operations
+
+```javascript
+const express = require('express');
+const { ensureMongoDB, fetchUserDocOr404, createUniqueDoc } = require('qmemory');
+const BlogPost = require('./models/BlogPost'); // Your Mongoose model
+
+const app = express();
+
+// Get user's blog post
+app.get('/posts/:id', async (req, res) => {
+  if (!ensureMongoDB(res)) return;
+  
+  const post = await fetchUserDocOr404(
+    BlogPost, 
+    req.params.id, 
+    req.user.username, 
+    res, 
+    'Blog post not found'
+  );
+  
+  if (post) {
+    res.json(post);
+  }
 });
 
-// Get user by ID
-const foundUser = await storage.getUser(user.id);
-
-// Get user by username
-const userByName = await storage.getUserByUsername('alice');
+// Create new blog post
+app.post('/posts', async (req, res) => {
+  if (!ensureMongoDB(res)) return;
+  
+  const post = await createUniqueDoc(
+    BlogPost,
+    { ...req.body, user: req.user.username },
+    { title: req.body.title, user: req.user.username },
+    res,
+    'A post with this title already exists'
+  );
+  
+  if (post) {
+    res.status(201).json(post);
+  }
+});
 ```
+
+## Performance Considerations
+
+- **Document Operations**: Use MongoDB indexes on `_id` and `user` fields for optimal performance
+- **MemStorage**: O(1) lookup by ID, O(n) lookup by username
+- **Uniqueness Checks**: Include indexed fields in uniqueness queries
+
+## Development vs Production
+
+- **MemStorage**: Perfect for development and testing, but data is volatile
+- **Document Operations**: Production-ready with proper error handling and security
+- **Database Utilities**: Include connection resilience for cloud deployments
 
 ## Dependencies
 
-- `mongoose`: Required for MongoDB connection validation
+- `mongoose`: Required for MongoDB operations
+- `@types/node`: TypeScript definitions
+- `qtests`: Testing utilities
 
 ## License
 
