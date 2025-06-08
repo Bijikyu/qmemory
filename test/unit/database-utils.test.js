@@ -3,11 +3,13 @@
  * Tests MongoDB connection validation and uniqueness checking with mocked dependencies.
  */
 
-const mongoose = require('mongoose');
 const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils');
 
-// Mock mongoose connection
-jest.mock('mongoose');
+// Mock mongoose module
+const mongoose = {
+  connection: { readyState: 1 }
+};
+jest.doMock('mongoose', () => mongoose);
 
 describe('Database Utils module', () => {
   let mockRes;

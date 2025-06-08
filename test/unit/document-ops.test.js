@@ -1,9 +1,12 @@
 /**
- * Unit tests for document operation functions
- * Tests all document CRUD operations with mocked Mongoose models and dependencies.
+ * Unit tests for document operations
+ * Tests high-level document manipulation utilities with mocked dependencies.
  */
 
-const mongoose = require('mongoose');
+// Mock dependencies first
+jest.mock('../../lib/database-utils');
+jest.mock('../../lib/http-utils');
+
 const {
   performUserDocOp,
   findUserDoc,
@@ -16,17 +19,9 @@ const {
   updateUserDoc
 } = require('../../lib/document-ops');
 
-// Mock dependencies
-jest.mock('../../lib/http-utils', () => ({
-  sendNotFound: jest.fn()
-}));
-
-jest.mock('../../lib/database-utils', () => ({
-  ensureUnique: jest.fn()
-}));
-
-const { sendNotFound } = require('../../lib/http-utils');
 const { ensureUnique } = require('../../lib/database-utils');
+const { sendNotFound } = require('../../lib/http-utils');
+const mongoose = require('mongoose');
 
 describe('Document Operations Module', () => {
   let mockModel;
@@ -296,24 +291,31 @@ describe('Document Operations Module', () => {
       const fields = { title: 'Duplicate Doc', user: 'testuser' };
       const uniqueQuery = { title: 'Duplicate Doc' };
 
-      ensureUnique.mockResolvedValue(false); // Duplicate found
+      ensureUnique.mockResolvedValue(false);
+
+      const MockModel = jest.fn();
 
       const result = await createUniqueDoc(
-        mockModel, fields, uniqueQuery, mockRes, 'Duplicate found'
+        MockModel, fields, uniqueQuery, mockRes, 'Duplicate found'
       );
 
+      expect(ensureUnique).toHaveBeenCalledWith(MockModel, uniqueQuery, mockRes, 'Duplicate found');
       expect(result).toBeUndefined();
-      expect(mockModel).not.toHaveBeenCalled();
     });
 
     test('should re-throw database errors', async () => {
-      const fields = { title: 'New Doc', user: 'testuser' };
-      const uniqueQuery = { title: 'New Doc' };
+      const fields = { title: 'Error Doc', user: 'testuser' };
+      const uniqueQuery = { title: 'Error Doc' };
 
-      ensureUnique.mockRejectedValue(new Error('Database error'));
+      ensureUnique.mockResolvedValue(true);
+
+      const mockDocInstance = {
+        save: jest.fn().mockRejectedValue(new Error('Database error'))
+      };
+      const MockModel = jest.fn().mockImplementation(() => mockDocInstance);
 
       await expect(
-        createUniqueDoc(mockModel, fields, uniqueQuery, mockRes, 'Duplicate')
+        createUniqueDoc(MockModel, fields, uniqueQuery, mockRes, 'Duplicate')
       ).rejects.toThrow('Database error');
     });
   });

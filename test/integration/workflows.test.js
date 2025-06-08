@@ -1,10 +1,27 @@
+/**
+ * Integration tests for critical workflows
+ * Tests end-to-end interactions between modules and common usage patterns.
+ */
+
+// Mock mongoose before importing modules
+const mongoose = {
+  connection: { readyState: 1 }
+};
+jest.doMock('mongoose', () => mongoose);
+
+const { 
+  storage, 
+  MemStorage,
+  sendNotFound,
+  ensureMongoDB,
+  ensureUnique
+} = require('../../index');
 
 /**
  * Integration tests for critical workflows
  * Tests complete user scenarios and interactions between modules.
  */
 
-const { MemStorage } = require('../../lib/storage');
 const { sendNotFound } = require('../../lib/http-utils');
 const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils');
 
@@ -128,7 +145,7 @@ describe('Critical Workflows Integration', () => {
       errorMessages.forEach(message => {
         const localMockRes = createMockResponse();
         sendNotFound(localMockRes, message);
-        
+
         expect(localMockRes.status).toHaveBeenCalledWith(404);
         expect(localMockRes.json).toHaveBeenCalledWith({ message });
       });
@@ -147,7 +164,7 @@ describe('Critical Workflows Integration', () => {
         const user = await storage.createUser(edgeCases[i]);
         expect(user.id).toBe(i + 1);
         expect(user.username).toBe(edgeCases[i].username);
-        
+
         // Verify retrieval works
         const retrieved = await storage.getUserByUsername(edgeCases[i].username);
         expect(retrieved).toEqual(user);
@@ -165,7 +182,7 @@ describe('Critical Workflows Integration', () => {
       }
 
       const users = await Promise.all(createPromises);
-      
+
       // Verify all users were created with unique IDs
       const ids = users.map(u => u.id);
       const uniqueIds = [...new Set(ids)];
@@ -182,7 +199,7 @@ describe('Critical Workflows Integration', () => {
   describe('Database Integration Workflow', () => {
     test('should validate database connectivity states', () => {
       const mongoose = require('mongoose');
-      
+
       // Test different connection states
       const connectionStates = [
         { state: 0, shouldPass: false, status: 503 }, // Disconnected
@@ -194,9 +211,9 @@ describe('Critical Workflows Integration', () => {
       connectionStates.forEach(({ state, shouldPass, status }) => {
         const localMockRes = createMockResponse();
         mongoose.connection.readyState = state;
-        
+
         const result = ensureMongoDB(localMockRes);
-        
+
         expect(result).toBe(shouldPass);
         if (!shouldPass) {
           expect(localMockRes.status).toHaveBeenCalledWith(status);
@@ -222,7 +239,7 @@ describe('Critical Workflows Integration', () => {
         mockRes, 
         'Duplicate user'
       );
-      
+
       expect(uniqueResult).toBe(true);
       expect(mockRes.status).not.toHaveBeenCalled();
 
@@ -234,7 +251,7 @@ describe('Critical Workflows Integration', () => {
         mockRes, 
         'User already exists'
       );
-      
+
       expect(duplicateResult).toBe(false);
       expect(mockRes.status).toHaveBeenCalledWith(409);
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -246,7 +263,7 @@ describe('Critical Workflows Integration', () => {
   describe('Full Stack Workflow Simulation', () => {
     test('should simulate complete API request workflow', async () => {
       // Simulate the full workflow of an API request
-      
+
       // 1. Check database connectivity
       const dbOk = ensureMongoDB(mockRes);
       expect(dbOk).toBe(true);
@@ -304,7 +321,7 @@ describe('Critical Workflows Integration', () => {
   describe('Performance and Load Testing', () => {
     test('should handle bulk operations efficiently', async () => {
       const startTime = Date.now();
-      
+
       // Create 1000 users
       const createPromises = [];
       for (let i = 1; i <= 1000; i++) {
@@ -313,9 +330,9 @@ describe('Critical Workflows Integration', () => {
           displayName: `Bulk User ${i}`
         }));
       }
-      
+
       await Promise.all(createPromises);
-      
+
       const creationTime = Date.now() - startTime;
       expect(creationTime).toBeLessThan(5000); // Should complete within 5 seconds
 
@@ -329,10 +346,10 @@ describe('Critical Workflows Integration', () => {
       for (let i = 1; i <= 1000; i++) {
         retrievalPromises.push(storage.getUser(i));
       }
-      
+
       const retrievedUsers = await Promise.all(retrievalPromises);
       const retrievalTime = Date.now() - retrievalStart;
-      
+
       expect(retrievalTime).toBeLessThan(1000); // Should complete within 1 second
       expect(retrievedUsers.filter(u => u !== undefined)).toHaveLength(1000);
 
@@ -342,10 +359,10 @@ describe('Critical Workflows Integration', () => {
       for (let i = 1; i <= 1000; i++) {
         deletionPromises.push(storage.deleteUser(i));
       }
-      
+
       await Promise.all(deletionPromises);
       const deletionTime = Date.now() - deletionStart;
-      
+
       expect(deletionTime).toBeLessThan(2000); // Should complete within 2 seconds
 
       // Verify all users were deleted
