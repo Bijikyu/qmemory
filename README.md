@@ -12,7 +12,7 @@ npm install my-npm-module
 ## Usage
 
 ```javascript
-const { greet, add, isEven } = require('my-npm-module');
+const { greet, add, isEven, ensureMongoDB } = require('my-npm-module');
 
 // Greet function
 console.log(greet()); // "Hello, World!"
@@ -24,6 +24,13 @@ console.log(add(2, 3)); // 5
 // IsEven function
 console.log(isEven(4)); // true
 console.log(isEven(5)); // false
+
+// Database validation (requires Express response object)
+// Use in Express routes to check MongoDB connectivity
+app.get('/users', (req, res) => {
+  if (!ensureMongoDB(res)) return; // Exits early if DB unavailable
+  // Proceed with database operations...
+});
 ```
 
 ## API
@@ -40,6 +47,16 @@ console.log(isEven(5)); // false
 ### isEven(num)
 - `num` (number): Number to check
 - Returns: Boolean indicating if the number is even
+
+### ensureMongoDB(res)
+- `res` (Express Response object): Express response object for error handling
+- Returns: Boolean indicating if MongoDB connection is available
+- Side effects: Sends HTTP error responses (503/500) when database is unavailable
+- Note: Requires mongoose to be connected to MongoDB
+
+## Dependencies
+
+- `mongoose`: Required for MongoDB connection validation
 
 ## License
 
