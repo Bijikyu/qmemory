@@ -32,6 +32,11 @@ describe('Database Utils module', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    mongoose.connection.readyState = 1; // reset connection state on mock
+    require('mongoose').connection.readyState = 1; // also reset on imported module
+  });
+
   describe('ensureMongoDB function', () => {
     test('should return true when database is connected', () => {
       // Reset mock before test
