@@ -3,8 +3,6 @@
  * Tests MongoDB connection validation and uniqueness checking with mocked dependencies.
  */
 
-const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils');
-
 // Mock mongoose module
 const mongoose = {
   connection: { readyState: 1 },
@@ -19,7 +17,9 @@ const mongoose = {
     }
   }
 };
-jest.doMock('mongoose', () => mongoose);
+jest.doMock('mongoose', () => mongoose); //(ensure mocks loaded before module under test)
+
+const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils'); //(reload after mocking)
 
 describe('Database Utils module', () => { // Tests MongoDB connection and uniqueness helpers
   let mockRes;
@@ -32,7 +32,14 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
     jest.clearAllMocks();
   });
 
-  describe('ensureMongoDB function', () => { // Validate DB availability checks
+
+  afterEach(() => {
+    mongoose.connection.readyState = 1; // reset connection state on mock
+    require('mongoose').connection.readyState = 1; // also reset on imported module
+  });
+
+  describe('ensureMongoDB function', () => {
+
     test('should return true when database is connected', () => {
       // Reset mock before test
       jest.resetModules();
@@ -72,9 +79,15 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
     });
 
     test('should handle connection state check errors', () => {
-      // Simulate an error when accessing connection readyState
+      // Simulate an error after initial log access
+      let callCount = 0; //(track readyState accesses)
       Object.defineProperty(mongoose.connection, 'readyState', {
-        get: () => { throw new Error('Connection error'); }
+        get: () => {
+          callCount += 1; //(increment on each access)
+          if (callCount > 1) { throw new Error('Connection error'); }
+          return 1; //(first access for console.log)
+        },
+        configurable: true
       });
 
       const result = ensureMongoDB(mockRes);
@@ -86,7 +99,8 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       // Reset to normal state
       Object.defineProperty(mongoose.connection, 'readyState', {
         value: 1,
-        writable: true
+        writable: true,
+        configurable: true
       });
     });
   });

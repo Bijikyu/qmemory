@@ -42,6 +42,13 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       status: jest.fn().mockReturnThis(),
       json: jest.fn()
     };
+    const mongoose = require('mongoose');
+    mongoose.connection.readyState = 1; //(reset connection state for each test)
+  });
+
+  afterEach(() => {
+    mongoose.connection.readyState = 1; // reset connection state on mock
+    require('mongoose').connection.readyState = 1; // also reset on imported module
   });
 
   describe('User Management Workflow', () => {
