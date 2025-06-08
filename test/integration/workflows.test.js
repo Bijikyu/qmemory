@@ -16,7 +16,6 @@ const {
   ensureMongoDB,
   ensureUnique
 } = require('../../index');
-const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils');
 
 // Mock mongoose for database tests
 jest.mock('mongoose', () => ({

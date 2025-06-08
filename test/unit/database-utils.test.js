@@ -34,9 +34,18 @@ describe('Database Utils module', () => {
 
   describe('ensureMongoDB function', () => {
     test('should return true when database is connected', () => {
-      mongoose.connection = { readyState: 1 };
+      // Reset mock before test
+      jest.resetModules();
 
-      const result = ensureMongoDB(mockRes);
+      // Re-mock mongoose with connected state
+      jest.doMock('mongoose', () => ({
+        connection: { readyState: 1 }
+      }));
+
+      // Re-require the module to pick up the mock
+      const { ensureMongoDB: freshEnsureMongoDB } = require('../../lib/database-utils');
+
+      const result = freshEnsureMongoDB(mockRes);
 
       expect(result).toBe(true);
       expect(mockRes.status).not.toHaveBeenCalled();
@@ -73,7 +82,7 @@ describe('Database Utils module', () => {
       expect(result).toBe(false);
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({ message: 'Error checking database connection' });
-      
+
       // Reset to normal state
       Object.defineProperty(mongoose.connection, 'readyState', {
         value: 1,
