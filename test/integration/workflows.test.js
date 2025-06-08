@@ -42,6 +42,8 @@ describe('Critical Workflows Integration', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn()
     };
+    const mongoose = require('mongoose');
+    mongoose.connection.readyState = 1; //(reset connection state for each test)
   });
 
   describe('User Management Workflow', () => {
