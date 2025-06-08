@@ -46,6 +46,11 @@ describe('Critical Workflows Integration', () => {
     mongoose.connection.readyState = 1; //(reset connection state for each test)
   });
 
+  afterEach(() => {
+    mongoose.connection.readyState = 1; // reset connection state on mock
+    require('mongoose').connection.readyState = 1; // also reset on imported module
+  });
+
   describe('User Management Workflow', () => {
     test('should handle complete user lifecycle', async () => {
       // Create user
