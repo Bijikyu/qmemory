@@ -38,7 +38,10 @@ describe('Critical Workflows Integration', () => {
 
   beforeEach(async () => {
     storage = new MemStorage();
-    mockRes = createMockResponse();
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    };
   });
 
   describe('User Management Workflow', () => {
@@ -135,7 +138,10 @@ describe('Critical Workflows Integration', () => {
       ];
 
       errorMessages.forEach(message => {
-        const localMockRes = createMockResponse();
+        const localMockRes = {
+          status: jest.fn().mockReturnThis(),
+          json: jest.fn()
+        };
         sendNotFound(localMockRes, message);
 
         expect(localMockRes.status).toHaveBeenCalledWith(404);
@@ -201,7 +207,10 @@ describe('Critical Workflows Integration', () => {
       ];
 
       connectionStates.forEach(({ state, shouldPass, status }) => {
-        const localMockRes = createMockResponse();
+        const localMockRes = {
+          status: jest.fn().mockReturnThis(),
+          json: jest.fn()
+        };
         mongoose.connection.readyState = state;
 
         const result = ensureMongoDB(localMockRes);
