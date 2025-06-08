@@ -1,12 +1,28 @@
 {
   "name": "qmemory",
   "version": "1.0.0",
-  "description": "A Node.js module",
+  "description": "A comprehensive Node.js utility library providing MongoDB document operations, HTTP utilities, and in-memory storage for development and testing",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "mongodb",
+    "mongoose",
+    "database",
+    "utilities",
+    "express",
+    "http",
+    "storage",
+    "memory",
+    "development",
+    "testing",
+    "document",
+    "crud",
+    "user-management",
+    "nodejs",
+    "library"
+  ],
   "author": "Q",
   "license": "ISC",
   "dependencies": {
