@@ -16,7 +16,6 @@
 
 // Import organized modules - each module handles a specific domain of functionality
 // This separation allows for easier testing, maintenance, and selective importing
-const { greet, add, isEven } = require('./lib/utils');
 const { sendNotFound } = require('./lib/http-utils');
 const { ensureMongoDB, ensureUnique } = require('./lib/database-utils');
 const {
@@ -37,12 +36,6 @@ const { MemStorage, storage } = require('./lib/storage');
 // while maintaining internal organization. Each category is grouped logically
 // to help consumers understand the available functionality at a glance.
 module.exports = {
-  // Basic utilities - Simple helper functions for common operations
-  // These demonstrate the module's capabilities and provide building blocks
-  greet,
-  add,
-  isEven,
-
   // HTTP utilities - Express.js response helpers
   // Centralized HTTP response handling reduces duplication across controllers
   sendNotFound,

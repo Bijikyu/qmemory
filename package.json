@@ -1,5 +1,5 @@
 {
-  "name": "my-npm-module",
+  "name": "qmemory",
   "version": "1.0.0",
   "description": "A Node.js module",
   "main": "index.js",
@@ -7,11 +7,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Q",
   "license": "ISC",
   "dependencies": {
     "@types/node": "^22.13.11",
-    "mongoose": "^8.15.1"
+    "mongoose": "^8.15.1",
+    "qtests": "^1.0.4"
   },
   "repository": {
     "type": "git",
