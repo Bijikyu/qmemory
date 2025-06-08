@@ -21,7 +21,7 @@ const mongoose = {
 };
 jest.doMock('mongoose', () => mongoose);
 
-describe('Database Utils module', () => {
+describe('Database Utils module', () => { // Tests MongoDB connection and uniqueness helpers
   let mockRes;
 
   beforeEach(() => {
@@ -32,7 +32,7 @@ describe('Database Utils module', () => {
     jest.clearAllMocks();
   });
 
-  describe('ensureMongoDB function', () => {
+  describe('ensureMongoDB function', () => { // Validate DB availability checks
     test('should return true when database is connected', () => {
       // Reset mock before test
       jest.resetModules();
@@ -91,7 +91,7 @@ describe('Database Utils module', () => {
     });
   });
 
-  describe('ensureUnique function', () => {
+  describe('ensureUnique function', () => { // Test duplicate checking helper
     let mockModel;
 
     beforeEach(() => {

@@ -7,7 +7,7 @@
 
 const qmemory = require('../../index');
 
-describe('QMemory Module Integration', () => {
+describe('QMemory Module Integration', () => { // Ensures exported API works together
   test('should export all expected functions and classes', () => {
     // HTTP utilities
     expect(typeof qmemory.sendNotFound).toBe('function');

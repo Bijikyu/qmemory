@@ -21,8 +21,8 @@ const {
   sendConflict, 
   sendInternalServerError, 
   sendServiceUnavailable 
-} = require('./lib/http-utils');
-const { ensureMongoDB, ensureUnique } = require('./lib/database-utils');
+} = require('./lib/http-utils'); // Central location for HTTP helpers promotes consistency
+const { ensureMongoDB, ensureUnique } = require('./lib/database-utils'); // Database helpers keep controllers clean
 const {
   performUserDocOp,
   findUserDoc,
@@ -33,8 +33,8 @@ const {
   listUserDocs,
   createUniqueDoc,
   updateUserDoc
-} = require('./lib/document-ops');
-const { MemStorage, storage } = require('./lib/storage');
+} = require('./lib/document-ops'); // Higher level document handling utilities
+const { MemStorage, storage } = require('./lib/storage'); // In-memory storage class and singleton
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
