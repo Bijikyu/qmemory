@@ -32,7 +32,7 @@ jest.mock('mongoose', () => ({
   }
 }));
 
-describe('Critical Workflows Integration', () => {
+describe('Critical Workflows Integration', () => { // Simulates end-to-end module interactions
   let storage;
   let mockRes;
 

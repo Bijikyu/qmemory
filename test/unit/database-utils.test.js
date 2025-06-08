@@ -21,7 +21,7 @@ jest.doMock('mongoose', () => mongoose); //(ensure mocks loaded before module un
 
 const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils'); //(reload after mocking)
 
-describe('Database Utils module', () => {
+describe('Database Utils module', () => { // Tests MongoDB connection and uniqueness helpers
   let mockRes;
 
   beforeEach(() => {
@@ -32,12 +32,14 @@ describe('Database Utils module', () => {
     jest.clearAllMocks();
   });
 
+
   afterEach(() => {
     mongoose.connection.readyState = 1; // reset connection state on mock
     require('mongoose').connection.readyState = 1; // also reset on imported module
   });
 
   describe('ensureMongoDB function', () => {
+
     test('should return true when database is connected', () => {
       // Reset mock before test
       jest.resetModules();
@@ -103,7 +105,7 @@ describe('Database Utils module', () => {
     });
   });
 
-  describe('ensureUnique function', () => {
+  describe('ensureUnique function', () => { // Test duplicate checking helper
     let mockModel;
 
     beforeEach(() => {

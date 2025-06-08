@@ -7,14 +7,14 @@
 
 const { MemStorage, storage } = require('../../lib/storage');
 
-describe('MemStorage Class', () => {
+describe('MemStorage Class', () => { // Tests behavior of the in-memory storage implementation
   let memStorage;
 
   beforeEach(() => {
     memStorage = new MemStorage();
   });
 
-  describe('constructor', () => {
+  describe('constructor', () => { // Ensure initialization logic sets up state correctly
     test('should initialize with empty users Map', () => {
       expect(memStorage.users.size).toBe(0);
     });
@@ -32,7 +32,7 @@ describe('MemStorage Class', () => {
     });
   });
 
-  describe('createUser', () => {
+  describe('createUser', () => { // Validate user creation logic and field handling
     test('should create user with auto-generated ID', async () => {
       const insertUser = {
         username: 'testuser',
@@ -123,7 +123,7 @@ describe('MemStorage Class', () => {
     });
   });
 
-  describe('getUser', () => {
+  describe('getUser', () => { // Ensure retrieval by ID behaves as expected
     test('should return user by ID', async () => {
       const created = await memStorage.createUser({ username: 'testuser' });
       const retrieved = await memStorage.getUser(1);
@@ -149,7 +149,7 @@ describe('MemStorage Class', () => {
     });
   });
 
-  describe('getUserByUsername', () => {
+  describe('getUserByUsername', () => { // Tests linear search by username
     test('should return user by username', async () => {
       const created = await memStorage.createUser({ username: 'findme' });
       const found = await memStorage.getUserByUsername('findme');
@@ -184,7 +184,7 @@ describe('MemStorage Class', () => {
     });
   });
 
-  describe('getAllUsers', () => {
+  describe('getAllUsers', () => { // Verify retrieval of all stored records
     test('should return empty array when no users exist', async () => {
       const users = await memStorage.getAllUsers();
       
@@ -213,7 +213,7 @@ describe('MemStorage Class', () => {
     });
   });
 
-  describe('deleteUser', () => {
+  describe('deleteUser', () => { // Validate removal and return values
     test('should delete existing user and return true', async () => {
       await memStorage.createUser({ username: 'deleteme' });
       
@@ -243,7 +243,7 @@ describe('MemStorage Class', () => {
     });
   });
 
-  describe('clear', () => {
+  describe('clear', () => { // Ensure storage reset works correctly
     test('should remove all users', async () => {
       await memStorage.createUser({ username: 'user1' });
       await memStorage.createUser({ username: 'user2' });

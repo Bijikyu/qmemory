@@ -6,14 +6,14 @@
 
 const { sendNotFound } = require('../../lib/http-utils');
 
-describe('HTTP Utils Module', () => {
+describe('HTTP Utils Module', () => { // Tests standardized HTTP response helpers
   let mockRes;
 
   beforeEach(() => {
     mockRes = createMockResponse();
   });
 
-  describe('sendNotFound function', () => {
+  describe('sendNotFound function', () => { // Verify 404 helper behavior
     test('should send 404 status with custom message', () => {
       const message = 'User not found';
       

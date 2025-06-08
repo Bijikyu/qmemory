@@ -23,7 +23,7 @@ const { ensureUnique } = require('../../lib/database-utils');
 const { sendNotFound } = require('../../lib/http-utils');
 const mongoose = require('mongoose');
 
-describe('Document Operations Module', () => {
+describe('Document Operations Module', () => { // Unit tests for higher-level document helpers
   let mockModel;
   let mockRes;
   let mockDoc;
@@ -53,7 +53,7 @@ describe('Document Operations Module', () => {
     jest.clearAllMocks();
   });
 
-  describe('performUserDocOp', () => {
+  describe('performUserDocOp', () => { // Wrapper function behavior
     test('should execute operation callback and return result', async () => {
       const mockDoc = { _id: '123', user: 'testuser', title: 'Test Doc' };
       const mockCallback = jest.fn().mockResolvedValue(mockDoc);
@@ -91,7 +91,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('findUserDoc', () => {
+  describe('findUserDoc', () => { // Tests ownership-safe retrieval
     test('should find document by ID and user', async () => {
       const mockDoc = { _id: '123', user: 'testuser', title: 'Test Doc' };
       mockModel.findOne.mockResolvedValue(mockDoc);
@@ -118,7 +118,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('deleteUserDoc', () => {
+  describe('deleteUserDoc', () => { // Tests secure deletion workflow
     test('should delete document by ID and user', async () => {
       const mockDoc = { _id: '123', user: 'testuser', title: 'Test Doc' };
       mockModel.findOneAndDelete.mockResolvedValue(mockDoc);
@@ -138,7 +138,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('userDocActionOr404', () => {
+  describe('userDocActionOr404', () => { // Ensures helper correctly sends 404 responses
     test('should return document when action succeeds', async () => {
       const mockDoc = { _id: '123', user: 'testuser' };
       const mockAction = jest.fn().mockResolvedValue(mockDoc);
@@ -171,7 +171,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('fetchUserDocOr404', () => {
+  describe('fetchUserDocOr404', () => { // Tests retrieval helper with 404 fallback
     test('should return document when found', async () => {
       const mockDoc = { _id: '123', user: 'testuser' };
       mockModel.findOne.mockResolvedValue(mockDoc);
@@ -196,7 +196,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('deleteUserDocOr404', () => {
+  describe('deleteUserDocOr404', () => { // Tests deletion helper with 404 fallback
     test('should return deleted document when found', async () => {
       const mockDoc = { _id: '123', user: 'testuser' };
       mockModel.findOneAndDelete.mockResolvedValue(mockDoc);
@@ -221,7 +221,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('listUserDocs', () => {
+  describe('listUserDocs', () => { // Checks listing with sorting and empty cases
     test('should return all user documents with sorting', async () => {
       const mockDocs = [
         { _id: '1', user: 'testuser', title: 'Doc 1' },
@@ -264,7 +264,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('createUniqueDoc', () => {
+  describe('createUniqueDoc', () => { // Validates uniqueness check before creation
     test('should create document when unique', async () => {
       const fields = { title: 'New Doc', user: 'testuser' };
       const uniqueQuery = { title: 'New Doc' };
@@ -321,7 +321,7 @@ describe('Document Operations Module', () => {
     });
   });
 
-  describe('updateUserDoc', () => {
+  describe('updateUserDoc', () => { // Covers complex update scenarios with ownership and uniqueness
     let mockDocInstance;
 
     beforeEach(() => {

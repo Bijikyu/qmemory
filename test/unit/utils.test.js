@@ -6,8 +6,8 @@
 
 const { greet, add, isEven } = require('../../lib/utils');
 
-describe('Utils module', () => {
-  describe('greet function', () => {
+describe('Utils module', () => { // Tests simple helper functions
+  describe('greet function', () => { // String formatting utility
     test('should return greeting with provided name', () => {
       expect(greet('Alice')).toBe('Hello, Alice!');
       expect(greet('Bob')).toBe('Hello, Bob!');
@@ -23,7 +23,7 @@ describe('Utils module', () => {
     });
   });
 
-  describe('add function', () => {
+  describe('add function', () => { // Arithmetic addition helper
     test('should add positive numbers correctly', () => {
       expect(add(2, 3)).toBe(5);
       expect(add(10, 15)).toBe(25);
@@ -52,7 +52,7 @@ describe('Utils module', () => {
     });
   });
 
-  describe('isEven function', () => {
+  describe('isEven function', () => { // Checks even/odd calculation
     test('should return true for even numbers', () => {
       expect(isEven(0)).toBe(true);
       expect(isEven(2)).toBe(true);
