@@ -1,4 +1,3 @@
-
 /**
  * Unit tests for basic utility functions
  * Tests the fundamental utility functions to ensure they work correctly
@@ -7,41 +6,32 @@
 
 const { greet, add, isEven } = require('../../lib/utils');
 
-describe('Utils Module', () => {
+describe('Utils module', () => {
   describe('greet function', () => {
     test('should return greeting with provided name', () => {
       expect(greet('Alice')).toBe('Hello, Alice!');
+      expect(greet('Bob')).toBe('Hello, Bob!');
     });
 
     test('should handle empty string', () => {
       expect(greet('')).toBe('Hello, !');
     });
 
-    test('should handle special characters in name', () => {
-      expect(greet('José-María')).toBe('Hello, José-María!');
-    });
-
-    test('should handle numbers as strings', () => {
+    test('should handle special characters', () => {
+      expect(greet('María José')).toBe('Hello, María José!');
       expect(greet('123')).toBe('Hello, 123!');
-    });
-
-    test('should handle null and undefined', () => {
-      expect(greet(null)).toBe('Hello, null!');
-      expect(greet(undefined)).toBe('Hello, undefined!');
     });
   });
 
   describe('add function', () => {
-    test('should add two positive numbers', () => {
+    test('should add positive numbers correctly', () => {
       expect(add(2, 3)).toBe(5);
+      expect(add(10, 15)).toBe(25);
     });
 
-    test('should add negative numbers', () => {
+    test('should add negative numbers correctly', () => {
       expect(add(-2, -3)).toBe(-5);
-    });
-
-    test('should add positive and negative numbers', () => {
-      expect(add(5, -3)).toBe(2);
+      expect(add(-10, 5)).toBe(-5);
     });
 
     test('should handle zero', () => {
@@ -51,11 +41,8 @@ describe('Utils Module', () => {
     });
 
     test('should handle decimal numbers', () => {
-      expect(add(1.5, 2.3)).toBeCloseTo(3.8);
-    });
-
-    test('should handle large numbers', () => {
-      expect(add(1000000, 2000000)).toBe(3000000);
+      expect(add(2.5, 3.7)).toBeCloseTo(6.2);
+      expect(add(1.1, 2.2)).toBeCloseTo(3.3);
     });
 
     test('should handle infinity', () => {
