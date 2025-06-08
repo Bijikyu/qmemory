@@ -1,0 +1,431 @@
+~/workspace$ jest
+● Validation Warning:
+
+  Unknown option "moduleNameMapping" with value {} was found.
+  This is probably a typing mistake. Fixing it will remove this message.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+● Validation Warning:
+
+  Unknown option "moduleNameMapping" with value {} was found.
+  This is probably a typing mistake. Fixing it will remove this message.
+
+  Configuration Documentation:
+  https://jestjs.io/docs/configuration
+
+ FAIL  test/unit/http-utils.test.js
+  HTTP Utils Module
+    sendNotFound function
+      ✓ should send 404 status with custom message (29 ms)
+      ✓ should handle empty message (3 ms)
+      ✓ should handle null message (1 ms)
+      ✓ should handle undefined message (1 ms)
+      ✓ should handle long message (1 ms)
+      ✓ should handle special characters in message (1 ms)
+      ✕ should return response object for chaining (4 ms)
+
+  ● HTTP Utils Module › sendNotFound function › should return response object for chaining
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: {"json": [Function mockConstructor], "send": [Function mockConstructor], "status": [Function mockConstructor]}
+    Received: undefined
+
+      67 |       
+      68 |       // Since our mock returns 'this', we should get the mock response object
+    > 69 |       expect(result).toBe(mockRes);
+         |                      ^
+      70 |     });
+      71 |   });
+      72 | });
+
+      at Object.<anonymous> (test/unit/http-utils.test.js:69:22)
+
+ PASS  test/unit/storage.test.js
+  MemStorage Class
+    constructor
+      ✓ should initialize with empty users Map (5 ms)
+      ✓ should initialize currentId to 1
+      ✓ should create independent instances (1 ms)
+    createUser
+      ✓ should create user with auto-generated ID (2 ms)
+      ✓ should increment ID for subsequent users (1 ms)
+      ✓ should convert undefined fields to null (1 ms)
+      ✓ should preserve null values (1 ms)
+      ✓ should preserve falsy non-null values (1 ms)
+      ✓ should store user with all fields (1 ms)
+    getUser
+      ✓ should return user by ID
+      ✓ should return undefined for non-existent user
+      ✓ should return undefined for invalid ID types (1 ms)
+    getUserByUsername
+      ✓ should return user by username (1 ms)
+      ✓ should return undefined for non-existent username (1 ms)
+      ✓ should handle case-sensitive username search (1 ms)
+      ✓ should find correct user among multiple users
+    getAllUsers
+      ✓ should return empty array when no users exist
+      ✓ should return all users (3 ms)
+      ✓ should return new array (not reference to internal storage) (2 ms)
+    deleteUser
+      ✓ should delete existing user and return true (1 ms)
+      ✓ should return false for non-existent user
+      ✓ should handle multiple deletions
+    clear
+      ✓ should remove all users (1 ms)
+      ✓ should reset ID counter (1 ms)
+      ✓ should handle clearing empty storage (1 ms)
+  Storage Singleton
+    ✓ should export singleton instance (1 ms)
+    ✓ should maintain state across module imports (6 ms)
+
+ PASS  test/unit/utils.test.js
+  Utils module
+    greet function
+      ✓ should return greeting with provided name (2 ms)
+      ✓ should handle empty string
+      ✓ should handle special characters
+    add function
+      ✓ should add positive numbers correctly
+      ✓ should add negative numbers correctly
+      ✓ should handle zero
+      ✓ should handle decimal numbers (1 ms)
+      ✓ should handle infinity (1 ms)
+    isEven function
+      ✓ should return true for even numbers
+      ✓ should return false for odd numbers (1 ms)
+      ✓ should handle negative numbers (1 ms)
+      ✓ should handle decimal numbers (2 ms)
+
+ FAIL  test/unit/database-utils.test.js
+  Database Utils module
+    ensureMongoDB function
+      ✕ should return true when database is connected (10 ms)
+      ✓ should return false and send 503 when database is disconnected (2 ms)
+      ✓ should return false and send 503 when database is connecting (1 ms)
+      ✕ should handle connection state check errors
+    ensureUnique function
+      ✓ should return true when no duplicate is found (2 ms)
+      ✓ should return false and send 409 when duplicate is found (1 ms)
+      ✓ should throw error when database query fails (2 ms)
+
+  ● Database Utils module › ensureMongoDB function › should return true when database is connected
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      27 |       const result = ensureMongoDB(mockRes);
+      28 |
+    > 29 |       expect(result).toBe(true);
+         |                      ^
+      30 |       expect(mockRes.status).not.toHaveBeenCalled();
+      31 |       expect(mockRes.json).not.toHaveBeenCalled();
+      32 |     });
+
+      at Object.<anonymous> (test/unit/database-utils.test.js:29:22)
+
+  ● Database Utils module › ensureMongoDB function › should handle connection state check errors
+
+    Connection error
+
+      54 |       // Simulate an error when accessing connection
+      55 |       Object.defineProperty(mongoose, 'connection', {
+    > 56 |         get: () => { throw new Error('Connection error'); }
+         |                            ^
+      57 |       });
+      58 |
+      59 |       const result = ensureMongoDB(mockRes);
+
+      at Mongoose.get (test/unit/database-utils.test.js:56:28)
+      at connection (lib/database-utils.js:62:78)
+      at Object.<anonymous> (test/unit/database-utils.test.js:59:22)
+
+ PASS  test/integration/module.test.js
+  QMemory Module Integration
+    ✓ should export all expected functions and classes (6 ms)
+    ✓ should provide working storage singleton (2 ms)
+    ✓ should allow multiple MemStorage instances (1 ms)
+    ✓ should provide consistent HTTP response helpers (1 ms)
+    ✓ should handle cross-module interactions (2 ms)
+    ✓ should maintain singleton state across multiple imports
+    ✓ should handle error scenarios gracefully (12 ms)
+
+ FAIL  test/unit/document-ops.test.js
+  Document Operations Module
+    performUserDocOp
+      ✓ should execute operation callback and return result (10 ms)
+      ✓ should return null for CastError (invalid ObjectId) (1 ms)
+      ✓ should re-throw non-CastError errors (5 ms)
+      ✓ should handle null result from operation (1 ms)
+    findUserDoc
+      ✓ should find document by ID and user (1 ms)
+      ✓ should return null when document not found
+      ✕ should handle invalid ObjectId gracefully (4 ms)
+    deleteUserDoc
+      ✓ should delete document by ID and user (1 ms)
+      ✓ should return null when document not found for deletion
+    userDocActionOr404
+      ✓ should return document when action succeeds (2 ms)
+      ✕ should send 404 when action returns null (2 ms)
+      ✓ should re-throw errors from action (11 ms)
+    fetchUserDocOr404
+      ✓ should return document when found (1 ms)
+      ✕ should send 404 when document not found (1 ms)
+    deleteUserDocOr404
+      ✓ should return deleted document when found (1 ms)
+      ✕ should send 404 when document not found for deletion (1 ms)
+    listUserDocs
+      ✓ should return all user documents with sorting (2 ms)
+      ✓ should return empty array when no documents found (1 ms)
+      ✓ should handle null sort parameter (1 ms)
+    createUniqueDoc
+      ✕ should create document when unique (1 ms)
+      ✕ should return undefined when duplicate exists (1 ms)
+      ✕ should re-throw database errors (15 ms)
+    updateUserDoc
+      ✕ should update document when found and unique (1 ms)
+      ✕ should return undefined when document not found
+      ✓ should return undefined when uniqueness check fails
+      ✓ should skip uniqueness check when unique fields not changing (1 ms)
+      ✓ should handle update without uniqueness constraint
+
+  ● Document Operations Module › findUserDoc › should handle invalid ObjectId gracefully
+
+    expect(received).toBeNull()
+
+    Received: undefined
+
+      119 |       const result = await findUserDoc(mockModel, 'invalid', 'testuser');
+      120 |
+    > 121 |       expect(result).toBeNull();
+          |                      ^
+      122 |     });
+      123 |   });
+      124 |
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:121:22)
+
+  ● Document Operations Module › userDocActionOr404 › should send 404 when action returns null
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: {"json": [Function mockConstructor], "status": [Function mockConstructor]}, "Document not found"
+
+    Number of calls: 0
+
+      164 |
+      165 |       expect(result).toBeUndefined();
+    > 166 |       expect(sendNotFound).toHaveBeenCalledWith(mockRes, 'Document not found');
+          |                            ^
+      167 |     });
+      168 |
+      169 |     test('should re-throw errors from action', async () => {
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:166:28)
+
+  ● Document Operations Module › fetchUserDocOr404 › should send 404 when document not found
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: {"json": [Function mockConstructor], "status": [Function mockConstructor]}, "Document not found"
+
+    Number of calls: 0
+
+      197 |
+      198 |       expect(result).toBeUndefined();
+    > 199 |       expect(sendNotFound).toHaveBeenCalledWith(mockRes, 'Document not found');
+          |                            ^
+      200 |     });
+      201 |   });
+      202 |
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:199:28)
+
+  ● Document Operations Module › deleteUserDocOr404 › should send 404 when document not found for deletion
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: {"json": [Function mockConstructor], "status": [Function mockConstructor]}, "Document not found"
+
+    Number of calls: 0
+
+      222 |
+      223 |       expect(result).toBeUndefined();
+    > 224 |       expect(sendNotFound).toHaveBeenCalledWith(mockRes, 'Document not found');
+          |                            ^
+      225 |     });
+      226 |   });
+      227 |
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:224:28)
+
+  ● Document Operations Module › createUniqueDoc › should create document when unique
+
+    TypeError: model is not a constructor
+
+      356 |     
+      357 |     // Create new document instance with provided fields
+    > 358 |     const doc = new model(fields);
+          |                 ^
+      359 |     
+      360 |     // Save to database with full validation and middleware execution
+      361 |     const saved = await doc.save();
+
+      at createUniqueDoc (lib/document-ops.js:358:17)
+      at Object.<anonymous> (test/unit/document-ops.test.js:285:22)
+
+  ● Document Operations Module › createUniqueDoc › should return undefined when duplicate exists
+
+    TypeError: model is not a constructor
+
+      356 |     
+      357 |     // Create new document instance with provided fields
+    > 358 |     const doc = new model(fields);
+          |                 ^
+      359 |     
+      360 |     // Save to database with full validation and middleware execution
+      361 |     const saved = await doc.save();
+
+      at createUniqueDoc (lib/document-ops.js:358:17)
+      at Object.<anonymous> (test/unit/document-ops.test.js:301:22)
+
+  ● Document Operations Module › createUniqueDoc › should re-throw database errors
+
+    expect(received).rejects.toThrow(expected)
+
+    Expected substring: "Database error"
+    Received message:   "model is not a constructor"
+
+          356 |     
+          357 |     // Create new document instance with provided fields
+        > 358 |     const doc = new model(fields);
+              |                 ^
+          359 |     
+          360 |     // Save to database with full validation and middleware execution
+          361 |     const saved = await doc.save();
+
+          at createUniqueDoc (lib/document-ops.js:358:17)
+          at Object.<anonymous> (test/unit/document-ops.test.js:315:7)
+
+      315 |       await expect(
+      316 |         createUniqueDoc(mockModel, fields, uniqueQuery, mockRes, 'Duplicate')
+    > 317 |       ).rejects.toThrow('Database error');
+          |                 ^
+      318 |     });
+      319 |   });
+      320 |
+
+      at Object.toThrow (node_modules/expect/build/index.js:218:22)
+      at Object.<anonymous> (test/unit/document-ops.test.js:317:17)
+
+  ● Document Operations Module › updateUserDoc › should update document when found and unique
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: {"create": [Function mockConstructor], "find": [Function mockConstructor], "findById": [Function mockConstructor], "findOne": [Function mockConstructor], "findOneAndDelete": [Function mockConstructor], "mockImplementation": [Function mockConstructor]}, {"title": "Updated Title"}, {"json": [Function mockConstructor], "status": [Function mockConstructor]}, "Duplicate"
+
+    Number of calls: 0
+
+      348 |       );
+      349 |
+    > 350 |       expect(ensureUnique).toHaveBeenCalledWith(mockModel, uniqueQuery, mockRes, 'Duplicate');
+          |                            ^
+      351 |       expect(mockDocInstance.save).toHaveBeenCalled();
+      352 |       expect(result.title).toBe('Updated Title');
+      353 |     });
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:350:28)
+
+  ● Document Operations Module › updateUserDoc › should return undefined when document not found
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      361 |
+      362 |       expect(result).toBeUndefined();
+    > 363 |       expect(sendNotFound).toHaveBeenCalled();
+          |                            ^
+      364 |     });
+      365 |
+      366 |     test('should return undefined when uniqueness check fails', async () => {
+
+      at Object.<anonymous> (test/unit/document-ops.test.js:363:28)
+
+ FAIL  test/integration/workflows.test.js
+  Critical Workflows Integration
+    User Management Workflow
+      ✓ should handle complete user lifecycle (11 ms)
+      ✓ should handle multiple users independently (3 ms)
+    Error Handling Workflow
+      ✓ should handle HTTP error responses consistently (3 ms)
+      ✓ should handle storage edge cases (2 ms)
+      ✓ should handle concurrent operations
+    Database Integration Workflow
+      ✕ should validate database connectivity states (3 ms)
+      ✓ should handle uniqueness validation workflow (1 ms)
+    Full Stack Workflow Simulation
+      ✕ should simulate complete API request workflow (1 ms)
+      ✓ should handle error scenarios in full workflow (2 ms)
+    Performance and Load Testing
+      ✓ should handle bulk operations efficiently (22 ms)
+
+  ● Critical Workflows Integration › Database Integration Workflow › should validate database connectivity states
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      198 |         const result = ensureMongoDB(localMockRes);
+      199 |         
+    > 200 |         expect(result).toBe(shouldPass);
+          |                        ^
+      201 |         if (!shouldPass) {
+      202 |           expect(localMockRes.status).toHaveBeenCalledWith(status);
+      203 |           expect(localMockRes.json).toHaveBeenCalledWith({
+
+      at test/integration/workflows.test.js:200:24
+          at Array.forEach (<anonymous>)
+      at Object.<anonymous> (test/integration/workflows.test.js:194:24)
+
+  ● Critical Workflows Integration › Full Stack Workflow Simulation › should simulate complete API request workflow
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      250 |       // 1. Check database connectivity
+      251 |       const dbOk = ensureMongoDB(mockRes);
+    > 252 |       expect(dbOk).toBe(true);
+          |                    ^
+      253 |
+      254 |       // 2. Create user in storage
+      255 |       const newUser = await storage.createUser({
+
+      at Object.<anonymous> (test/integration/workflows.test.js:252:20)
+
+-|---------|----------|---------|---------|-------------------
+ | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-|---------|----------|---------|---------|-------------------
+ |   87.41 |       90 |     100 |   87.41 |                   
+  |     100 |      100 |     100 |     100 |                   
+   |     100 |      100 |     100 |     100 |                   
+  |   86.95 |       90 |     100 |   86.95 |                   
+   |   79.16 |       75 |     100 |   79.16 | 76-86             
+   |   85.05 |       90 |     100 |   85.05 | ...61-364,448-449 
+   |     100 |      100 |     100 |     100 |                   
+   |     100 |      100 |     100 |     100 |                   
+   |     100 |      100 |     100 |     100 |                   
+-|---------|----------|---------|---------|-------------------
+Test Suites: 4 failed, 3 passed, 7 total
+Tests:       14 failed, 83 passed, 97 total
+Snapshots:   0 total
+Time:        1.368 s, estimated 2 s
+Ran all test suites.
