@@ -16,7 +16,12 @@
 
 // Import organized modules - each module handles a specific domain of functionality
 // This separation allows for easier testing, maintenance, and selective importing
-const { sendNotFound } = require('./lib/http-utils');
+const { 
+  sendNotFound, 
+  sendConflict, 
+  sendInternalServerError, 
+  sendServiceUnavailable 
+} = require('./lib/http-utils');
 const { ensureMongoDB, ensureUnique } = require('./lib/database-utils');
 const {
   performUserDocOp,
@@ -39,6 +44,9 @@ module.exports = {
   // HTTP utilities - Express.js response helpers
   // Centralized HTTP response handling reduces duplication across controllers
   sendNotFound,
+  sendConflict,
+  sendInternalServerError,
+  sendServiceUnavailable,
 
   // Database utilities - MongoDB connection and validation helpers
   // These functions provide robust database interaction patterns with proper error handling
