@@ -7,7 +7,17 @@ const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils');
 
 // Mock mongoose module
 const mongoose = {
-  connection: { readyState: 1 }
+  connection: { readyState: 1 },
+  Error: {
+    CastError: class CastError extends Error {
+      constructor(message, value, path) {
+        super(message);
+        this.name = 'CastError';
+        this.value = value;
+        this.path = path;
+      }
+    }
+  }
 };
 jest.doMock('mongoose', () => mongoose);
 
@@ -53,8 +63,8 @@ describe('Database Utils module', () => {
     });
 
     test('should handle connection state check errors', () => {
-      // Simulate an error when accessing connection
-      Object.defineProperty(mongoose, 'connection', {
+      // Simulate an error when accessing connection readyState
+      Object.defineProperty(mongoose.connection, 'readyState', {
         get: () => { throw new Error('Connection error'); }
       });
 
@@ -63,6 +73,12 @@ describe('Database Utils module', () => {
       expect(result).toBe(false);
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({ message: 'Error checking database connection' });
+      
+      // Reset to normal state
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: 1,
+        writable: true
+      });
     });
   });
 

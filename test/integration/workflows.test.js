@@ -16,13 +16,6 @@ const {
   ensureMongoDB,
   ensureUnique
 } = require('../../index');
-
-/**
- * Integration tests for critical workflows
- * Tests complete user scenarios and interactions between modules.
- */
-
-const { sendNotFound } = require('../../lib/http-utils');
 const { ensureMongoDB, ensureUnique } = require('../../lib/database-utils');
 
 // Mock mongoose for database tests

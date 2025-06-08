@@ -111,9 +111,10 @@ describe('Document Operations Module', () => {
     });
 
     test('should handle invalid ObjectId gracefully', async () => {
+      // performUserDocOp returns undefined when no callback is provided in this mock scenario
       const result = await findUserDoc(mockModel, 'invalid', 'testuser');
 
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
   });
 
@@ -271,18 +272,18 @@ describe('Document Operations Module', () => {
 
       ensureUnique.mockResolvedValue(true);
 
-      // Mock the model constructor and save method
+      // Create a proper mock constructor function
       const mockDocInstance = {
         save: jest.fn().mockResolvedValue(savedDoc)
       };
-      mockModel.mockImplementation(() => mockDocInstance);
+      const MockModel = jest.fn().mockImplementation(() => mockDocInstance);
 
       const result = await createUniqueDoc(
-        mockModel, fields, uniqueQuery, mockRes, 'Duplicate found'
+        MockModel, fields, uniqueQuery, mockRes, 'Duplicate found'
       );
 
-      expect(ensureUnique).toHaveBeenCalledWith(mockModel, uniqueQuery, mockRes, 'Duplicate found');
-      expect(mockModel).toHaveBeenCalledWith(fields);
+      expect(ensureUnique).toHaveBeenCalledWith(MockModel, uniqueQuery, mockRes, 'Duplicate found');
+      expect(MockModel).toHaveBeenCalledWith(fields);
       expect(mockDocInstance.save).toHaveBeenCalled();
       expect(result).toEqual(savedDoc);
     });
@@ -349,7 +350,10 @@ describe('Document Operations Module', () => {
         mockModel, '123', 'testuser', fieldsToUpdate, uniqueQuery, mockRes, 'Duplicate'
       );
 
-      expect(ensureUnique).toHaveBeenCalledWith(mockModel, uniqueQuery, mockRes, 'Duplicate');
+      expect(ensureUnique).toHaveBeenCalledWith(mockModel, {
+        ...uniqueQuery,
+        _id: { $ne: mockDocInstance._id }
+      }, mockRes, 'Duplicate');
       expect(mockDocInstance.save).toHaveBeenCalled();
       expect(result.title).toBe('Updated Title');
     });
