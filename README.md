@@ -88,6 +88,70 @@ app.get('/users', (req, res) => {
 - `sendNotFound(res, message)`: Sends 404 response
 - `ensureUnique(model, query, res, duplicateMsg)`: Checks document uniqueness
 
+### In-Memory Storage
+
+#### MemStorage Class
+A volatile user storage implementation for development and testing that stores data in application memory.
+
+**Limitations:**
+- Data is lost on application restart
+- Not suitable for production at scale
+- Memory usage grows with user count
+
+**Performance:**
+- O(1) lookup by ID using Map data structure
+- O(n) lookup by username requiring full scan
+- Minimal latency since all data is in memory
+
+#### MemStorage Methods
+
+##### getUser(id)
+- `id` (number): Unique user identifier
+- Returns: Promise resolving to User object or undefined
+
+##### getUserByUsername(username)
+- `username` (string): Username to search for
+- Returns: Promise resolving to User object or undefined
+
+##### createUser(insertUser)
+- `insertUser` (object): User data with optional fields
+  - `username` (string): Required username
+  - `displayName` (string, optional): Display name
+  - `githubId` (string, optional): GitHub user ID
+  - `avatar` (string, optional): Avatar URL
+- Returns: Promise resolving to created User object with auto-generated ID
+
+##### getAllUsers()
+- Returns: Promise resolving to array of all users
+
+##### deleteUser(id)
+- `id` (number): User ID to delete
+- Returns: Promise resolving to boolean (true if deleted, false if not found)
+
+##### clear()
+- Clears all users and resets ID counter
+- Returns: Promise resolving to void
+
+#### Storage Instance
+A singleton instance `storage` is exported for application-wide use:
+
+```javascript
+const { storage } = require('my-npm-module');
+
+// Create a user
+const user = await storage.createUser({
+  username: 'alice',
+  displayName: 'Alice Smith',
+  githubId: 'alice123'
+});
+
+// Get user by ID
+const foundUser = await storage.getUser(user.id);
+
+// Get user by username
+const userByName = await storage.getUserByUsername('alice');
+```
+
 ## Dependencies
 
 - `mongoose`: Required for MongoDB connection validation
