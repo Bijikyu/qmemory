@@ -4,6 +4,7 @@
  * in isolation and handle edge cases appropriately.
  */
 
+// Import functions under test from utilities module
 const { greet, add, isEven } = require('../../lib/utils');
 
 describe('Utils module', () => { // Tests simple helper functions
@@ -11,7 +12,7 @@ describe('Utils module', () => { // Tests simple helper functions
     test('should return greeting with provided name', () => {
       expect(greet('Alice')).toBe('Hello, Alice!');
       expect(greet('Bob')).toBe('Hello, Bob!');
-    });
+    }); // Verifies basic string interpolation logic
 
     test('should handle empty string', () => {
       expect(greet('')).toBe('Hello, !');
