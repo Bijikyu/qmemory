@@ -5,7 +5,7 @@
  * in real scenarios.
  */
 
-const qmemory = require('../../index');
+const qmemory = require('../../index'); // import library entry point
 
 describe('QMemory Module Integration', () => { // Ensures exported API works together
   test('should export all expected functions and classes', () => {

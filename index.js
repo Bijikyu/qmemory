@@ -16,11 +16,11 @@
 
 // Import organized modules - each module handles a specific domain of functionality
 // This separation allows for easier testing, maintenance, and selective importing
-const { 
-  sendNotFound, 
-  sendConflict, 
-  sendInternalServerError, 
-  sendServiceUnavailable 
+const {
+  sendNotFound,
+  sendConflict,
+  sendInternalServerError,
+  sendServiceUnavailable // helper for 503 responses
 } = require('./lib/http-utils'); // Central location for HTTP helpers promotes consistency
 const { ensureMongoDB, ensureUnique } = require('./lib/database-utils'); // Database helpers keep controllers clean
 const {
@@ -32,9 +32,9 @@ const {
   deleteUserDocOr404,
   listUserDocs,
   createUniqueDoc,
-  updateUserDoc
+  updateUserDoc // helper to update user documents safely
 } = require('./lib/document-ops'); // Higher level document handling utilities
-const { MemStorage, storage } = require('./lib/storage'); // In-memory storage class and singleton
+const { MemStorage, storage } = require('./lib/storage'); // in-memory storage class and singleton instance
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -44,14 +44,14 @@ module.exports = {
   // HTTP utilities - Express.js response helpers
   // Centralized HTTP response handling reduces duplication across controllers
   sendNotFound,
-  sendConflict,
-  sendInternalServerError,
-  sendServiceUnavailable,
+  sendConflict, // 409 conflict helper
+  sendInternalServerError, // 500 response helper
+  sendServiceUnavailable, // 503 response helper
 
   // Database utilities - MongoDB connection and validation helpers
   // These functions provide robust database interaction patterns with proper error handling
   ensureMongoDB,
-  ensureUnique,
+  ensureUnique, // duplicate check helper
 
   // Document operations - High-level document manipulation utilities
   // These encapsulate common CRUD patterns for user-owned documents,
@@ -64,10 +64,10 @@ module.exports = {
   deleteUserDocOr404,
   listUserDocs,
   createUniqueDoc,
-  updateUserDoc,
+  updateUserDoc, // update with uniqueness checks
 
   // Storage - In-memory storage implementation and singleton instance
   // Provides both the class for custom instantiation and a ready-to-use singleton
   MemStorage,
-  storage
+  storage // shared singleton instance
 };

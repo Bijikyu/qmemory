@@ -4,7 +4,7 @@
  * Tests HTTP response helpers with mocked Express response objects.
  */
 
-const { sendNotFound } = require('../../lib/http-utils');
+const { sendNotFound } = require('../../lib/http-utils'); // function under test
 
 describe('HTTP Utils Module', () => { // Tests standardized HTTP response helpers
   let mockRes;
