@@ -5,7 +5,7 @@
  */
 
 // Import functions under test from utilities module
-const { greet, add, isEven } = require('../../lib/utils');
+const { greet, add, isEven } = require('../../lib/utils'); // load utilities under test
 
 describe('Utils module', () => { // Tests simple helper functions
   describe('greet function', () => { // String formatting utility

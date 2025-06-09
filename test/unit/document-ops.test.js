@@ -17,7 +17,7 @@ const {
   listUserDocs,
   createUniqueDoc,
   updateUserDoc
-} = require('../../lib/document-ops');
+} = require('../../lib/document-ops'); // document ops under test
 
 const { ensureUnique } = require('../../lib/database-utils');
 const { sendNotFound } = require('../../lib/http-utils');

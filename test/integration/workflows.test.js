@@ -7,18 +7,18 @@
 const mongoose = {
   connection: { readyState: 1 }
 };
-jest.doMock('mongoose', () => mongoose);
+jest.doMock('mongoose', () => mongoose); // ensure mock applied before imports
 
-const { 
-  storage, 
+const {
+  storage,
   MemStorage,
   sendNotFound,
   ensureMongoDB,
   ensureUnique
-} = require('../../index');
+} = require('../../index'); // load API for integration tests
 
 // Mock mongoose for database tests
-jest.mock('mongoose', () => ({
+jest.mock('mongoose', () => ({ // mock entire mongoose module
   connection: {
     readyState: 1 // Default to connected
   },

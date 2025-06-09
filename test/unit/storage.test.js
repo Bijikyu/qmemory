@@ -5,7 +5,7 @@
  * and internal state management.
  */
 
-const { MemStorage, storage } = require('../../lib/storage');
+const { MemStorage, storage } = require('../../lib/storage'); // load class and singleton
 
 describe('MemStorage Class', () => { // Tests behavior of the in-memory storage implementation
   let memStorage;
@@ -288,7 +288,7 @@ describe('Storage Singleton', () => {
     
     // Re-require the module to simulate different imports
     delete require.cache[require.resolve('../../lib/storage')];
-    const { storage: reimportedStorage } = require('../../lib/storage');
+    const { storage: reimportedStorage } = require('../../lib/storage'); // import again to verify singleton
     
     const found = await reimportedStorage.getUser(user.id);
     expect(found).toEqual(user);
