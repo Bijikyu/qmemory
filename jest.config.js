@@ -1,31 +1,38 @@
+/**
+ * Jest configuration
+ * Defines how tests are executed and how coverage is collected.
+ *
+ * Rationale: Centralizing test settings keeps the project consistent
+ * and makes it easy for developers to understand the testing strategy.
+ */
 module.exports = {
-  testEnvironment: 'node',
+  testEnvironment: 'node', // Use Node environment for server-side testing
   collectCoverageFrom: [
-    'lib/**/*.js',
-    'index.js',
-    '!**/node_modules/**'
+    'lib/**/*.js', // Include all library files for coverage metrics
+    'index.js',    // Include the main entry file in coverage
+    '!**/node_modules/**' // Exclude dependencies from coverage
   ],
   testMatch: [
-    '**/test/**/*.test.js'
+    '**/test/**/*.test.js' // Look for tests in any test folder
   ],
-  setupFilesAfterEnv: ['<rootDir>/test/setup.js'],
-  verbose: true,
-  clearMocks: true,
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
-  collectCoverage: true,
+  setupFilesAfterEnv: ['<rootDir>/test/setup.js'], // Reuse common test setup
+  verbose: true, // Show individual test results for clarity
+  clearMocks: true, // Reset mocks automatically between tests
+  coverageDirectory: 'coverage', // Output folder for coverage reports
+  coverageReporters: ['text', 'lcov', 'html'], // Formats for coverage output
+  collectCoverage: true, // Enable coverage collection
   coverageThreshold: {
     global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80
+      branches: 80,  // Require 80% branch coverage across project
+      functions: 80, // Require 80% function coverage
+      lines: 80,     // Require 80% line coverage
+      statements: 80 // Require 80% statement coverage
     }
   },
-  transform: {},
-  moduleFileExtensions: ['js', 'json'],
+  transform: {}, // No transformation needed for plain JS
+  moduleFileExtensions: ['js', 'json'], // Resolve only JS and JSON modules
   testPathIgnorePatterns: [
-    '<rootDir>/node_modules/'
+    '<rootDir>/node_modules/' // Ignore tests inside node_modules
   ],
-  errorOnDeprecated: true
+  errorOnDeprecated: true // Fail tests if deprecated APIs are used
 };

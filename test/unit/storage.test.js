@@ -35,8 +35,8 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
   describe('createUser', () => { // Validate user creation logic and field handling
     test('should create user with auto-generated ID', async () => {
       const insertUser = {
-        username: 'testuser',
-        displayName: 'Test User'
+        username: 'testuser', // Minimal required field
+        displayName: 'Test User' // Optional field included for completeness
       };
       
       const user = await memStorage.createUser(insertUser);
@@ -46,7 +46,7 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
         username: 'testuser',
         displayName: 'Test User',
         githubId: null,
-        avatar: null
+        avatar: null // Defaults should be null when not provided
       });
     });
 

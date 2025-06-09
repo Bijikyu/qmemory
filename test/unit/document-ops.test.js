@@ -267,7 +267,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
   describe('createUniqueDoc', () => { // Validates uniqueness check before creation
     test('should create document when unique', async () => {
       const fields = { title: 'New Doc', user: 'testuser' };
-      const uniqueQuery = { title: 'New Doc' };
+      const uniqueQuery = { title: 'New Doc' }; // Fields used for duplicate check
       const savedDoc = { _id: '123', ...fields };
 
       ensureUnique.mockResolvedValue(true);
