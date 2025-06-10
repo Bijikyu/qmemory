@@ -15,6 +15,8 @@ npm install qmemory
 - **HTTP Utilities**: Express.js response helpers for consistent API responses
 - **Database Utilities**: MongoDB connection validation and uniqueness checking
 - **In-Memory Storage**: Volatile user storage for development and testing environments
+- **Basic Utilities**: Common helper functions for string formatting, math, and validation
+- **Logging Utilities**: Centralized logging patterns for function entry, exit, and error tracking
 
 ## Usage
 
@@ -24,6 +26,9 @@ npm install qmemory
 const {
   // HTTP utilities
   sendNotFound,
+  sendConflict,
+  sendInternalServerError,
+  sendServiceUnavailable,
   
   // Database utilities
   ensureMongoDB,
@@ -40,7 +45,17 @@ const {
   
   // Storage
   MemStorage,
-  storage
+  storage,
+  
+  // Basic utilities
+  greet,
+  add,
+  isEven,
+  
+  // Logging utilities
+  logFunctionEntry,
+  logFunctionExit,
+  logFunctionError
 } = require('qmemory');
 ```
 
@@ -54,6 +69,27 @@ Sends a standardized 404 Not Found response.
 - `res` (Express Response): Express response object
 - `message` (string): Custom error message
 - **Usage**: `sendNotFound(res, 'User not found')`
+
+#### sendConflict(res, message)
+Sends a 409 Conflict response for duplicate resource attempts.
+
+- `res` (Express Response): Express response object
+- `message` (string): Custom conflict message
+- **Usage**: `sendConflict(res, 'Username already exists')`
+
+#### sendInternalServerError(res, message)
+Sends a 500 Internal Server Error response with logging.
+
+- `res` (Express Response): Express response object
+- `message` (string): Custom error message
+- **Usage**: `sendInternalServerError(res, 'Database operation failed')`
+
+#### sendServiceUnavailable(res, message)
+Sends a 503 Service Unavailable response for dependency failures.
+
+- `res` (Express Response): Express response object
+- `message` (string): Custom unavailable message
+- **Usage**: `sendServiceUnavailable(res, 'Database temporarily offline')`
 
 ### Database Utilities
 
@@ -200,46 +236,123 @@ const { storage } = require('qmemory');
 const user = await storage.createUser({ username: 'bob' });
 ```
 
+### Basic Utilities
+
+#### greet(name)
+Creates a greeting message with the provided name.
+
+```javascript
+const message = greet('Alice'); // Returns: "Hello, Alice!"
+```
+
+#### add(a, b)
+Adds two numbers together with type validation.
+
+```javascript
+const sum = add(5, 3); // Returns: 8
+const floatSum = add(2.5, 1.7); // Returns: 4.2
+```
+
+#### isEven(num)
+Checks if an integer is even.
+
+```javascript
+const result = isEven(4); // Returns: true
+const odd = isEven(7); // Returns: false
+```
+
+### Logging Utilities
+
+Environment-aware logging functions for consistent debugging and monitoring.
+
+#### logFunctionEntry(functionName, params)
+Logs function entry with parameters (development mode only).
+
+```javascript
+logFunctionEntry('createUser', { username: 'alice', displayName: 'Alice Smith' });
+// Output: [DEBUG] createUser started with username: alice, displayName: Alice Smith
+```
+
+#### logFunctionExit(functionName, result)
+Logs function completion with result (development mode only).
+
+```javascript
+logFunctionExit('createUser', user);
+// Output: [DEBUG] createUser completed with result: { id: 1, username: 'alice', ... }
+```
+
+#### logFunctionError(functionName, error)
+Logs function errors with context (all environments).
+
+```javascript
+logFunctionError('createUser', new Error('Database connection failed'));
+// Output: [ERROR] createUser failed: { message: 'Database connection failed', stack: '...', ... }
+```
+
 ## Example: Express Route with Document Operations
 
 ```javascript
 const express = require('express');
-const { ensureMongoDB, fetchUserDocOr404, createUniqueDoc } = require('qmemory');
+const { 
+  ensureMongoDB, 
+  fetchUserDocOr404, 
+  createUniqueDoc,
+  sendInternalServerError,
+  logFunctionEntry,
+  logFunctionExit,
+  logFunctionError
+} = require('qmemory');
 const BlogPost = require('./models/BlogPost'); // Your Mongoose model
 
 const app = express();
 
-// Get user's blog post
+// Get user's blog post with comprehensive error handling
 app.get('/posts/:id', async (req, res) => {
-  if (!ensureMongoDB(res)) return;
+  logFunctionEntry('getPost', { id: req.params.id, user: req.user?.username });
   
-  const post = await fetchUserDocOr404(
-    BlogPost, 
-    req.params.id, 
-    req.user.username, 
-    res, 
-    'Blog post not found'
-  );
-  
-  if (post) {
-    res.json(post);
+  try {
+    if (!ensureMongoDB(res)) return;
+    
+    const post = await fetchUserDocOr404(
+      BlogPost, 
+      req.params.id, 
+      req.user.username, 
+      res, 
+      'Blog post not found'
+    );
+    
+    if (post) {
+      logFunctionExit('getPost', 'success');
+      res.json(post);
+    }
+  } catch (error) {
+    logFunctionError('getPost', error);
+    sendInternalServerError(res, 'Failed to retrieve blog post');
   }
 });
 
-// Create new blog post
+// Create new blog post with uniqueness validation
 app.post('/posts', async (req, res) => {
-  if (!ensureMongoDB(res)) return;
+  logFunctionEntry('createPost', { title: req.body.title, user: req.user?.username });
   
-  const post = await createUniqueDoc(
-    BlogPost,
-    { ...req.body, user: req.user.username },
-    { title: req.body.title, user: req.user.username },
-    res,
-    'A post with this title already exists'
-  );
-  
-  if (post) {
-    res.status(201).json(post);
+  try {
+    if (!ensureMongoDB(res)) return;
+    
+    const post = await createUniqueDoc(
+      BlogPost,
+      { ...req.body, user: req.user.username },
+      { title: req.body.title, user: req.user.username },
+      res,
+      'A post with this title already exists'
+    );
+    
+    if (post) {
+      logFunctionExit('createPost', 'created');
+      res.status(201).json(post);
+    }
+  } catch (error) {
+    logFunctionError('createPost', error);
+    sendInternalServerError(res, 'Failed to create blog post');
   }
 });
 ```
@@ -249,12 +362,33 @@ app.post('/posts', async (req, res) => {
 - **Document Operations**: Use MongoDB indexes on `_id` and `user` fields for optimal performance
 - **MemStorage**: O(1) lookup by ID, O(n) lookup by username
 - **Uniqueness Checks**: Include indexed fields in uniqueness queries
+- **Logging**: Development-only logs reduce production overhead
 
 ## Development vs Production
 
 - **MemStorage**: Perfect for development and testing, but data is volatile
 - **Document Operations**: Production-ready with proper error handling and security
 - **Database Utilities**: Include connection resilience for cloud deployments
+- **Logging**: Automatically disabled in production environments for performance
+- **Error Handling**: Comprehensive error responses with appropriate HTTP status codes
+
+## Testing
+
+The library includes a comprehensive test suite with 148 tests covering:
+
+- Unit tests for all modules
+- Integration tests for workflows
+- Edge case testing with 95.79% code coverage
+- Error scenario validation
+- Performance testing for bulk operations
+
+Run tests:
+```bash
+npm test                # Run all tests
+npm run test:unit       # Run unit tests only  
+npm run test:coverage   # Run with coverage report
+npm run test:watch      # Watch mode for development
+```
 
 ## Dependencies
 
