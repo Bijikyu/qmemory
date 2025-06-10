@@ -179,10 +179,10 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       for (let i = 0; i < validEdgeCases.length; i++) {
         const user = await storage.createUser(validEdgeCases[i]);
         expect(user.id).toBe(i + 1);
-        expect(user.username).toBe(edgeCases[i].username);
+        expect(user.username).toBe(validEdgeCases[i].username);
 
         // Verify retrieval works
-        const retrieved = await storage.getUserByUsername(edgeCases[i].username);
+        const retrieved = await storage.getUserByUsername(validEdgeCases[i].username);
         expect(retrieved).toEqual(user);
       }
     });
@@ -237,7 +237,9 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
         if (!shouldPass) {
           expect(localMockRes.status).toHaveBeenCalledWith(status);
           expect(localMockRes.json).toHaveBeenCalledWith({
-            message: 'Database functionality unavailable'
+            message: 'Database functionality unavailable',
+            timestamp: expect.any(String),
+            retryAfter: '300'
           });
         } else {
           expect(localMockRes.status).not.toHaveBeenCalled();
@@ -274,7 +276,8 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       expect(duplicateResult).toBe(false);
       expect(mockRes.status).toHaveBeenCalledWith(409);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'User already exists'
+        message: 'User already exists',
+        timestamp: expect.any(String)
       });
     });
   });
@@ -332,7 +335,8 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       sendNotFound(mockRes, 'User not found');
       expect(mockRes.status).toHaveBeenCalledWith(404);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'User not found'
+        message: 'User not found',
+        timestamp: expect.any(String)
       });
     });
   });
