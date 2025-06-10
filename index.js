@@ -35,6 +35,8 @@ const {
   updateUserDoc // helper to update user documents safely
 } = require('./lib/document-ops'); // Higher level document handling utilities
 const { MemStorage, storage } = require('./lib/storage'); // in-memory storage class and singleton instance
+const { greet, add, isEven } = require('./lib/utils'); // basic utility functions for common operations
+const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -69,5 +71,17 @@ module.exports = {
   // Storage - In-memory storage implementation and singleton instance
   // Provides both the class for custom instantiation and a ready-to-use singleton
   MemStorage,
-  storage // shared singleton instance
+  storage, // shared singleton instance
+
+  // Basic utilities - Common helper functions for everyday operations
+  // Simple, reusable functions for string formatting, math, and data validation
+  greet,
+  add,
+  isEven,
+
+  // Logging utilities - Centralized logging patterns for consistent debugging
+  // Standardized logging functions for function entry, exit, and error tracking
+  logFunctionEntry,
+  logFunctionExit,
+  logFunctionError
 };
