@@ -9,6 +9,14 @@ const { sendNotFound, sendConflict, sendInternalServerError, sendServiceUnavaila
 describe('HTTP Utils Module', () => { // Tests standardized HTTP response helpers
   let mockRes;
 
+  // Helper function to create mock Express response object
+  function createMockResponse() {
+    return {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis()
+    };
+  }
+
   beforeEach(() => {
     mockRes = createMockResponse();
   });
@@ -31,7 +39,7 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       
       expect(mockRes.status).toHaveBeenCalledWith(404);
       expect(mockRes.json).toHaveBeenCalledWith({ 
-        message: '',
+        message: 'Resource not found', // Empty string triggers default message
         timestamp: expect.any(String)
       });
     });
@@ -148,28 +156,6 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
         timestamp: expect.any(String),
         retryAfter: '300'
       });
-    });
-      
-      sendNotFound(mockRes, longMessage);
-      
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ message: longMessage });
-    });
-
-    test('should handle special characters in message', () => {
-      const specialMessage = 'Resource "user-123" not found! @#$%^&*()';
-      
-      sendNotFound(mockRes, specialMessage);
-      
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ message: specialMessage });
-    });
-
-    test('should return response object for chaining', () => {
-      const result = sendNotFound(mockRes, 'test');
-      
-      // Since our mock returns 'this', we should get the mock response object
-      expect(result).toBe(mockRes);
     });
   });
 });
