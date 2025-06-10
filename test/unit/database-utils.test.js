@@ -57,6 +57,8 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       expect(result).toBe(true);
       expect(mockRes.status).not.toHaveBeenCalled();
       expect(mockRes.json).not.toHaveBeenCalled();
+      expect(console.log).toHaveBeenCalledWith('ensureMongoDB is running'); // verify start log
+      expect(console.log).toHaveBeenCalledWith('ensureMongoDB is returning true'); // verify return log
     });
 
     test('should return false and send 503 when database is disconnected', () => {

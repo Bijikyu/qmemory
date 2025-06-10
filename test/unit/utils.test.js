@@ -12,6 +12,8 @@ describe('Utils module', () => { // Tests simple helper functions
     test('should return greeting with provided name', () => {
       expect(greet('Alice')).toBe('Hello, Alice!');
       expect(greet('Bob')).toBe('Hello, Bob!');
+      expect(console.log).toHaveBeenCalledWith('greet is running with Alice'); // start log first call
+      expect(console.log).toHaveBeenCalledWith('greet is returning Hello, Alice!'); // return log first call
     }); // Verifies basic string interpolation logic
 
     test('should handle empty string', () => {

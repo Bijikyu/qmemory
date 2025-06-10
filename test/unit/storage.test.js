@@ -38,9 +38,9 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
         username: 'testuser', // Minimal required field
         displayName: 'Test User' // Optional field included for completeness
       };
-      
+
       const user = await memStorage.createUser(insertUser);
-      
+
       expect(user).toMatchObject({
         id: 1,
         username: 'testuser',
@@ -48,6 +48,8 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
         githubId: null,
         avatar: null // Defaults should be null when not provided
       });
+      expect(console.log).toHaveBeenCalledWith('MemStorage.createUser is running with username: testuser'); // start log
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('MemStorage.createUser is returning')); // return log
     });
 
     test('should increment ID for subsequent users', async () => {

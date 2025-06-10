@@ -100,6 +100,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
 
       expect(mockModel.findOne).toHaveBeenCalledWith({ _id: '123', user: 'testuser' });
       expect(result).toEqual(mockDoc);
+      expect(console.log).toHaveBeenCalledWith('findUserDoc is running with id: 123 user: testuser'); // start log
+      expect(console.log).toHaveBeenCalledWith('findUserDoc is returning result from performUserDocOp'); // return log
     });
 
     test('should return null when document not found', async () => {
