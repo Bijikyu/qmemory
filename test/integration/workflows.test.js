@@ -152,21 +152,32 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
         sendNotFound(localMockRes, message);
 
         expect(localMockRes.status).toHaveBeenCalledWith(404);
-        expect(localMockRes.json).toHaveBeenCalledWith({ message });
+        expect(localMockRes.json).toHaveBeenCalledWith({ 
+          message: message || 'Resource not found',
+          timestamp: expect.any(String)
+        });
       });
     });
 
     test('should handle storage edge cases', async () => {
-      // Test edge cases for user creation
-      const edgeCases = [
-        { username: '', displayName: 'Empty Username' },
-        { username: 'special!@#$%', displayName: 'Special Chars' },
-        { username: '123456', displayName: 'Numeric String' },
+      // Test edge cases for user creation - now with proper validation
+      const validEdgeCases = [
+        { username: 'special_chars', displayName: 'Special Chars' },
+        { username: 'numeric123', displayName: 'Numeric String' },
         { username: 'very_long_username_that_exceeds_normal_length_expectations' }
       ];
 
-      for (let i = 0; i < edgeCases.length; i++) {
-        const user = await storage.createUser(edgeCases[i]);
+      // Test invalid cases that should throw errors
+      await expect(storage.createUser({ username: '', displayName: 'Empty Username' }))
+        .rejects.toThrow('Username is required and must be a non-empty string');
+      await expect(storage.createUser({ username: '   ', displayName: 'Whitespace Username' }))
+        .rejects.toThrow('Username is required and must be a non-empty string');
+
+      // Clear storage before testing valid cases
+      await storage.clear();
+
+      for (let i = 0; i < validEdgeCases.length; i++) {
+        const user = await storage.createUser(validEdgeCases[i]);
         expect(user.id).toBe(i + 1);
         expect(user.username).toBe(edgeCases[i].username);
 

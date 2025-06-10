@@ -84,7 +84,8 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
 
     expect(mockRes.status).toHaveBeenCalledWith(404);
     expect(mockRes.json).toHaveBeenCalledWith({
-      message: 'Integration test message'
+      message: 'Integration test message',
+      timestamp: expect.any(String)
     });
   });
 
@@ -135,7 +136,10 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
     // Test with undefined/null values
     qmemory.sendNotFound(mockRes, null);
     expect(mockRes.status).toHaveBeenCalledWith(404);
-    expect(mockRes.json).toHaveBeenCalledWith({ message: null });
+    expect(mockRes.json).toHaveBeenCalledWith({ 
+      message: 'Resource not found',
+      timestamp: expect.any(String)
+    });
 
     // Test storage with edge cases
     await qmemory.storage.clear();

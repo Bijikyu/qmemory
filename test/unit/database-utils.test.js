@@ -68,7 +68,11 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
 
       expect(result).toBe(false);
       expect(mockRes.status).toHaveBeenCalledWith(503);
-      expect(mockRes.json).toHaveBeenCalledWith({ message: 'Database functionality unavailable' });
+      expect(mockRes.json).toHaveBeenCalledWith({ 
+        message: 'Database functionality unavailable',
+        timestamp: expect.any(String),
+        retryAfter: '300'
+      });
     });
 
     test('should return false and send 503 when database is connecting', () => {
@@ -96,7 +100,10 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
 
       expect(result).toBe(false);
       expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalledWith({ message: 'Error checking database connection' });
+      expect(mockRes.json).toHaveBeenCalledWith({ 
+        message: 'Error checking database connection',
+        timestamp: expect.any(String)
+      });
 
       // Reset to normal state
       Object.defineProperty(mongoose.connection, 'readyState', {
@@ -133,7 +140,10 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
 
       expect(result).toBe(false);
       expect(mockRes.status).toHaveBeenCalledWith(409);
-      expect(mockRes.json).toHaveBeenCalledWith({ message: 'Username already exists' });
+      expect(mockRes.json).toHaveBeenCalledWith({ 
+        message: 'Username already exists',
+        timestamp: expect.any(String)
+      });
     });
 
     test('should throw error when database query fails', async () => {
