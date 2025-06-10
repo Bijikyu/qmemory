@@ -12,9 +12,7 @@ describe('Utils module', () => { // Tests simple helper functions
     test('should return greeting with provided name', () => {
       expect(greet('Alice')).toBe('Hello, Alice!');
       expect(greet('Bob')).toBe('Hello, Bob!');
-      expect(console.log).toHaveBeenCalledWith('greet is running with Alice'); // start log first call
-      expect(console.log).toHaveBeenCalledWith('greet is returning Hello, Alice!'); // return log first call
-    }); // Verifies basic string interpolation logic
+    }); // Verifies basic string interpolation logic - now production-ready without logging
 
     test('should handle empty string', () => {
       expect(greet('')).toBe('Hello, !');
@@ -24,6 +22,13 @@ describe('Utils module', () => { // Tests simple helper functions
       expect(greet('María José')).toBe('Hello, María José!');
       expect(greet('123')).toBe('Hello, 123!');
     });
+
+    test('should handle non-string inputs with type conversion', () => {
+      expect(greet(123)).toBe('Hello, 123!');
+      expect(greet(null)).toBe('Hello, null!');
+      expect(greet(undefined)).toBe('Hello, undefined!');
+      expect(greet(true)).toBe('Hello, true!');
+    }); // Tests new input validation and conversion for production safety
   });
 
   describe('add function', () => { // Arithmetic addition helper
@@ -47,6 +52,13 @@ describe('Utils module', () => { // Tests simple helper functions
       expect(add(2.5, 3.7)).toBeCloseTo(6.2);
       expect(add(1.1, 2.2)).toBeCloseTo(3.3);
     });
+
+    test('should throw error for non-numeric inputs', () => {
+      expect(() => add('2', 3)).toThrow('Both parameters must be numbers for arithmetic operations');
+      expect(() => add(2, '3')).toThrow('Both parameters must be numbers for arithmetic operations');
+      expect(() => add(null, 3)).toThrow('Both parameters must be numbers for arithmetic operations');
+      expect(() => add(undefined, 3)).toThrow('Both parameters must be numbers for arithmetic operations');
+    }); // Tests new input validation for production safety
 
     test('should handle infinity', () => {
       expect(add(Infinity, 5)).toBe(Infinity);
@@ -77,10 +89,16 @@ describe('Utils module', () => { // Tests simple helper functions
       expect(isEven(-3)).toBe(false);
     });
 
-    test('should handle decimal numbers', () => {
+    test('should handle integer decimal numbers', () => {
       expect(isEven(2.0)).toBe(true);
       expect(isEven(3.0)).toBe(false);
-      expect(isEven(2.5)).toBe(false);
     });
+
+    test('should throw error for non-integer inputs', () => {
+      expect(() => isEven(2.5)).toThrow('Parameter must be an integer for even/odd calculation');
+      expect(() => isEven('2')).toThrow('Parameter must be an integer for even/odd calculation');
+      expect(() => isEven(null)).toThrow('Parameter must be an integer for even/odd calculation');
+      expect(() => isEven(undefined)).toThrow('Parameter must be an integer for even/odd calculation');
+    }); // Tests new input validation for production safety
   });
 });

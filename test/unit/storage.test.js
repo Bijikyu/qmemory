@@ -48,8 +48,6 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
         githubId: null,
         avatar: null // Defaults should be null when not provided
       });
-      expect(console.log).toHaveBeenCalledWith('MemStorage.createUser is running with username: testuser'); // start log
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('MemStorage.createUser is returning')); // return log
     });
 
     test('should increment ID for subsequent users', async () => {
@@ -105,6 +103,19 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
       expect(user.avatar).toBe(false);
     });
 
+    test('should throw error for invalid username', async () => {
+      await expect(memStorage.createUser(null)).rejects.toThrow('Username is required and must be a non-empty string');
+      await expect(memStorage.createUser({})).rejects.toThrow('Username is required and must be a non-empty string');
+      await expect(memStorage.createUser({ username: '' })).rejects.toThrow('Username is required and must be a non-empty string');
+      await expect(memStorage.createUser({ username: '   ' })).rejects.toThrow('Username is required and must be a non-empty string');
+      await expect(memStorage.createUser({ username: 123 })).rejects.toThrow('Username is required and must be a non-empty string');
+    }); // Tests new input validation for production safety
+
+    test('should throw error for duplicate username', async () => {
+      await memStorage.createUser({ username: 'testuser' });
+      await expect(memStorage.createUser({ username: 'testuser' })).rejects.toThrow("Username 'testuser' already exists");
+    }); // Tests new uniqueness validation for production safety
+
     test('should store user with all fields', async () => {
       const insertUser = {
         username: 'fulluser',
@@ -140,15 +151,13 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
     });
 
     test('should return undefined for invalid ID types', async () => {
-      const results = await Promise.all([
-        memStorage.getUser(null),
-        memStorage.getUser(undefined),
-        memStorage.getUser('string'),
-        memStorage.getUser({})
-      ]);
-      
-      results.forEach(result => expect(result).toBeUndefined());
-    });
+      expect(await memStorage.getUser(null)).toBeUndefined();
+      expect(await memStorage.getUser(undefined)).toBeUndefined();
+      expect(await memStorage.getUser('string')).toBeUndefined();
+      expect(await memStorage.getUser({})).toBeUndefined();
+      expect(await memStorage.getUser(0)).toBeUndefined(); // Zero not allowed
+      expect(await memStorage.getUser(-1)).toBeUndefined(); // Negative not allowed
+    }); // Tests new input validation for production safety
   });
 
   describe('getUserByUsername', () => { // Tests linear search by username
@@ -184,6 +193,21 @@ describe('MemStorage Class', () => { // Tests behavior of the in-memory storage 
       
       expect(found).toEqual(target);
     });
+
+    test('should return undefined for invalid username types', async () => {
+      expect(await memStorage.getUserByUsername(null)).toBeUndefined();
+      expect(await memStorage.getUserByUsername(undefined)).toBeUndefined();
+      expect(await memStorage.getUserByUsername('')).toBeUndefined();
+      expect(await memStorage.getUserByUsername('   ')).toBeUndefined();
+      expect(await memStorage.getUserByUsername(123)).toBeUndefined();
+    }); // Tests new input validation for production safety
+
+    test('should handle username trimming', async () => {
+      await memStorage.createUser({ username: 'trimtest' });
+      const found = await memStorage.getUserByUsername('  trimtest  ');
+      expect(found).toBeDefined();
+      expect(found.username).toBe('trimtest');
+    }); // Tests username normalization
   });
 
   describe('getAllUsers', () => { // Verify retrieval of all stored records
