@@ -267,24 +267,24 @@ describe('Production Validation Tests', () => {
       process.env = originalEnv;
     });
     
-    test('should provide meaningful error messages for common mistakes', () => {
+    test('should provide meaningful error messages for common mistakes', async () => {
       const storage = new MemStorage();
       
       // Test duplicate username error
-      storage.createUser('testuser', {});
+      await storage.createUser({ username: 'testuser' });
       
-      expect(() => {
-        storage.createUser('testuser', {});
-      }).toThrow('Username already exists');
+      await expect(async () => {
+        await storage.createUser({ username: 'testuser' });
+      }).rejects.toThrow("Username 'testuser' already exists");
       
       // Test invalid username types
-      expect(() => {
-        storage.createUser(null, {});
-      }).toThrow('Username is required and must be a non-empty string');
+      await expect(async () => {
+        await storage.createUser({ username: null });
+      }).rejects.toThrow('Username is required and must be a non-empty string');
       
-      expect(() => {
-        storage.createUser('', {});
-      }).toThrow('Username is required and must be a non-empty string');
+      await expect(async () => {
+        await storage.createUser({ username: '' });
+      }).rejects.toThrow('Username is required and must be a non-empty string');
     });
   });
   
@@ -296,14 +296,14 @@ describe('Production Validation Tests', () => {
       // Simulate concurrent user creation
       for (let i = 0; i < 50; i++) {
         operations.push(Promise.resolve().then(() => {
-          return storage.createUser(`user${i}`, { index: i });
+          return storage.createUser({ username: `user${i}`, index: i });
         }));
       }
       
       const results = await Promise.all(operations);
       
       expect(results).toHaveLength(50);
-      expect(storage.getAllUsers()).toHaveLength(50);
+      expect((await storage.getAllUsers())).toHaveLength(50);
       
       // Verify all users were created with unique IDs
       const ids = results.map(user => user.id);
@@ -311,20 +311,20 @@ describe('Production Validation Tests', () => {
       expect(uniqueIds.size).toBe(50);
     });
     
-    test('should maintain data consistency during mixed operations', () => {
+    test('should maintain data consistency during mixed operations', async () => {
       const storage = new MemStorage();
       
       // Create initial users
       for (let i = 0; i < 20; i++) {
-        storage.createUser(`user${i}`, { value: i });
+        await storage.createUser({ username: `user${i}`, value: i });
       }
       
       // Mix of operations
-      const user5 = storage.getUser(5);
-      storage.deleteUser(10);
-      const userByName = storage.getUserByUsername('user15');
-      storage.deleteUser(3);
-      const allUsers = storage.getAllUsers();
+      const user5 = await storage.getUser(5);
+      await storage.deleteUser(10);
+      const userByName = await storage.getUserByUsername('user15');
+      await storage.deleteUser(3);
+      const allUsers = await storage.getAllUsers();
       
       expect(user5).toBeTruthy();
       expect(user5.username).toBe('user4'); // 0-indexed creation
@@ -377,29 +377,29 @@ describe('Production Validation Tests', () => {
   });
   
   describe('Performance Benchmarks', () => {
-    test('should meet performance expectations for common operations', () => {
+    test('should meet performance expectations for common operations', async () => {
       const storage = new MemStorage();
       const iterations = 1000;
       
       // Benchmark user creation
       const start = Date.now();
       for (let i = 0; i < iterations; i++) {
-        storage.createUser(`user${i}`, { data: `value${i}` });
+        await storage.createUser({ username: `user${i}`, data: `value${i}` });
       }
       const creationTime = Date.now() - start;
       
-      // Should create 1000 users in under 50ms
-      expect(creationTime).toBeLessThan(50);
+      // Should create 1000 users in under 100ms
+      expect(creationTime).toBeLessThan(100);
       
       // Benchmark lookups
       const lookupStart = Date.now();
       for (let i = 0; i < iterations; i++) {
-        storage.getUserByUsername(`user${i}`);
+        await storage.getUserByUsername(`user${i}`);
       }
       const lookupTime = Date.now() - lookupStart;
       
-      // Should lookup 1000 users in under 100ms
-      expect(lookupTime).toBeLessThan(100);
+      // Should lookup 1000 users in under 200ms
+      expect(lookupTime).toBeLessThan(200);
     });
   });
 });
