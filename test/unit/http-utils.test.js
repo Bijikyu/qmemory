@@ -16,11 +16,13 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
   describe('sendNotFound function', () => { // Verify 404 helper behavior
     test('should send 404 status with custom message', () => {
       const message = 'User not found';
-      
+
       sendNotFound(mockRes, message);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(404);
       expect(mockRes.json).toHaveBeenCalledWith({ message });
+      expect(console.log).toHaveBeenCalledWith(`sendNotFound is running with ${message}`); // verify start log
+      expect(console.log).toHaveBeenCalledWith(`sendNotFound is returning response with message ${message}`); // verify return log
     });
 
     test('should handle empty message', () => {
