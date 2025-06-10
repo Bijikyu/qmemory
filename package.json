@@ -30,7 +30,7 @@
   "author": "Q",
   "license": "ISC",
   "dependencies": {
-    "@types/node": "^22.13.11",
+    "@types/node": "^22.15.31",
     "mongoose": "^8.15.1",
     "qtests": "^1.0.4"
   },
