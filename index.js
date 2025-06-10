@@ -32,7 +32,9 @@ const {
   deleteUserDocOr404,
   listUserDocs,
   createUniqueDoc,
-  updateUserDoc // helper to update user documents safely
+  updateUserDoc, // helper to update user documents safely
+  validateDocumentUniqueness, // helper for uniqueness validation
+  hasUniqueFieldChanges // helper for change detection
 } = require('./lib/document-ops'); // Higher level document handling utilities
 const { MemStorage, storage } = require('./lib/storage'); // in-memory storage class and singleton instance
 const { greet, add, isEven } = require('./lib/utils'); // basic utility functions for common operations
@@ -67,6 +69,8 @@ module.exports = {
   listUserDocs,
   createUniqueDoc,
   updateUserDoc, // update with uniqueness checks
+  validateDocumentUniqueness, // helper for uniqueness validation
+  hasUniqueFieldChanges, // helper for change detection
 
   // Storage - In-memory storage implementation and singleton instance
   // Provides both the class for custom instantiation and a ready-to-use singleton
