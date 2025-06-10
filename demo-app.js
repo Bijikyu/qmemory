@@ -1,6 +1,22 @@
 /**
  * QMemory Library Demo Application
  * Demonstrates core functionality with a simple Express.js API
+ * 
+ * This demo application showcases the practical usage of the qmemory library
+ * in a real Express.js server environment. It provides a complete REST API
+ * for user management operations using the library's utilities.
+ * 
+ * Design rationale:
+ * - Demonstrates library integration patterns for real applications
+ * - Shows proper error handling using library HTTP utilities
+ * - Provides working examples of all major library features
+ * - Serves as both documentation and functional testing platform
+ * 
+ * Architecture decisions:
+ * - Uses in-memory storage for simplicity and quick demonstration
+ * - Implements comprehensive logging for debugging and monitoring
+ * - Follows REST conventions for intuitive API design
+ * - Includes health checks for production readiness demonstration
  */
 
 const express = require('express');

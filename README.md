@@ -374,13 +374,21 @@ app.post('/posts', async (req, res) => {
 
 ## Testing
 
-The library includes a comprehensive test suite with 148 tests covering:
+The library includes a comprehensive test suite with 167 tests covering:
 
-- Unit tests for all modules
-- Integration tests for workflows
-- Edge case testing with 95.79% code coverage
-- Error scenario validation
-- Performance testing for bulk operations
+- Unit tests for all modules (7 test files)
+- Integration tests for workflows (2 test files)
+- Production validation scenarios (19 production tests)
+- Edge case testing with 95.87% code coverage
+- Error scenario validation and recovery testing
+- Performance testing for bulk operations and concurrent access
+- Memory management and cleanup validation
+
+**Coverage Metrics**:
+- Statement Coverage: 95.87%
+- Branch Coverage: 98.68%
+- Function Coverage: 100%
+- Line Coverage: 95.85%
 
 Run tests:
 ```bash
@@ -390,11 +398,45 @@ npm run test:coverage   # Run with coverage report
 npm run test:watch      # Watch mode for development
 ```
 
+## Production Deployment
+
+The library is production-ready with comprehensive deployment support:
+
+### Docker Deployment
+```bash
+# Using provided Docker configuration
+docker-compose up -d
+```
+
+### Environment Configuration
+```bash
+NODE_ENV=production
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/database
+PORT=3000
+```
+
+### Required MongoDB Indexes
+```javascript
+// Essential for production performance
+await collection.createIndex({ "username": 1, "createdAt": -1 });
+await collection.createIndex({ "username": 1, "title": 1 }, { unique: true });
+await collection.createIndex({ "username": 1, "updatedAt": -1 });
+```
+
+### Health Monitoring
+```javascript
+app.get('/health', (req, res) => {
+  if (ensureMongoDB(res)) {
+    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  }
+});
+```
+
 ## Dependencies
 
 - `mongoose`: Required for MongoDB operations
 - `@types/node`: TypeScript definitions
-- `qtests`: Testing utilities
+- `jest`: Testing framework
 
 ## License
 
