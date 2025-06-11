@@ -116,6 +116,12 @@ describe('MemStorage Class', () => { // tests behavior of the in-memory storage 
       await expect(memStorage.createUser({ username: 'testuser' })).rejects.toThrow("Username 'testuser' already exists");
     }); // Tests new uniqueness validation for production safety
 
+    test('should trim username and detect duplicates with spacing', async () => { // spaces should not avoid duplicate
+      const user = await memStorage.createUser({ username: ' user ' });
+      expect(user.username).toBe('user');
+      await expect(memStorage.createUser({ username: 'user' })).rejects.toThrow("Username 'user' already exists");
+    });
+
     test('should store user with all fields', async () => { // handles full payload
       const insertUser = {
         username: 'fulluser',

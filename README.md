@@ -179,7 +179,7 @@ const userStorage = new MemStorage();
 #### Storage Methods
 
 ##### createUser(insertUser)
-Creates a new user with auto-generated ID.
+Creates a new user with auto-generated ID. Usernames are automatically trimmed of leading and trailing whitespace.
 
 ```javascript
 const user = await storage.createUser({
