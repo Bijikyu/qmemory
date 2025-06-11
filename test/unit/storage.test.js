@@ -39,6 +39,18 @@ describe('MemStorage Class', () => { // tests behavior of the in-memory storage 
       const custom = new MemStorage(5);
       expect(custom.maxUsers).toBe(5);
     });
+
+    test('should throw error for non-integer maxUsers', () => { // enforce integer check
+      expect(() => new MemStorage(2.5)).toThrow('maxUsers must be a positive integer');
+    });
+
+    test('should throw error for non-positive maxUsers', () => { // enforce positive check
+      expect(() => new MemStorage(0)).toThrow('maxUsers must be a positive integer');
+    });
+
+    test('should throw error for non-numeric maxUsers', () => { // enforce type check
+      expect(() => new MemStorage('five')).toThrow('maxUsers must be a positive integer');
+    });
   });
 
   describe('createUser', () => { // validate user creation logic and field handling
