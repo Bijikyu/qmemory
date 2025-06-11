@@ -8,7 +8,6 @@
  */
 
 const {
-  createUserDoc,
   updateUserDoc,
   fetchUserDocOr404,
   deleteUserDocOr404,
@@ -26,7 +25,7 @@ const {
   greet,
   add,
   isEven
-} = require('../../index');
+} = require('../../index'); // createUserDoc import removed in favor of createUniqueDoc
 
 describe('Production Validation Tests', () => { // simulate production environment conditions
   

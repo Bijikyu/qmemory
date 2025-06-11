@@ -77,7 +77,7 @@ NODE_ENV=development
 
 ```javascript
 const { 
-  createUserDoc, 
+  createUniqueDoc, 
   findUserDoc, 
   sendNotFound, 
   MemStorage 
@@ -86,7 +86,7 @@ const {
 // Express.js route example
 app.post('/api/users/:username/documents', async (req, res) => {
   try {
-    const doc = await createUserDoc(
+    const doc = await createUniqueDoc(
       DocumentModel, 
       req.params.username, 
       req.body,
@@ -115,7 +115,7 @@ if (process.env.NODE_ENV === 'development') {
   const user = storage.createUser('testuser', { email: 'test@example.com' });
 } else {
   // Uses MongoDB document operations
-  const user = await createUserDoc(UserModel, 'testuser', { email: 'test@example.com' });
+  const user = await createUniqueDoc(UserModel, 'testuser', { email: 'test@example.com' });
 }
 ```
 
@@ -245,13 +245,13 @@ npm run test:coverage
 ```javascript
 // Test with real MongoDB connection
 const mongoose = require('mongoose');
-const { createUserDoc } = require('qmemory');
+const { createUniqueDoc } = require('qmemory');
 
 // Connect to test database
 await mongoose.connect(process.env.TEST_MONGODB_URI);
 
 // Run integration tests
-const doc = await createUserDoc(TestModel, 'testuser', { data: 'test' });
+const doc = await createUniqueDoc(TestModel, 'testuser', { data: 'test' });
 ```
 
 ## Troubleshooting
