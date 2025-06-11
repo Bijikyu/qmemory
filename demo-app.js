@@ -162,7 +162,10 @@ app.post('/users', async (req, res) => { // create a user for demo operations
 
 app.get('/users/:id', async (req, res) => { // fetch a single user by id
   try {
-    const id = parseInt(req.params.id); // parse id from path
+    const id = parseInt(req.params.id, 10); // parse as base-10 integer for clarity
+    if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id)) { // validate numeric input strictly
+      return sendBadRequest(res, 'User ID must be numeric'); // reject non-numeric IDs with 400
+    }
     const user = await storage.getUser(id); // await user fetch to ensure data
 
     if (!user) { // handle unknown id
@@ -178,7 +181,10 @@ app.get('/users/:id', async (req, res) => { // fetch a single user by id
 
 app.delete('/users/:id', async (req, res) => { // remove a user by id
   try {
-    const id = parseInt(req.params.id); // parse id safely
+    const id = parseInt(req.params.id, 10); // parse as base-10 integer for consistency
+    if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id)) { // enforce numeric id format
+      return sendBadRequest(res, 'User ID must be numeric'); // reject invalid ids with 400
+    }
     const deleted = await storage.deleteUser(id); // await deletion result
 
     if (!deleted) { // handle missing user

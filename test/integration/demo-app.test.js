@@ -96,6 +96,11 @@ describe('Demo App API', () => {
     expect(res.status).toBe(404);
   });
 
+  test('GET /users/:id returns 400 when id is not numeric', async () => {
+    const res = await agent.get('/users/xyz');
+    expect(res.status).toBe(400);
+  });
+
   test('DELETE /users/:id succeeds for existing user', async () => {
     const createRes = await agent.post('/users').send({ username: 'carol' });
     const id = createRes.body.data.id;
@@ -106,6 +111,11 @@ describe('Demo App API', () => {
   test('DELETE /users/:id returns 404 when missing', async () => {
     const res = await agent.delete('/users/9999');
     expect(res.status).toBe(404);
+  });
+
+  test('DELETE /users/:id returns 400 when id is not numeric', async () => {
+    const res = await agent.delete('/users/10abc');
+    expect(res.status).toBe(400);
   });
 
   test('POST /users/clear resets storage when not in production', async () => {
