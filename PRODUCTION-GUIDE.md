@@ -14,18 +14,17 @@ npm install qmemory
 
 ### Basic Usage
 ```javascript
-const { 
-  createUniqueDoc, 
-  fetchUserDocOr404, 
-  sendSuccess, 
+const {
+  createUniqueDoc,
+  fetchUserDocOr404,
   ensureMongoDB,
-  MemStorage 
+  MemStorage
 } = require('qmemory');
 
 // Express.js integration example
 app.get('/api/health', (req, res) => {
   if (ensureMongoDB(res)) {
-    sendSuccess(res, 'Service healthy');
+    res.status(200).json({ message: 'Service healthy' });
   }
 });
 ```
@@ -133,16 +132,16 @@ router.get('/documents/:id', async (req, res) => {
 
 ### HTTP Response Utilities
 ```javascript
-const { sendSuccess, sendBadRequest, sendInternalServerError } = require('qmemory');
+const { sendInternalServerError } = require('qmemory');
 
 // Standardized success responses
 app.post('/api/users', async (req, res) => {
   try {
     const user = await createUser(req.body);
-    sendSuccess(res, 'User created successfully', user);
+    res.status(201).json({ message: 'User created successfully', data: user });
   } catch (error) {
     if (error.code === 'VALIDATION_ERROR') {
-      sendBadRequest(res, error.message);
+      res.status(400).json({ message: error.message });
     } else {
       sendInternalServerError(res, 'Failed to create user');
     }
@@ -207,7 +206,7 @@ mongoose.connection.on('disconnected', () => {
 
 ### Health Check Endpoint
 ```javascript
-const { ensureMongoDB, sendSuccess, sendServiceUnavailable } = require('qmemory');
+const { ensureMongoDB, sendServiceUnavailable } = require('qmemory');
 
 app.get('/health', (req, res) => {
   const checks = {
@@ -218,7 +217,7 @@ app.get('/health', (req, res) => {
   };
   
   if (checks.database) {
-    sendSuccess(res, 'All systems operational', checks);
+    res.status(200).json({ message: 'All systems operational', data: checks });
   }
   // Database check already sent 503 response if failed
 });
@@ -282,7 +281,7 @@ app.post('/api/documents', [
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return sendBadRequest(res, 'Invalid input data');
+    return res.status(400).json({ message: 'Invalid input data' });
   }
   
   // Proceed with document creation
