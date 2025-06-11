@@ -35,6 +35,12 @@ beforeEach(async () => { // reset demo storage between tests
 });
 
 describe('Demo App API', () => {
+  test('GET / returns API index information', async () => {
+    const res = await agent.get('/');
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe('QMemory Library Demo');
+    expect(res.body.endpoints).toBeDefined();
+  });
   test('GET /health returns service status', async () => {
     const res = await agent.get('/health');
     expect(res.status).toBe(200);
@@ -58,6 +64,13 @@ describe('Demo App API', () => {
   test('POST /users fails validation when username missing', async () => {
     const res = await agent.post('/users').send({});
     expect(res.status).toBe(400);
+  });
+
+  test('creating a user twice returns 400 with duplicate message', async () => {
+    await agent.post('/users').send({ username: 'alice' });
+    const res = await agent.post('/users').send({ username: 'alice' });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/already exists/);
   });
 
   test('GET /users/:id succeeds for existing user', async () => {
@@ -91,5 +104,12 @@ describe('Demo App API', () => {
     expect(res.status).toBe(200);
     const list = await agent.get('/users');
     expect(list.body.data).toEqual([]);
+  });
+
+  test('/users/clear responds 400 in production', async () => {
+    process.env.NODE_ENV = 'production';
+    const res = await agent.post('/users/clear');
+    expect(res.status).toBe(400);
+    process.env.NODE_ENV = 'test';
   });
 });
