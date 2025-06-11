@@ -11,7 +11,7 @@ describe('MemStorage Class', () => { // tests behavior of the in-memory storage 
   let memStorage;
 
   beforeEach(() => {
-    memStorage = new MemStorage();
+    memStorage = new MemStorage(); // use default 10000 limit
   });
 
   describe('constructor', () => { // ensure initialization logic sets up state correctly
@@ -26,9 +26,18 @@ describe('MemStorage Class', () => { // tests behavior of the in-memory storage 
     test('should create independent instances', () => { // instances have separate maps
       const storage1 = new MemStorage();
       const storage2 = new MemStorage();
-      
+
       expect(storage1.users).not.toBe(storage2.users);
       expect(storage1.currentId).toBe(storage2.currentId);
+    });
+
+    test('should set default maxUsers to 10000', () => { // default limit check
+      expect(memStorage.maxUsers).toBe(10000);
+    });
+
+    test('should accept custom maxUsers', () => { // custom limit constructor
+      const custom = new MemStorage(5);
+      expect(custom.maxUsers).toBe(5);
     });
   });
 
@@ -139,6 +148,20 @@ describe('MemStorage Class', () => { // tests behavior of the in-memory storage 
         githubId: 'github123',
         avatar: 'https://example.com/avatar.jpg'
       });
+    });
+
+    test('should allow creating users up to the limit', async () => { // verify maxUsers boundary
+      const limited = new MemStorage(2);
+      await limited.createUser({ username: 'a' });
+      await limited.createUser({ username: 'b' });
+
+      expect(limited.users.size).toBe(2);
+    });
+
+    test('should throw error when exceeding maxUsers', async () => { // enforce limit reached
+      const limited = new MemStorage(1);
+      await limited.createUser({ username: 'first' });
+      await expect(limited.createUser({ username: 'second' })).rejects.toThrow('Maximum user limit reached');
     });
   });
 
