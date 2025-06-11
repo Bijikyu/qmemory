@@ -61,6 +61,16 @@ describe('Demo App API', () => {
     expect(res.body.data.id).toBeDefined();
   });
 
+  test('POST /users sanitizes malicious input', async () => {
+    const res = await agent
+      .post('/users')
+      .send({ username: ' <script>mallory</script> ', email: '<b>mallory@example.com</b>' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.username).toBe('mallory');
+    const list = await agent.get('/users');
+    expect(list.body.data[0].username).toBe('mallory');
+  });
+
   test('POST /users fails validation when username missing', async () => {
     const res = await agent.post('/users').send({});
     expect(res.status).toBe(400);
