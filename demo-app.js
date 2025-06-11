@@ -20,19 +20,41 @@
  */
 
 const express = require('express');
-const { 
+const {
   MemStorage,
-  sendSuccess,
-  sendBadRequest,
   sendNotFound,
   sendInternalServerError,
-  ensureMongoDB,
-  logInfo,
-  logError
+  ensureMongoDB
 } = require('./index');
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+// Local helper functions provide minimal implementations since the library
+// no longer exports these utilities
+function logInfo(...args) { console.log('[INFO]', ...args); } // unify info logging
+function logError(...args) { console.error('[ERROR]', ...args); } // unify error logging
+function sendSuccess(res, message, data) { // send standard 200 response
+  console.log(`sendSuccess is running with ${message}`); // trace call for debugging
+  try {
+    const payload = { message, timestamp: new Date().toISOString() };
+    if (data !== undefined) payload.data = data; // include optional data
+    res.status(200).json(payload);
+    console.log(`sendSuccess is returning ${JSON.stringify(payload)}`); // confirm output
+  } catch (error) {
+    console.error('sendSuccess failed', error); // log failure path
+  }
+}
+function sendBadRequest(res, message) { // send standard 400 response
+  console.log(`sendBadRequest is running with ${message}`); // trace call for debugging
+  try {
+    const payload = { message, timestamp: new Date().toISOString() };
+    res.status(400).json(payload);
+    console.log('sendBadRequest has run resulting in a final value of 400'); // confirm completion
+  } catch (error) {
+    console.error('sendBadRequest failed', error); // log failure path
+  }
+}
 
 // Middleware
 app.use(express.json()); // body parser for JSON payloads, ensures consistent req.body
