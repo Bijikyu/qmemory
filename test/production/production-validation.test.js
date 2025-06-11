@@ -218,9 +218,9 @@ describe('Production Validation Tests', () => { // simulate production environme
     
     test('should properly validate types in production scenarios', () => { // invalid input cases
       // Test add function with invalid inputs
-      expect(() => add('5', 3)).toThrow('Both parameters must be numbers');
-      expect(() => add(5, null)).toThrow('Both parameters must be numbers');
-      expect(() => add(undefined, 5)).toThrow('Both parameters must be numbers');
+      expect(() => add('5', 3)).toThrow('Both parameters must be numbers for arithmetic operations'); // adjust to match utility error message
+      expect(() => add(5, null)).toThrow('Both parameters must be numbers for arithmetic operations'); // reflect full error text from add implementation
+      expect(() => add(undefined, 5)).toThrow('Both parameters must be numbers for arithmetic operations'); // maintain test fidelity with utils.js
       
       // Test isEven with invalid inputs
       expect(() => isEven(3.14)).toThrow('Parameter must be an integer');
