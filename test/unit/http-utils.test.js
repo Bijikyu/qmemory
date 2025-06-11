@@ -70,12 +70,30 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
 
     test('should handle long message', () => { // supports verbose errors
       const longMessage = 'A very long error message that describes exactly what went wrong in great detail';
-      
+
       sendNotFound(mockRes, longMessage);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
+      expect(mockRes.json).toHaveBeenCalledWith({
         message: longMessage,
+        timestamp: expect.any(String)
+      });
+    });
+
+    test('should provide default message for non-string values', () => { // ensures fallback when message is not string
+      sendNotFound(mockRes, 123);
+
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Resource not found',
+        timestamp: expect.any(String)
+      });
+
+      sendNotFound(mockRes, { error: 'not string' });
+
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Resource not found',
         timestamp: expect.any(String)
       });
     });
@@ -98,7 +116,17 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       sendConflict(mockRes, null);
       
       expect(mockRes.status).toHaveBeenCalledWith(409);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Resource conflict',
+        timestamp: expect.any(String)
+      });
+    });
+
+    test('should provide default message for non-string values', () => { // ensures fallback when message is not string
+      sendConflict(mockRes, true);
+
+      expect(mockRes.status).toHaveBeenCalledWith(409);
+      expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Resource conflict',
         timestamp: expect.any(String)
       });
@@ -126,7 +154,17 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       sendInternalServerError(mockRes, null);
       
       expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Internal server error',
+        timestamp: expect.any(String)
+      });
+    });
+
+    test('should provide default message for non-string values', () => { // ensures fallback when message is not string
+      sendInternalServerError(mockRes, 500);
+
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Internal server error',
         timestamp: expect.any(String)
       });
@@ -151,7 +189,18 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       sendServiceUnavailable(mockRes, null);
       
       expect(mockRes.status).toHaveBeenCalledWith(503);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Service temporarily unavailable',
+        timestamp: expect.any(String),
+        retryAfter: '300'
+      });
+    });
+
+    test('should provide default message for non-string values', () => { // ensures fallback when message is not string
+      sendServiceUnavailable(mockRes, false);
+
+      expect(mockRes.status).toHaveBeenCalledWith(503);
+      expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Service temporarily unavailable',
         timestamp: expect.any(String),
         retryAfter: '300'
