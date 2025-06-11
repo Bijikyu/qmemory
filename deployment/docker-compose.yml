@@ -1,36 +1,36 @@
-version: '3.8'
+version: '3.8' # docker compose specification version
 
 services:
   app:
-    build: .
+    build: . # build app Docker image from local Dockerfile
     ports:
-      - "3000:3000"
+      - "3000:3000" # map host port to container port
     environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongo:27017/qmemory
-      - PORT=3000
+      - NODE_ENV=production # run in production mode
+      - MONGODB_URI=mongodb://mongo:27017/qmemory # database connection
+      - PORT=3000 # app listening port
     depends_on:
-      - mongo
-    restart: unless-stopped
+      - mongo # wait for database container
+    restart: unless-stopped # keep app running if it crashes
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"] # call health endpoint
+      interval: 30s # run check every 30s
+      timeout: 10s # fail if response takes longer than 10s
+      retries: 3 # mark container unhealthy after 3 failures
+      start_period: 40s # allow app 40s to start before checks
 
   mongo:
-    image: mongo:6.0
+    image: mongo:6.0 # official MongoDB image version 6
     ports:
-      - "27017:27017"
+      - "27017:27017" # expose database port on host
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=password
-      - MONGO_INITDB_DATABASE=qmemory
+      - MONGO_INITDB_ROOT_USERNAME=admin # admin user for initialization
+      - MONGO_INITDB_ROOT_PASSWORD=password # admin password
+      - MONGO_INITDB_DATABASE=qmemory # default database for the app
     volumes:
-      - mongo_data:/data/db
-      - ./deployment/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-    restart: unless-stopped
+      - mongo_data:/data/db # persist database data
+      - ./deployment/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro # seed database indexes
+    restart: unless-stopped # keep mongo running if it crashes
 
 volumes:
-  mongo_data:
+  mongo_data: # named volume for persistent database storage
