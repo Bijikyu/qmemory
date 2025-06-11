@@ -18,7 +18,7 @@ AI agents working with this codebase should understand these operational boundar
 
 **Database Operations**: All document functions automatically enforce user ownership constraints. Agents should never attempt to bypass these by modifying core library functions. When implementing new document operations, follow the established pattern of including username parameters in all queries.
 
-**Testing Strategy**: The library uses Jest with specific coverage thresholds (80% minimum). Production validation tests simulate real-world scenarios including concurrent access, high-volume operations, and error recovery. Agents should maintain this testing philosophy when adding new functionality.
+**Testing Strategy**: The library uses Jest. Production validation tests simulate real-world scenarios including concurrent access, high-volume operations, and error recovery. Agents should maintain this testing philosophy when adding new functionality.
 
 **Environment Behavior**: The library adapts behavior based on NODE_ENV. Development mode enables additional logging and test data creation, while production mode implements stricter security measures. Agents should preserve this environment-aware behavior pattern.
 
@@ -78,7 +78,6 @@ AI agents working with this codebase should understand these operational boundar
 **Performance Standards:**
 - Document operations must complete within 10ms average response time
 - Memory storage operations must complete within 1ms average response time
-- Test suite must maintain 95%+ code coverage
 - Production validation tests must pass all concurrent access scenarios
 
 **Development Workflow:**
