@@ -56,6 +56,18 @@ function sendBadRequest(res, message) { // send standard 400 response
   }
 }
 
+function sanitizeInput(str) { // remove spaces and html tags to mitigate xss
+  console.log(`sanitizeInput is running with ${str}`); // trace sanitizer use
+  try {
+    const value = typeof str === 'string' ? str.trim().replace(/<[^>]*>/g, '') : '';
+    console.log(`sanitizeInput is returning ${value}`); // confirm sanitized result
+    return value;
+  } catch (error) {
+    console.error('sanitizeInput failed', error); // log sanitizer errors
+    return '';
+  }
+}
+
 // Middleware
 app.use(express.json()); // body parser for JSON payloads, ensures consistent req.body
 app.use(express.static('public')); // serve static files for documentation and example assets
@@ -128,13 +140,15 @@ app.get('/users', async (req, res) => { // list all stored users for testing pur
 app.post('/users', async (req, res) => { // create a user for demo operations
   try {
     const { username, email } = req.body; // destructure posted credentials
+    const safeName = sanitizeInput(username); // sanitize inputs to prevent XSS and maintain consistent storage
+    const safeEmail = sanitizeInput(email); // sanitize optional email field
 
-    if (!username || typeof username !== 'string') { // verify name field quickly
+    if (!safeName) { // ensure sanitized username exists
       return sendBadRequest(res, 'Username is required and must be a string');
     }
 
-    const user = await storage.createUser({ username, email }); // delegate to storage API
-    logInfo(`Created user: ${username}`); // record creation event for auditing
+    const user = await storage.createUser({ username: safeName, email: safeEmail }); // store sanitized values
+    logInfo(`Created user: ${safeName}`); // record creation event for auditing
     sendSuccess(res, 'User created successfully', user);
   } catch (error) {
     if (error.message.includes('already exists')) {
