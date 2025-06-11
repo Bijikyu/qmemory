@@ -44,48 +44,48 @@ const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/l
 // This barrel export pattern provides a single import point for consumers
 // while maintaining internal organization. Each category is grouped logically
 // to help consumers understand the available functionality at a glance.
-module.exports = {
-  // HTTP utilities - Express.js response helpers
+module.exports = { // re-exposes modules so consumers import from one place
+  // HTTP utilities - Express.js response helpers re-exposed from http-utils
   // Centralized HTTP response handling reduces duplication across controllers
-  sendNotFound,
-  sendConflict, // 409 conflict helper
-  sendInternalServerError, // 500 response helper
-  sendServiceUnavailable, // 503 response helper
+  sendNotFound, // 404 response helper re-exported for convenience
+  sendConflict, // 409 conflict helper re-exported for barrel pattern
+  sendInternalServerError, // 500 response helper re-exported for consistency
+  sendServiceUnavailable, // 503 response helper re-exported for unified API
 
-  // Database utilities - MongoDB connection and validation helpers
+  // Database utilities - MongoDB connection and validation helpers re-exposed from database-utils
   // These functions provide robust database interaction patterns with proper error handling
-  ensureMongoDB,
-  ensureUnique, // duplicate check helper
+  ensureMongoDB, // initializes MongoDB connection for consumers
+  ensureUnique, // duplicate check helper re-exported for unified API
 
-  // Document operations - High-level document manipulation utilities
+  // Document operations - High-level document manipulation utilities re-exposed from document-ops
   // These encapsulate common CRUD patterns for user-owned documents,
   // reducing boilerplate in application controllers and ensuring consistent behavior
-  performUserDocOp,
-  findUserDoc,
-  deleteUserDoc,
-  userDocActionOr404,
-  fetchUserDocOr404,
-  deleteUserDocOr404,
-  listUserDocs,
-  createUniqueDoc,
-  updateUserDoc, // update with uniqueness checks
-  validateDocumentUniqueness, // helper for uniqueness validation
-  hasUniqueFieldChanges, // helper for change detection
+  performUserDocOp, // wrapper for generic document operations
+  findUserDoc, // fetches a document scoped to the current user
+  deleteUserDoc, // removes a user owned document safely
+  userDocActionOr404, // triggers action or returns 404 if not found
+  fetchUserDocOr404, // retrieves a document or fails with 404
+  deleteUserDocOr404, // deletes a document or fails with 404
+  listUserDocs, // lists documents for a specific user
+  createUniqueDoc, // creates a document enforcing unique fields
+  updateUserDoc, // update with uniqueness checks re-exported for convenience
+  validateDocumentUniqueness, // helper for uniqueness validation re-exported
+  hasUniqueFieldChanges, // helper for change detection re-exported
 
-  // Storage - In-memory storage implementation and singleton instance
+  // Storage - In-memory storage implementation and singleton instance re-exposed from storage module
   // Provides both the class for custom instantiation and a ready-to-use singleton
-  MemStorage,
-  storage, // shared singleton instance
+  MemStorage, // storage class allowing separate instances
+  storage, // shared singleton instance re-exported for convenience
 
-  // Basic utilities - Common helper functions for everyday operations
+  // Basic utilities - Common helper functions for everyday operations re-exposed from utils
   // Simple, reusable functions for string formatting, math, and data validation
-  greet,
-  add,
-  isEven,
+  greet, // generates a greeting string
+  add, // performs simple integer addition
+  isEven, // checks numeric parity
 
-  // Logging utilities - Centralized logging patterns for consistent debugging
+  // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
-  logFunctionEntry,
-  logFunctionExit,
-  logFunctionError
+  logFunctionEntry, // logs when a function begins execution
+  logFunctionExit, // logs when a function completes execution
+  logFunctionError // logs errors with context
 };
