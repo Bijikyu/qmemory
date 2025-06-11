@@ -74,13 +74,14 @@ app.use((req, res, next) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => { // returns service status to support uptime monitoring
+app.get('/health', async (req, res) => { // returns service status to support uptime monitoring
   try {
+    const userCount = (await storage.getAllUsers()).length; // await to get accurate user total
     const health = {
       status: 'healthy', // simple status message used by monitoring tools
       uptime: process.uptime(), // uptime info provides quick readiness metric
       memory: process.memoryUsage(), // snapshot of memory usage for debugging
-      userCount: storage.getAllUsers().length, // confirm storage interaction
+      userCount, // confirm storage interaction
       timestamp: new Date().toISOString()
     };
     sendSuccess(res, 'Service is healthy', health); // send standardized success
@@ -114,9 +115,9 @@ app.get('/', (req, res) => { // basic API index for manual exploration
 });
 
 // User management endpoints
-app.get('/users', (req, res) => { // list all stored users for testing purposes
+app.get('/users', async (req, res) => { // list all stored users for testing purposes
   try {
-    const users = storage.getAllUsers(); // retrieval uses in-memory store API
+    const users = await storage.getAllUsers(); // await promise to get user array reliably
     sendSuccess(res, `Found ${users.length} users`, users);
   } catch (error) {
     logError('Failed to fetch users', error); // log ensures visibility in dev
@@ -145,10 +146,10 @@ app.post('/users', async (req, res) => { // create a user for demo operations
   }
 });
 
-app.get('/users/:id', (req, res) => { // fetch a single user by id
+app.get('/users/:id', async (req, res) => { // fetch a single user by id
   try {
     const id = parseInt(req.params.id); // parse id from path
-    const user = storage.getUser(id); // retrieve user
+    const user = await storage.getUser(id); // await user fetch to ensure data
 
     if (!user) { // handle unknown id
       return sendNotFound(res, 'User not found');
@@ -161,10 +162,10 @@ app.get('/users/:id', (req, res) => { // fetch a single user by id
   }
 });
 
-app.delete('/users/:id', (req, res) => { // remove a user by id
+app.delete('/users/:id', async (req, res) => { // remove a user by id
   try {
     const id = parseInt(req.params.id); // parse id safely
-    const deleted = storage.deleteUser(id); // attempt deletion from storage
+    const deleted = await storage.deleteUser(id); // await deletion result
 
     if (!deleted) { // handle missing user
       return sendNotFound(res, 'User not found');
@@ -178,13 +179,13 @@ app.delete('/users/:id', (req, res) => { // remove a user by id
   }
 });
 
-app.post('/users/clear', (req, res) => { // wipe storage when testing
+app.post('/users/clear', async (req, res) => { // wipe storage when testing
   if (process.env.NODE_ENV === 'production') {
     return sendBadRequest(res, 'Clear operation not allowed in production'); // protect production data
   }
 
   try {
-    storage.clear(); // reset all demo data
+    await storage.clear(); // await to ensure cleanup completes
     logInfo('Cleared all users'); // log maintenance activity
     sendSuccess(res, 'All users cleared successfully');
   } catch (error) {
@@ -208,25 +209,33 @@ app.use((req, res) => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logInfo('SIGTERM received, shutting down gracefully'); // ensure container stops correctly
-  server.close(() => {
-    logInfo('Server closed'); // confirm server closed before exiting
-    process.exit(0);
-  });
-});
-
-// Start server
-const server = app.listen(port, '0.0.0.0', () => {
-  logInfo(`QMemory Demo App listening on port ${port}`); // startup info for operator awareness
-  logInfo('Environment:', process.env.NODE_ENV || 'development'); // clarify running mode
-
-  // Create some sample data in development
-  if (process.env.NODE_ENV !== 'production') { // avoid polluting production DB
-    storage.createUser({ username: 'demo', email: 'demo@example.com' })
-      .then(() => logInfo('Created demo user'))
-      .catch(err => logError('Failed to create demo user:', err));
+process.on('SIGTERM', () => { // capture container shutdown event for graceful exit
+  logInfo('SIGTERM received, shutting down gracefully'); // log exit request for operators
+  if (server) { // only close when server was started to prevent undefined errors
+    server.close(() => { // close server to release port before process exits
+      logInfo('Server closed'); // confirm server has been closed for reliability
+      process.exit(0); // exit after server shutdown
+    });
+  } else { // handle case where server was never started (e.g. in tests)
+    process.exit(0); // exit immediately without server cleanup
   }
 });
 
-module.exports = app;
+
+let server; // holds HTTP server instance when started manually or via CLI
+if (require.main === module) { // start server only when running this file directly
+  server = app.listen(port, '0.0.0.0', () => { // bind to all interfaces for demo usage
+    logInfo(`QMemory Demo App listening on port ${port}`); // log startup details for monitoring
+    logInfo('Environment:', process.env.NODE_ENV || 'development'); // log running mode for clarity
+
+    // Create some sample data in development
+    if (process.env.NODE_ENV !== 'production') { // avoid polluting production DB
+      storage.createUser({ username: 'demo', email: 'demo@example.com' })
+        .then(() => logInfo('Created demo user'))
+        .catch(err => logError('Failed to create demo user:', err));
+    }
+  });
+}
+
+module.exports = { app, server }; // export server for tests and app for external usage
+
