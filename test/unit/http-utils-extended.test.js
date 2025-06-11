@@ -5,7 +5,7 @@
 
 const { sendNotFound, sendConflict, sendInternalServerError, sendServiceUnavailable } = require('../../lib/http-utils');
 
-describe('HTTP Utils Extended Coverage', () => {
+describe('HTTP Utils Extended Coverage', () => { // covers additional edge cases
   let mockRes;
   let consoleSpy;
   let errorSpy;
@@ -27,8 +27,8 @@ describe('HTTP Utils Extended Coverage', () => {
     warnSpy.mockRestore();
   });
 
-  describe('sendInternalServerError edge cases', () => {
-    it('should log error with stack trace', () => {
+  describe('sendInternalServerError edge cases', () => { // test unusual error inputs
+    it('should log error with stack trace', () => { // ensures stack is logged
       sendInternalServerError(mockRes, 'Critical system failure');
       
       expect(errorSpy).toHaveBeenCalledWith(
@@ -40,7 +40,7 @@ describe('HTTP Utils Extended Coverage', () => {
       );
     });
 
-    it('should handle very long error messages', () => {
+    it('should handle very long error messages', () => { // supports large payloads
       const longMessage = 'A'.repeat(1000);
       
       sendInternalServerError(mockRes, longMessage);
@@ -52,7 +52,7 @@ describe('HTTP Utils Extended Coverage', () => {
       });
     });
 
-    it('should handle error messages with special characters', () => {
+    it('should handle error messages with special characters', () => { // handles unicode text
       const specialMessage = 'Error with "quotes" and \'apostrophes\' and émojis 🚨';
       
       sendInternalServerError(mockRes, specialMessage);
@@ -64,8 +64,8 @@ describe('HTTP Utils Extended Coverage', () => {
     });
   });
 
-  describe('sendServiceUnavailable edge cases', () => {
-    it('should log warning with timestamp', () => {
+  describe('sendServiceUnavailable edge cases', () => { // test retries and warnings
+    it('should log warning with timestamp', () => { // verifies warn path
       sendServiceUnavailable(mockRes, 'Database temporarily offline');
       
       expect(warnSpy).toHaveBeenCalledWith(
@@ -76,7 +76,7 @@ describe('HTTP Utils Extended Coverage', () => {
       );
     });
 
-    it('should include retryAfter hint in response', () => {
+    it('should include retryAfter hint in response', () => { // ensures hint in body
       sendServiceUnavailable(mockRes, 'Redis cache unavailable');
       
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -86,7 +86,7 @@ describe('HTTP Utils Extended Coverage', () => {
       });
     });
 
-    it('should handle null message properly', () => {
+    it('should handle null message properly', () => { // null should use default
       sendServiceUnavailable(mockRes, null);
       
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -97,20 +97,20 @@ describe('HTTP Utils Extended Coverage', () => {
     });
   });
 
-  describe('Response object validation edge cases', () => {
-    it('should throw error when response object is null', () => {
+  describe('Response object validation edge cases', () => { // ensure invalid res objects throw
+    it('should throw error when response object is null', () => { // validation for null res
       expect(() => {
         sendNotFound(null, 'Test message');
       }).toThrow('Invalid Express response object provided');
     });
 
-    it('should throw error when response object is undefined', () => {
+    it('should throw error when response object is undefined', () => { // validation for undefined res
       expect(() => {
         sendConflict(undefined, 'Test message');
       }).toThrow('Invalid Express response object provided');
     });
 
-    it('should throw error when status method is missing', () => {
+    it('should throw error when status method is missing', () => { // ensures missing status fails
       const invalidRes = { json: jest.fn() };
       
       expect(() => {
@@ -118,7 +118,7 @@ describe('HTTP Utils Extended Coverage', () => {
       }).toThrow('Invalid Express response object provided');
     });
 
-    it('should throw error when json method is missing', () => {
+    it('should throw error when json method is missing', () => { // ensures missing json fails
       const invalidRes = { status: jest.fn().mockReturnThis() };
       
       expect(() => {
@@ -126,7 +126,7 @@ describe('HTTP Utils Extended Coverage', () => {
       }).toThrow('Invalid Express response object provided');
     });
 
-    it('should throw error when status is not a function', () => {
+    it('should throw error when status is not a function', () => { // rejects invalid status type
       const invalidRes = { status: 'not a function', json: jest.fn() };
       
       expect(() => {
@@ -134,7 +134,7 @@ describe('HTTP Utils Extended Coverage', () => {
       }).toThrow('Invalid Express response object provided');
     });
 
-    it('should throw error when json is not a function', () => {
+    it('should throw error when json is not a function', () => { // rejects invalid json type
       const invalidRes = { status: jest.fn().mockReturnThis(), json: 'not a function' };
       
       expect(() => {
@@ -143,8 +143,8 @@ describe('HTTP Utils Extended Coverage', () => {
     });
   });
 
-  describe('Message handling edge cases', () => {
-    it('should handle whitespace-only messages', () => {
+  describe('Message handling edge cases', () => { // test unusual message formats
+    it('should handle whitespace-only messages', () => { // whitespace should be treated empty
       sendNotFound(mockRes, '   ');
       
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -153,7 +153,7 @@ describe('HTTP Utils Extended Coverage', () => {
       });
     });
 
-    it('should handle empty string messages', () => {
+    it('should handle empty string messages', () => { // empty string uses default
       sendConflict(mockRes, '');
       
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -162,7 +162,7 @@ describe('HTTP Utils Extended Coverage', () => {
       });
     });
 
-    it('should trim leading and trailing whitespace', () => {
+    it('should trim leading and trailing whitespace', () => { // message normalization
       sendInternalServerError(mockRes, '  Error message  ');
       
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -171,7 +171,7 @@ describe('HTTP Utils Extended Coverage', () => {
       });
     });
 
-    it('should handle messages with internal whitespace', () => {
+    it('should handle messages with internal whitespace', () => { // internal spaces preserved
       sendServiceUnavailable(mockRes, 'Service  temporarily   unavailable');
       
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -182,8 +182,8 @@ describe('HTTP Utils Extended Coverage', () => {
     });
   });
 
-  describe('Timestamp validation', () => {
-    it('should include valid ISO timestamp in all responses', () => {
+  describe('Timestamp validation', () => { // verify timestamps
+    it('should include valid ISO timestamp in all responses', () => { // timestamp format assertion
       const beforeTime = new Date().toISOString();
       
       sendNotFound(mockRes, 'Test');
@@ -197,14 +197,14 @@ describe('HTTP Utils Extended Coverage', () => {
     });
   });
 
-  describe('Method chaining', () => {
-    it('should support method chaining by returning response object', () => {
+  describe('Method chaining', () => { // ensure utils return res for chaining
+    it('should support method chaining by returning response object', () => { // ensures chainability
       const result = sendNotFound(mockRes, 'Test');
       
       expect(result).toBe(mockRes);
     });
 
-    it('should maintain chainability for all HTTP utils', () => {
+    it('should maintain chainability for all HTTP utils', () => { // verify all helpers chain
       expect(sendConflict(mockRes, 'Test')).toBe(mockRes);
       expect(sendInternalServerError(mockRes, 'Test')).toBe(mockRes);
       expect(sendServiceUnavailable(mockRes, 'Test')).toBe(mockRes);

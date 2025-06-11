@@ -21,8 +21,8 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
     mockRes = createMockResponse();
   });
 
-  describe('sendNotFound function', () => { // Verify 404 helper behavior
-    test('should send 404 status with custom message', () => {
+  describe('sendNotFound function', () => { // verify 404 helper behavior
+    test('should send 404 status with custom message', () => { // returns message to client
       const message = 'User not found';
 
       sendNotFound(mockRes, message);
@@ -34,7 +34,7 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       });
     }); // Tests production-ready response format with timestamp
 
-    test('should handle empty message with default', () => {
+    test('should handle empty message with default', () => { // covers blank input edge case
       sendNotFound(mockRes, '');
       
       expect(mockRes.status).toHaveBeenCalledWith(404);
@@ -44,7 +44,7 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       });
     });
 
-    test('should provide default message for null/undefined', () => {
+    test('should provide default message for null/undefined', () => { // nullish should fallback
       sendNotFound(mockRes, null);
       
       expect(mockRes.status).toHaveBeenCalledWith(404);
@@ -62,13 +62,13 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       });
     }); // Tests new default message fallback for production safety
 
-    test('should throw error for invalid response object', () => {
+    test('should throw error for invalid response object', () => { // validates res object shape
       expect(() => sendNotFound(null, 'test')).toThrow('Invalid Express response object provided');
       expect(() => sendNotFound({}, 'test')).toThrow('Invalid Express response object provided');
       expect(() => sendNotFound({ status: 'not a function' }, 'test')).toThrow('Invalid Express response object provided');
     }); // Tests new input validation for production safety
 
-    test('should handle long message', () => {
+    test('should handle long message', () => { // supports verbose errors
       const longMessage = 'A very long error message that describes exactly what went wrong in great detail';
       
       sendNotFound(mockRes, longMessage);
@@ -81,8 +81,8 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
     });
   });
 
-  describe('sendConflict function', () => { // Test 409 conflict responses
-    test('should send 409 status with custom message', () => {
+  describe('sendConflict function', () => { // test 409 conflict responses
+    test('should send 409 status with custom message', () => { // sends provided conflict text
       const message = 'Username already exists';
 
       sendConflict(mockRes, message);
@@ -94,7 +94,7 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       });
     });
 
-    test('should provide default message for null/undefined', () => {
+    test('should provide default message for null/undefined', () => { // ensures fallback on empty
       sendConflict(mockRes, null);
       
       expect(mockRes.status).toHaveBeenCalledWith(409);
@@ -104,13 +104,13 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       });
     });
 
-    test('should throw error for invalid response object', () => {
+    test('should throw error for invalid response object', () => { // checks validation of res
       expect(() => sendConflict(null, 'test')).toThrow('Invalid Express response object provided');
     });
   });
 
-  describe('sendInternalServerError function', () => { // Test 500 error responses
-    test('should send 500 status with custom message and log error', () => {
+  describe('sendInternalServerError function', () => { // test 500 error responses
+    test('should send 500 status with custom message and log error', () => { // ensures error details returned
       const message = 'Database connection failed';
 
       sendInternalServerError(mockRes, message);
@@ -122,7 +122,7 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       });
     });
 
-    test('should provide default message for null/undefined', () => {
+    test('should provide default message for null/undefined', () => { // default message path
       sendInternalServerError(mockRes, null);
       
       expect(mockRes.status).toHaveBeenCalledWith(500);
@@ -133,8 +133,8 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
     });
   });
 
-  describe('sendServiceUnavailable function', () => { // Test 503 service unavailable responses
-    test('should send 503 status with custom message and retry hint', () => {
+  describe('sendServiceUnavailable function', () => { // test 503 service unavailable responses
+    test('should send 503 status with custom message and retry hint', () => { // includes retryAfter hint
       const message = 'Database temporarily unavailable';
 
       sendServiceUnavailable(mockRes, message);
@@ -147,7 +147,7 @@ describe('HTTP Utils Module', () => { // Tests standardized HTTP response helper
       });
     });
 
-    test('should provide default message for null/undefined', () => {
+    test('should provide default message for null/undefined', () => { // handles nullish input
       sendServiceUnavailable(mockRes, null);
       
       expect(mockRes.status).toHaveBeenCalledWith(503);

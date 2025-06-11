@@ -32,7 +32,7 @@ jest.mock('mongoose', () => ({ // mock entire mongoose module
   }
 }));
 
-describe('Critical Workflows Integration', () => { // Simulates end-to-end module interactions
+describe('Critical Workflows Integration', () => { // simulates end-to-end module interactions
   let storage;
   let mockRes;
 
@@ -51,8 +51,8 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
     require('mongoose').connection.readyState = 1; // also reset on imported module
   });
 
-  describe('User Management Workflow', () => {
-    test('should handle complete user lifecycle', async () => {
+  describe('User Management Workflow', () => { // manage users through full lifecycle
+    test('should handle complete user lifecycle', async () => { // create, fetch and delete flow
       // Create user
       const newUser = await storage.createUser({
         username: 'lifecycle_user',
@@ -98,7 +98,7 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       expect(emptyList).toHaveLength(0);
     });
 
-    test('should handle multiple users independently', async () => {
+    test('should handle multiple users independently', async () => { // verify parallel data sets
       // Create multiple users
       const users = [];
       for (let i = 1; i <= 5; i++) {
@@ -133,8 +133,8 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
     });
   });
 
-  describe('Error Handling Workflow', () => {
-    test('should handle HTTP error responses consistently', () => {
+  describe('Error Handling Workflow', () => { // ensure consistent error messaging
+    test('should handle HTTP error responses consistently', () => { // verifies helpers for various texts
       const errorMessages = [
         'User not found',
         'Document does not exist',
@@ -159,7 +159,7 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       });
     });
 
-    test('should handle storage edge cases', async () => {
+    test('should handle storage edge cases', async () => { // unusual usernames
       // Test edge cases for user creation - now with proper validation
       const validEdgeCases = [
         { username: 'special_chars', displayName: 'Special Chars' },
@@ -187,7 +187,7 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       }
     });
 
-    test('should handle concurrent operations', async () => {
+    test('should handle concurrent operations', async () => { // stress concurrency
       // Simulate concurrent user creation
       const createPromises = [];
       for (let i = 1; i <= 10; i++) {
@@ -212,8 +212,8 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
     });
   });
 
-  describe('Database Integration Workflow', () => {
-    test('should validate database connectivity states', () => {
+  describe('Database Integration Workflow', () => { // MongoDB state and uniqueness paths
+    test('should validate database connectivity states', () => { // checks each readyState case
       const mongoose = require('mongoose');
 
       // Test different connection states
@@ -247,7 +247,7 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       });
     });
 
-    test('should handle uniqueness validation workflow', async () => {
+    test('should handle uniqueness validation workflow', async () => { // ensures duplicate detection
       const mockModel = {
         findOne: jest.fn()
       };
@@ -282,8 +282,8 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
     });
   });
 
-  describe('Full Stack Workflow Simulation', () => {
-    test('should simulate complete API request workflow', async () => {
+  describe('Full Stack Workflow Simulation', () => { // simulate API request lifecycle
+    test('should simulate complete API request workflow', async () => { // happy path sequence
       // Simulate the full workflow of an API request
 
       // 1. Check database connectivity
@@ -315,7 +315,7 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
       expect(afterCleanup).toBeUndefined();
     });
 
-    test('should handle error scenarios in full workflow', async () => {
+    test('should handle error scenarios in full workflow', async () => { // covers db down and not found
       // Simulate database unavailable
       const mongoose = require('mongoose');
       mongoose.connection.readyState = 0; // Disconnected
@@ -341,8 +341,8 @@ describe('Critical Workflows Integration', () => { // Simulates end-to-end modul
     });
   });
 
-  describe('Performance and Load Testing', () => {
-    test('should handle bulk operations efficiently', async () => {
+  describe('Performance and Load Testing', () => { // ensures scaling performance
+    test('should handle bulk operations efficiently', async () => { // measure high volume actions
       const startTime = Date.now();
 
       // Create 1000 users

@@ -38,9 +38,9 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
     require('mongoose').connection.readyState = 1; // also reset on imported module
   });
 
-  describe('ensureMongoDB function', () => {
+  describe('ensureMongoDB function', () => { // validates connection state handling
 
-    test('should return true when database is connected', () => {
+    test('should return true when database is connected', () => { // ensures connected state passes
       // Reset mock before test
       jest.resetModules();
 
@@ -61,7 +61,7 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       expect(console.log).toHaveBeenCalledWith('ensureMongoDB is returning true'); // verify return log
     });
 
-    test('should return false and send 503 when database is disconnected', () => {
+    test('should return false and send 503 when database is disconnected', () => { // verifies 503 when DB down
       mongoose.connection = { readyState: 0 };
 
       const result = ensureMongoDB(mockRes);
@@ -75,7 +75,7 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       });
     });
 
-    test('should return false and send 503 when database is connecting', () => {
+    test('should return false and send 503 when database is connecting', () => { // tests pending connection state
       mongoose.connection = { readyState: 2 };
 
       const result = ensureMongoDB(mockRes);
@@ -84,7 +84,7 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       expect(mockRes.status).toHaveBeenCalledWith(503);
     });
 
-    test('should handle connection state check errors', () => {
+    test('should handle connection state check errors', () => { // covers unexpected getter errors
       // Simulate an error after initial log access
       let callCount = 0; //(track readyState accesses)
       Object.defineProperty(mongoose.connection, 'readyState', {
@@ -114,7 +114,7 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
     });
   });
 
-  describe('ensureUnique function', () => { // Test duplicate checking helper
+  describe('ensureUnique function', () => { // test duplicate validation logic
     let mockModel;
 
     beforeEach(() => {
@@ -123,7 +123,7 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       };
     });
 
-    test('should return true when no duplicate is found', async () => {
+    test('should return true when no duplicate is found', async () => { // ensures unique query passes
       mockModel.findOne.mockResolvedValue(null);
 
       const result = await ensureUnique(mockModel, { username: 'test' }, mockRes, 'Duplicate found');
@@ -133,7 +133,7 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    test('should return false and send 409 when duplicate is found', async () => {
+    test('should return false and send 409 when duplicate is found', async () => { // returns conflict on match
       mockModel.findOne.mockResolvedValue({ id: 1, username: 'test' });
 
       const result = await ensureUnique(mockModel, { username: 'test' }, mockRes, 'Username already exists');
@@ -146,7 +146,7 @@ describe('Database Utils module', () => { // Tests MongoDB connection and unique
       });
     });
 
-    test('should throw error when database query fails', async () => {
+    test('should throw error when database query fails', async () => { // covers rejection scenario
       const dbError = new Error('Database connection failed');
       mockModel.findOne.mockRejectedValue(dbError);
 

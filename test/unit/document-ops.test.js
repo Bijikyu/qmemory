@@ -53,8 +53,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     jest.clearAllMocks();
   });
 
-  describe('performUserDocOp', () => { // Wrapper function behavior
-    test('should execute operation callback and return result', async () => {
+  describe('performUserDocOp', () => { // wrapper handles generic operation errors
+    test('should execute operation callback and return result', async () => { // verifies successful callback flow
       const mockDoc = { _id: '123', user: 'testuser', title: 'Test Doc' };
       const mockCallback = jest.fn().mockResolvedValue(mockDoc);
 
@@ -64,7 +64,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toEqual(mockDoc);
     });
 
-    test('should return null for CastError (invalid ObjectId)', async () => {
+    test('should return null for CastError (invalid ObjectId)', async () => { // handles invalid id gracefully
       const castError = new mongoose.Error.CastError('Invalid ObjectId', 'invalid', '_id');
       const mockCallback = jest.fn().mockRejectedValue(castError);
 
@@ -73,7 +73,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toBeNull();
     });
 
-    test('should re-throw non-CastError errors', async () => {
+    test('should re-throw non-CastError errors', async () => { // ensures unexpected errors bubble
       const otherError = new Error('Database connection failed');
       const mockCallback = jest.fn().mockRejectedValue(otherError);
 
@@ -82,7 +82,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       ).rejects.toThrow('Database connection failed');
     });
 
-    test('should handle null result from operation', async () => {
+    test('should handle null result from operation', async () => { // supports callbacks returning null
       const mockCallback = jest.fn().mockResolvedValue(null);
 
       const result = await performUserDocOp(mockModel, '123', 'testuser', mockCallback);
@@ -91,8 +91,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('findUserDoc', () => { // Tests ownership-safe retrieval
-    test('should find document by ID and user', async () => {
+  describe('findUserDoc', () => { // ensures find respects user ownership
+    test('should find document by ID and user', async () => { // basic success path
       const mockDoc = { _id: '123', user: 'testuser', title: 'Test Doc' };
       mockModel.findOne.mockResolvedValue(mockDoc);
 
@@ -104,7 +104,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(console.log).toHaveBeenCalledWith('findUserDoc is returning result from performUserDocOp'); // return log
     });
 
-    test('should return null when document not found', async () => {
+    test('should return null when document not found', async () => { // returns null on missing doc
       mockModel.findOne.mockResolvedValue(null);
 
       const result = await findUserDoc(mockModel, '123', 'testuser');
@@ -112,7 +112,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toBeNull();
     });
 
-    test('should handle invalid ObjectId gracefully', async () => {
+    test('should handle invalid ObjectId gracefully', async () => { // covers casting failure
       // performUserDocOp returns undefined when no callback is provided in this mock scenario
       const result = await findUserDoc(mockModel, 'invalid', 'testuser');
 
@@ -120,8 +120,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('deleteUserDoc', () => { // Tests secure deletion workflow
-    test('should delete document by ID and user', async () => {
+  describe('deleteUserDoc', () => { // tests ownership-aware delete
+    test('should delete document by ID and user', async () => { // verifies successful remove
       const mockDoc = { _id: '123', user: 'testuser', title: 'Test Doc' };
       mockModel.findOneAndDelete.mockResolvedValue(mockDoc);
 
@@ -131,7 +131,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toEqual(mockDoc);
     });
 
-    test('should return null when document not found for deletion', async () => {
+    test('should return null when document not found for deletion', async () => { // returns null if nothing deleted
       mockModel.findOneAndDelete.mockResolvedValue(null);
 
       const result = await deleteUserDoc(mockModel, '123', 'testuser');
@@ -140,8 +140,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('userDocActionOr404', () => { // Ensures helper correctly sends 404 responses
-    test('should return document when action succeeds', async () => {
+  describe('userDocActionOr404', () => { // wraps actions to send 404 when needed
+    test('should return document when action succeeds', async () => { // returns doc on success
       const mockDoc = { _id: '123', user: 'testuser' };
       const mockAction = jest.fn().mockResolvedValue(mockDoc);
 
@@ -153,7 +153,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(sendNotFound).not.toHaveBeenCalled();
     });
 
-    test('should send 404 when action returns null', async () => {
+    test('should send 404 when action returns null', async () => { // ensures not found branch
       const mockAction = jest.fn().mockResolvedValue(null);
 
       const result = await userDocActionOr404(
@@ -164,7 +164,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(sendNotFound).toHaveBeenCalledWith(mockRes, 'Document not found');
     });
 
-    test('should re-throw errors from action', async () => {
+    test('should re-throw errors from action', async () => { // bubbles unexpected errors
       const mockAction = jest.fn().mockRejectedValue(new Error('Database error'));
 
       await expect(
@@ -173,8 +173,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('fetchUserDocOr404', () => { // Tests retrieval helper with 404 fallback
-    test('should return document when found', async () => {
+  describe('fetchUserDocOr404', () => { // fetches doc or sends 404
+    test('should return document when found', async () => { // success path returns doc
       const mockDoc = { _id: '123', user: 'testuser' };
       mockModel.findOne.mockResolvedValue(mockDoc);
 
@@ -186,7 +186,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(sendNotFound).not.toHaveBeenCalled();
     });
 
-    test('should send 404 when document not found', async () => {
+    test('should send 404 when document not found', async () => { // ensures 404 for missing doc
       mockModel.findOne.mockResolvedValue(null);
 
       const result = await fetchUserDocOr404(
@@ -198,8 +198,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('deleteUserDocOr404', () => { // Tests deletion helper with 404 fallback
-    test('should return deleted document when found', async () => {
+  describe('deleteUserDocOr404', () => { // deletes or sends 404
+    test('should return deleted document when found', async () => { // success deletion path
       const mockDoc = { _id: '123', user: 'testuser' };
       mockModel.findOneAndDelete.mockResolvedValue(mockDoc);
 
@@ -211,7 +211,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(sendNotFound).not.toHaveBeenCalled();
     });
 
-    test('should send 404 when document not found for deletion', async () => {
+    test('should send 404 when document not found for deletion', async () => { // ensures 404 on missing delete
       mockModel.findOneAndDelete.mockResolvedValue(null);
 
       const result = await deleteUserDocOr404(
@@ -223,8 +223,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('listUserDocs', () => { // Checks listing with sorting and empty cases
-    test('should return all user documents with sorting', async () => {
+  describe('listUserDocs', () => { // lists docs with optional sort
+    test('should return all user documents with sorting', async () => { // verifies sort capability
       const mockDocs = [
         { _id: '1', user: 'testuser', title: 'Doc 1' },
         { _id: '2', user: 'testuser', title: 'Doc 2' }
@@ -242,7 +242,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toEqual(mockDocs);
     });
 
-    test('should return empty array when no documents found', async () => {
+    test('should return empty array when no documents found', async () => { // handles no results case
       mockModel.find.mockReturnValue({
         sort: jest.fn().mockResolvedValue([])
       });
@@ -252,7 +252,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toEqual([]);
     });
 
-    test('should handle null sort parameter', async () => {
+    test('should handle null sort parameter', async () => { // works when sort omitted
       const mockDocs = [{ _id: '1', user: 'testuser' }];
 
       mockModel.find.mockReturnValue({
@@ -266,8 +266,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('createUniqueDoc', () => { // Validates uniqueness check before creation
-    test('should create document when unique', async () => {
+  describe('createUniqueDoc', () => { // creates doc only if fields unique
+    test('should create document when unique', async () => { // successful creation path
       const fields = { title: 'New Doc', user: 'testuser' };
       const uniqueQuery = { title: 'New Doc' }; // Fields used for duplicate check
       const savedDoc = { _id: '123', ...fields };
@@ -290,7 +290,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toEqual(savedDoc);
     });
 
-    test('should return undefined when duplicate exists', async () => {
+    test('should return undefined when duplicate exists', async () => { // prevents duplicate insert
       const fields = { title: 'Duplicate Doc', user: 'testuser' };
       const uniqueQuery = { title: 'Duplicate Doc' };
 
@@ -306,7 +306,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toBeUndefined();
     });
 
-    test('should re-throw database errors', async () => {
+    test('should re-throw database errors', async () => { // ensures DB errors surface
       const fields = { title: 'Error Doc', user: 'testuser' };
       const uniqueQuery = { title: 'Error Doc' };
 
@@ -323,7 +323,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
     });
   });
 
-  describe('updateUserDoc', () => { // Covers complex update scenarios with ownership and uniqueness
+  describe('updateUserDoc', () => { // updates while enforcing ownership and uniqueness
     let mockDocInstance;
 
     beforeEach(() => {
@@ -336,7 +336,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       mockModel.findById.mockResolvedValue(mockDoc);
     });
 
-    test('should update document when found and unique', async () => {
+    test('should update document when found and unique', async () => { // successful update with unique fields
       const fieldsToUpdate = { title: 'Updated Title' };
       const uniqueQuery = { title: 'Updated Title' };
 
@@ -360,7 +360,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result.title).toBe('Updated Title');
     });
 
-    test('should return undefined when document not found', async () => {
+    test('should return undefined when document not found', async () => { // handles missing doc case
       mockModel.findOne.mockResolvedValue(null);
 
       const result = await updateUserDoc(
@@ -371,7 +371,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(sendNotFound).toHaveBeenCalled();
     });
 
-    test('should return undefined when uniqueness check fails', async () => {
+    test('should return undefined when uniqueness check fails', async () => { // prevents update on duplicate title
       const fieldsToUpdate = { title: 'Duplicate Title' };
       const uniqueQuery = { title: 'Duplicate Title' };
 
@@ -386,7 +386,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(mockDocInstance.save).not.toHaveBeenCalled();
     });
 
-    test('should skip uniqueness check when unique fields not changing', async () => {
+    test('should skip uniqueness check when unique fields not changing', async () => { // avoids unnecessary check
       const fieldsToUpdate = { description: 'New description' };
       const uniqueQuery = { title: 'Original Title' }; // Title not changing
 
@@ -405,7 +405,7 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(result).toBeDefined();
     });
 
-    test('should handle update without uniqueness constraint', async () => {
+    test('should handle update without uniqueness constraint', async () => { // supports updates with no unique fields
       const fieldsToUpdate = { description: 'New description' };
 
       mockModel.findOne.mockResolvedValue(mockDocInstance);
