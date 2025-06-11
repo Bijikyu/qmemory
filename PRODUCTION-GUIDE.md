@@ -137,7 +137,7 @@ const { sendInternalServerError } = require('qmemory');
 // Standardized success responses
 app.post('/api/users', async (req, res) => {
   try {
-    const user = await createUser(req.body);
+    const user = await storage.createUser(req.body); // use the memory storage instance for user creation
     res.status(201).json({ message: 'User created successfully', data: user });
   } catch (error) {
     if (error.code === 'VALIDATION_ERROR') {
