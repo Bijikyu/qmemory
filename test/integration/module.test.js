@@ -8,7 +8,7 @@
 const qmemory = require('../../index'); // import library entry point
 
 describe('QMemory Module Integration', () => { // Ensures exported API works together
-  test('should export all expected functions and classes', () => {
+  test('should export all expected functions and classes', () => { // verifies public API surface
     // HTTP utilities
     expect(typeof qmemory.sendNotFound).toBe('function');
 
@@ -33,7 +33,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
     expect(qmemory.storage.constructor.name).toBe('MemStorage');
   });
 
-  test('should provide working storage singleton', async () => {
+  test('should provide working storage singleton', async () => { // tests basic CRUD on singleton
     // Clear any existing data
     await qmemory.storage.clear();
 
@@ -56,7 +56,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
     expect(notFound).toBeUndefined();
   });
 
-  test('should allow multiple MemStorage instances', async () => {
+  test('should allow multiple MemStorage instances', async () => { // instances operate independently
     const storage1 = new qmemory.MemStorage();
     const storage2 = new qmemory.MemStorage();
 
@@ -74,7 +74,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
     expect(fromStorage2.username).toBe('user2');
   });
 
-  test('should provide consistent HTTP response helpers', () => {
+  test('should provide consistent HTTP response helpers', () => { // ensure helper output
     const mockRes = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis()
@@ -89,7 +89,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
     });
   });
 
-  test('should handle cross-module interactions', async () => {
+  test('should handle cross-module interactions', async () => { // modules work together
     // Test that HTTP utils work with storage operations
     const mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -113,7 +113,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
     expect(mockRes.status).toHaveBeenCalledWith(404);
   });
 
-  test('should maintain singleton state across multiple imports', async () => {
+  test('should maintain singleton state across multiple imports', async () => { // reimport uses same instance
     await qmemory.storage.clear();
     
     // Create user with singleton
@@ -130,7 +130,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
     expect(found).toEqual(user);
   });
 
-  test('should handle error scenarios gracefully', async () => {
+  test('should handle error scenarios gracefully', async () => { // covers null/edge data
     const mockRes = createMockResponse();
     
     // Test with undefined/null values

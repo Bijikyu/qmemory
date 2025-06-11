@@ -28,9 +28,9 @@ const {
   isEven
 } = require('../../index');
 
-describe('Production Validation Tests', () => {
+describe('Production Validation Tests', () => { // simulate production environment conditions
   
-  describe('Environment Detection', () => {
+  describe('Environment Detection', () => { // check NODE_ENV behavior
     let originalEnv;
     
     beforeEach(() => {
@@ -41,7 +41,7 @@ describe('Production Validation Tests', () => {
       process.env.NODE_ENV = originalEnv;
     });
     
-    test('should adapt logging behavior based on NODE_ENV', () => {
+    test('should adapt logging behavior based on NODE_ENV', () => { // logging depends on environment
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       
       // Test development logging
@@ -59,7 +59,7 @@ describe('Production Validation Tests', () => {
       consoleSpy.mockRestore();
     });
     
-    test('should handle undefined NODE_ENV gracefully', () => {
+    test('should handle undefined NODE_ENV gracefully', () => { // unset env should not crash
       delete process.env.NODE_ENV;
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       
@@ -71,7 +71,7 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('HTTP Response Edge Cases', () => {
+  describe('HTTP Response Edge Cases', () => { // test unusual message inputs
     let mockRes;
     
     beforeEach(() => {
@@ -81,7 +81,7 @@ describe('Production Validation Tests', () => {
       };
     });
     
-    test('should handle extremely long error messages', () => {
+    test('should handle extremely long error messages', () => { // ensures long strings safe
       const longMessage = 'Error: ' + 'x'.repeat(10000);
       
       expect(() => {
@@ -95,7 +95,7 @@ describe('Production Validation Tests', () => {
       });
     });
     
-    test('should handle special characters in error messages', () => {
+    test('should handle special characters in error messages', () => { // non-ascii characters
       const specialMessage = 'Error with üñîçödé and "quotes" and <tags>';
       
       sendNotFound(mockRes, specialMessage);
@@ -106,7 +106,7 @@ describe('Production Validation Tests', () => {
       });
     });
     
-    test('should handle concurrent response calls', () => {
+    test('should handle concurrent response calls', () => { // repeated rapid calls
       // Simulate rapid consecutive calls
       for (let i = 0; i < 100; i++) {
         sendNotFound(mockRes, `Message ${i}`);
@@ -116,7 +116,7 @@ describe('Production Validation Tests', () => {
       expect(mockRes.json).toHaveBeenCalledTimes(100);
     });
     
-    test('should include retry headers for service unavailable', () => {
+    test('should include retry headers for service unavailable', () => { // check retryAfter field
       sendServiceUnavailable(mockRes, 'Database temporarily down');
       
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -127,14 +127,14 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('Memory Storage Production Scenarios', () => {
+  describe('Memory Storage Production Scenarios', () => { // large dataset operations
     let memStorage;
     
     beforeEach(() => {
       memStorage = new MemStorage();
     });
     
-    test('should handle high-volume user creation', async () => {
+    test('should handle high-volume user creation', async () => { // stress creation speed
       const users = [];
       
       // Create 1000 users rapidly
@@ -156,7 +156,7 @@ describe('Production Validation Tests', () => {
       });
     });
     
-    test('should maintain performance with large user base', async () => {
+    test('should maintain performance with large user base', async () => { // check lookup speed
       // Create large user base
       for (let i = 0; i < 5000; i++) {
         await memStorage.createUser({
@@ -177,7 +177,7 @@ describe('Production Validation Tests', () => {
       expect(duration).toBeLessThan(200); // Should complete in under 200ms
     });
     
-    test('should handle memory cleanup operations', async () => {
+    test('should handle memory cleanup operations', async () => { // verify cleanup functions
       // Fill storage
       for (let i = 0; i < 1000; i++) {
         await memStorage.createUser({
@@ -200,8 +200,8 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('Input Validation Edge Cases', () => {
-    test('should handle boundary value inputs in utility functions', () => {
+  describe('Input Validation Edge Cases', () => { // boundary inputs for utils
+    test('should handle boundary value inputs in utility functions', () => { // boundary tests for add/isEven
       // Test number boundaries
       expect(add(Number.MAX_SAFE_INTEGER, 0)).toBe(Number.MAX_SAFE_INTEGER);
       expect(add(Number.MIN_SAFE_INTEGER, 0)).toBe(Number.MIN_SAFE_INTEGER);
@@ -217,7 +217,7 @@ describe('Production Validation Tests', () => {
       expect(greet(null)).toBe('Hello, null!');
     });
     
-    test('should properly validate types in production scenarios', () => {
+    test('should properly validate types in production scenarios', () => { // invalid input cases
       // Test add function with invalid inputs
       expect(() => add('5', 3)).toThrow('Both parameters must be numbers');
       expect(() => add(5, null)).toThrow('Both parameters must be numbers');
@@ -230,8 +230,8 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('Error Propagation and Recovery', () => {
-    test('should handle malformed Express response objects', () => {
+  describe('Error Propagation and Recovery', () => { // invalid response objects
+    test('should handle malformed Express response objects', () => { // invalid res objects throw
       const invalidResponses = [
         null,
         undefined,
@@ -249,8 +249,8 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('Production Configuration Scenarios', () => {
-    test('should handle missing environment variables gracefully', () => {
+  describe('Production Configuration Scenarios', () => { // missing env variables
+    test('should handle missing environment variables gracefully', () => { // ensures defaults when env absent
       const originalEnv = { ...process.env };
       
       // Remove environment variables
@@ -267,7 +267,7 @@ describe('Production Validation Tests', () => {
       process.env = originalEnv;
     });
     
-    test('should provide meaningful error messages for common mistakes', async () => {
+    test('should provide meaningful error messages for common mistakes', async () => { // duplicate usernames and invalid data
       const storage = new MemStorage();
       
       // Test duplicate username error
@@ -288,8 +288,8 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('Concurrent Access Patterns', () => {
-    test('should handle rapid storage operations', async () => {
+  describe('Concurrent Access Patterns', () => { // multiple ops concurrently
+    test('should handle rapid storage operations', async () => { // concurrent creation check
       const storage = new MemStorage();
       const operations = [];
       
@@ -311,7 +311,7 @@ describe('Production Validation Tests', () => {
       expect(uniqueIds.size).toBe(50);
     });
     
-    test('should maintain data consistency during mixed operations', async () => {
+    test('should maintain data consistency during mixed operations', async () => { // mix read/write correctly
       const storage = new MemStorage();
       
       // Create initial users
@@ -334,8 +334,8 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('Integration Patterns', () => {
-    test('should support chaining HTTP response methods', () => {
+  describe('Integration Patterns', () => { // express-like middleware flows
+    test('should support chaining HTTP response methods', () => { // response chainability
       const mockRes = {
         status: jest.fn().mockReturnThis(),
         json: jest.fn().mockReturnThis(),
@@ -350,7 +350,7 @@ describe('Production Validation Tests', () => {
       expect(mockRes.json).toHaveBeenCalled();
     });
     
-    test('should integrate properly with Express middleware patterns', () => {
+    test('should integrate properly with Express middleware patterns', () => { // middleware compatibility
       const mockReq = { params: { username: 'testuser' } };
       const mockRes = {
         status: jest.fn().mockReturnThis(),
@@ -376,8 +376,8 @@ describe('Production Validation Tests', () => {
     });
   });
   
-  describe('Performance Benchmarks', () => {
-    test('should meet performance expectations for common operations', async () => {
+  describe('Performance Benchmarks', () => { // measure performance expectations
+    test('should meet performance expectations for common operations', async () => { // measure per-operation timing
       const storage = new MemStorage();
       const iterations = 1000;
       
