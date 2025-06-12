@@ -440,6 +440,23 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       expect(console.warn).toHaveBeenCalled();
       expect(mockDocInstance.save).toHaveBeenCalled();
     });
+
+    test('should not mutate fieldsToUpdate object', async () => { // preserves caller data integrity
+      const fieldsToUpdate = { user: 'malicious', title: 'Updated Title' };
+      const original = { ...fieldsToUpdate }; // snapshot original state for comparison
+
+      mockModel.findOne.mockResolvedValue(mockDocInstance);
+      mockDocInstance.save.mockResolvedValue({
+        ...mockDocInstance,
+        title: 'Updated Title'
+      });
+
+      await updateUserDoc(
+        mockModel, '123', 'testuser', fieldsToUpdate, null, mockRes, 'Duplicate'
+      );
+
+      expect(fieldsToUpdate).toEqual(original); // ensure object remains unchanged
+    });
   });
   // Helper functions to create mock objects
   function createMockModel() {
