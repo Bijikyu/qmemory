@@ -175,6 +175,18 @@ describe('MemStorage Class', () => { // tests behavior of the in-memory storage 
       await limited.createUser({ username: 'first' });
       await expect(limited.createUser({ username: 'second' })).rejects.toThrow('Maximum user limit reached');
     });
+
+    test('should handle concurrent createUser calls hitting limit', async () => { // second call rejected once full
+      const limited = new MemStorage(1);
+      const firstPromise = limited.createUser({ username: 'concurrent1' }); // start first user create
+      const secondPromise = limited.createUser({ username: 'concurrent2' }); // start second user create
+
+      await expect(secondPromise).rejects.toThrow('Maximum user limit reached');
+      const firstUser = await firstPromise;
+      expect(firstUser.username).toBe('concurrent1');
+      const allUsers = await limited.getAllUsers();
+      expect(allUsers).toHaveLength(1);
+    });
   });
 
   describe('getUser', () => { // ensure retrieval by ID behaves as expected
