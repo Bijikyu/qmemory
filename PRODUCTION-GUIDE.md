@@ -43,9 +43,9 @@ PORT=3000
 #### Required MongoDB Indexes
 ```javascript
 // Essential for production performance
-await collection.createIndex({ "username": 1, "createdAt": -1 });
-await collection.createIndex({ "username": 1, "title": 1 }, { unique: true });
-await collection.createIndex({ "username": 1, "updatedAt": -1 });
+await collection.createIndex({ "user": 1, "createdAt": -1 }); // index by user for creation date lookups
+await collection.createIndex({ "user": 1, "title": 1 }, { unique: true }); // enforce unique titles per user
+await collection.createIndex({ "user": 1, "updatedAt": -1 }); // allow sorting by last update per user
 ```
 
 #### Connection Pool Settings
@@ -137,7 +137,7 @@ const { sendInternalServerError } = require('qmemory');
 // Standardized success responses
 app.post('/api/users', async (req, res) => {
   try {
-    const user = await storage.createUser(req.body); // use the memory storage instance for user creation
+    const user = await storage.createUser({ username: req.body.username }); // pass only supported fields
     res.status(201).json({ message: 'User created successfully', data: user });
   } catch (error) {
     if (error.code === 'VALIDATION_ERROR') {
@@ -156,7 +156,7 @@ const { MemStorage } = require('qmemory');
 // Development environment user management
 if (process.env.NODE_ENV !== 'production') {
   const storage = new MemStorage();
-  
+
   // Create test users
   await storage.createUser({ username: 'testuser', displayName: 'Test User' }); // library does not accept email
   
