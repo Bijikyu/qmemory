@@ -137,7 +137,7 @@ const { sendInternalServerError } = require('qmemory');
 // Standardized success responses
 app.post('/api/users', async (req, res) => {
   try {
-    const user = await storage.createUser(req.body); // use the memory storage instance for user creation
+    const user = await storage.createUser({ username: req.body.username }); // pass only supported fields
     res.status(201).json({ message: 'User created successfully', data: user });
   } catch (error) {
     if (error.code === 'VALIDATION_ERROR') {
@@ -156,9 +156,9 @@ const { MemStorage } = require('qmemory');
 // Development environment user management
 if (process.env.NODE_ENV !== 'production') {
   const storage = new MemStorage();
-  
+
   // Create test users
-  await storage.createUser({ username: 'testuser', email: 'test@example.com' });
+  await storage.createUser({ username: 'testuser' }); // MemStorage ignores email
   
   // Development-only endpoints
   app.get('/dev/users', (req, res) => {
