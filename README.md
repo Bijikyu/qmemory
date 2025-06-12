@@ -418,9 +418,9 @@ PORT=3000
 ### Required MongoDB Indexes
 ```javascript
 // Essential for production performance
-await collection.createIndex({ "username": 1, "createdAt": -1 });
-await collection.createIndex({ "username": 1, "title": 1 }, { unique: true });
-await collection.createIndex({ "username": 1, "updatedAt": -1 });
+await collection.createIndex({ "user": 1, "createdAt": -1 }); // index by user to optimize creation date lookups
+await collection.createIndex({ "user": 1, "title": 1 }, { unique: true }); // enforce unique titles per user
+await collection.createIndex({ "user": 1, "updatedAt": -1 }); // index by last update per user
 ```
 
 ### Health Monitoring
