@@ -112,10 +112,10 @@ const storage = require('qmemory').storage;
 
 if (process.env.NODE_ENV === 'development') {
   // Uses MemStorage automatically
-  const user = storage.createUser({ username: 'testuser' }); // MemStorage only stores username
+  const user = storage.createUser('testuser', { displayName: 'Test User' }); // align with API expectation
 } else {
   // Uses MongoDB document operations
-  const user = await createUniqueDoc(UserModel, { username: 'testuser' });
+  const user = await createUniqueDoc(UserModel, 'testuser', { displayName: 'Test User' });
 }
 ```
 

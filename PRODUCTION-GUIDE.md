@@ -158,7 +158,7 @@ if (process.env.NODE_ENV !== 'production') {
   const storage = new MemStorage();
 
   // Create test users
-  await storage.createUser({ username: 'testuser' }); // MemStorage ignores email
+  await storage.createUser({ username: 'testuser', displayName: 'Test User' }); // library does not accept email
   
   // Development-only endpoints
   app.get('/dev/users', (req, res) => {
