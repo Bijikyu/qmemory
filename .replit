@@ -26,6 +26,10 @@ task = "shell.exec"
 args = "npm test"
 
 [[ports]]
+localPort = 33225
+externalPort = 3001
+
+[[ports]]
 localPort = 39555
 externalPort = 3000
 
