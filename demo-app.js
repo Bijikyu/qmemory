@@ -111,7 +111,7 @@ app.get('/', (req, res) => { // basic API index for manual exploration
     endpoints: {
       'GET /health': 'Health check and system status',
       'GET /users': 'List all users',
-      'POST /users': 'Create new user (JSON: {username, email})',
+      'POST /users': 'Create new user (JSON: {username, displayName})', // updated to reflect display name usage
       'GET /users/:id': 'Get user by ID',
       'DELETE /users/:id': 'Delete user by ID',
       'POST /users/clear': 'Clear all users (development only)'
@@ -120,7 +120,7 @@ app.get('/', (req, res) => { // basic API index for manual exploration
       createUser: {
         method: 'POST',
         url: '/users',
-        body: { username: 'johndoe', email: 'john@example.com' }
+        body: { username: 'johndoe', displayName: 'John Doe' } // changed example payload field
       }
     }
   });
@@ -139,15 +139,15 @@ app.get('/users', async (req, res) => { // list all stored users for testing pur
 
 app.post('/users', async (req, res) => { // create a user for demo operations
   try {
-    const { username, email } = req.body; // destructure posted credentials
+    const { username, displayName } = req.body; // get required username and optional display name
     const safeName = sanitizeInput(username); // sanitize inputs to prevent XSS and maintain consistent storage
-    const safeEmail = sanitizeInput(email); // sanitize optional email field
+    const safeDisplay = sanitizeInput(displayName); // sanitize optional display name field
 
     if (!safeName) { // ensure sanitized username exists
       return sendBadRequest(res, 'Username is required and must be a string');
     }
 
-    const user = await storage.createUser({ username: safeName, email: safeEmail }); // store sanitized values
+    const user = await storage.createUser({ username: safeName, displayName: safeDisplay }); // pass only fields used by storage
     logInfo(`Created user: ${safeName}`); // record creation event for auditing
     sendSuccess(res, 'User created successfully', user);
   } catch (error) {
@@ -250,7 +250,7 @@ if (require.main === module) { // start server only when running this file direc
 
     // Create some sample data in development
     if (process.env.NODE_ENV !== 'production') { // avoid polluting production DB
-      storage.createUser({ username: 'demo', email: 'demo@example.com' })
+      storage.createUser({ username: 'demo', displayName: 'Demo User' }) // sample uses displayName to match route
         .then(() => logInfo('Created demo user'))
         .catch(err => logError('Failed to create demo user:', err));
     }

@@ -55,7 +55,7 @@ describe('Demo App API', () => {
   });
 
   test('POST /users succeeds with valid data', async () => {
-    const res = await agent.post('/users').send({ username: 'alice', email: 'a@example.com' });
+    const res = await agent.post('/users').send({ username: 'alice', displayName: 'Alice' }); // displayName replaces email
     expect(res.status).toBe(200);
     expect(res.body.data.username).toBe('alice');
     expect(res.body.data.id).toBeDefined();
@@ -64,7 +64,7 @@ describe('Demo App API', () => {
   test('POST /users sanitizes malicious input', async () => {
     const res = await agent
       .post('/users')
-      .send({ username: ' <script>mallory</script> ', email: '<b>mallory@example.com</b>' });
+      .send({ username: ' <script>mallory</script> ', displayName: '<b>Mallory</b>' }); // ensure name sanitized without email
     expect(res.status).toBe(200);
     expect(res.body.data.username).toBe('mallory');
     const list = await agent.get('/users');
