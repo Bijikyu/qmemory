@@ -223,9 +223,9 @@ describe('Production Validation Tests', () => { // simulate production environme
       expect(() => add(undefined, 5)).toThrow('Both parameters must be numbers for arithmetic operations'); // maintain test fidelity with utils.js
       
       // Test isEven with invalid inputs
-      expect(() => isEven(3.14)).toThrow('Parameter must be an integer');
-      expect(() => isEven('5')).toThrow('Parameter must be an integer');
-      expect(() => isEven(NaN)).toThrow('Parameter must be an integer');
+      expect(() => isEven(3.14)).toThrow('Parameter must be an integer for even/odd calculation'); // reflect detailed error message
+      expect(() => isEven('5')).toThrow('Parameter must be an integer for even/odd calculation'); // enforce consistent error text
+      expect(() => isEven(NaN)).toThrow('Parameter must be an integer for even/odd calculation'); // align with utils.js behavior
     });
   });
   
