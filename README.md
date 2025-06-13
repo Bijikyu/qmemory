@@ -3,6 +3,11 @@
 
 A comprehensive Node.js utility library providing MongoDB document operations, HTTP utilities, and in-memory storage for development and testing.
 
+## Requirements
+
+- Node.js 18+
+- MongoDB 4.4+ (for production mode)
+
 ## Installation
 
 ```bash
@@ -42,7 +47,11 @@ const {
   listUserDocs,
   createUniqueDoc,
   updateUserDoc,
-  
+  performUserDocOp,
+  userDocActionOr404,
+  validateDocumentUniqueness,
+  hasUniqueFieldChanges,
+
   // Storage
   MemStorage,
   storage,
@@ -163,6 +172,29 @@ Updates a user-owned document with optional uniqueness validation.
 - `fieldsToUpdate` (Object): Fields to update
 - `uniqueQuery` (Object): Optional uniqueness constraint query
 - **Returns**: `Promise<Object|undefined>` - Updated document or undefined if error
+
+#### performUserDocOp(model, id, username, opCallback)
+Executes a document operation with standardized error handling.
+
+- `opCallback` (Function): Custom operation function
+- **Returns**: `Promise<Object|null>` - Operation result or null on invalid ID
+
+#### userDocActionOr404(model, id, user, res, action, msg)
+Runs a document action and sends a 404 response if the result is not found.
+
+- `action` (Function): Document operation to perform
+- `msg` (string): 404 message
+- **Returns**: `Promise<Object|undefined>` - Result if found, undefined if 404 sent
+
+#### validateDocumentUniqueness(model, uniqueQuery, res, duplicateMsg)
+Checks if any document matches the uniqueness query before create/update.
+
+- **Returns**: `Promise<boolean>` - true if unique, false otherwise
+
+#### hasUniqueFieldChanges(doc, fieldsToUpdate, uniqueQuery)
+Determines whether unique fields are modified before running validation.
+
+- **Returns**: `boolean` - true if unique fields change
 
 ### In-Memory Storage
 
