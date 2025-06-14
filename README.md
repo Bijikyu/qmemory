@@ -98,6 +98,7 @@ Sends a 503 Service Unavailable response for dependency failures.
 
 - `res` (Express Response): Express response object
 - `message` (string): Custom unavailable message
+- Returns JSON with `retryAfter` set to `'300'` seconds informing clients when to retry
 - **Usage**: `sendServiceUnavailable(res, 'Database temporarily offline')`
 
 ### Database Utilities
@@ -164,13 +165,19 @@ Creates a new document after verifying uniqueness.
 
 - `fields` (Object): Document field values
 - `uniqueQuery` (Object): Query to check for duplicates
+- `res` (Express Response): Response object used to send conflicts
+- `duplicateMsg` (string): Message when a duplicate record exists
 - **Returns**: `Promise<Object|undefined>` - Created document or undefined if duplicate
 
 #### updateUserDoc(model, id, username, fieldsToUpdate, uniqueQuery, res, duplicateMsg)
 Updates a user-owned document with optional uniqueness validation.
 
+- `id` (string): Document ID to update
+- `username` (string): Username that must own the document
 - `fieldsToUpdate` (Object): Fields to update
 - `uniqueQuery` (Object): Optional uniqueness constraint query
+- `res` (Express Response): Response object used for error handling
+- `duplicateMsg` (string): Message for duplicate conflicts
 - **Returns**: `Promise<Object|undefined>` - Updated document or undefined if error
 
 #### performUserDocOp(model, id, username, opCallback)
@@ -203,9 +210,12 @@ Volatile user storage for development and testing environments.
 
 **Important**: Data is lost on application restart. Not suitable for production.
 
+Constructor accepts optional `maxUsers` to limit stored records.
+
 ```javascript
 const { MemStorage } = require('qmemory');
 const userStorage = new MemStorage();
+// Optionally pass a maximum user limit: new MemStorage(5000)
 ```
 
 #### Storage Methods
