@@ -155,7 +155,7 @@ const { MemStorage } = require('qmemory');
 
 // Development environment user management
 if (process.env.NODE_ENV !== 'production') {
-  const storage = new MemStorage();
+  const storage = new MemStorage(); // default limit is 10000 users
 
   // Create test users
   await storage.createUser({ username: 'testuser', displayName: 'Test User' }); // library does not accept email

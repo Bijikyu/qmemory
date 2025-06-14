@@ -210,12 +210,12 @@ Volatile user storage for development and testing environments.
 
 **Important**: Data is lost on application restart. Not suitable for production.
 
-Constructor accepts optional `maxUsers` to limit stored records.
+Constructor accepts optional `maxUsers` to limit stored records. The default limit is `10000` users.
 
 ```javascript
 const { MemStorage } = require('qmemory');
-const userStorage = new MemStorage();
-// Optionally pass a maximum user limit: new MemStorage(5000)
+const userStorage = new MemStorage(); // defaults to 10000 users
+// Optionally pass a different limit: new MemStorage(5000)
 ```
 
 #### Storage Methods
@@ -398,6 +398,16 @@ app.post('/posts', async (req, res) => {
   }
 });
 ```
+
+## Demo Application
+
+For a working example of the library, run the included demo server:
+
+```bash
+NODE_ENV=development node demo-app.js
+```
+
+The server starts on port `5000` and exposes basic user management routes for exploration.
 
 ## Performance Considerations
 
