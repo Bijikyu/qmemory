@@ -416,26 +416,27 @@ app.post('/posts', async (req, res) => {
 
 ## Testing
 
-The library includes a comprehensive test suite with 167 tests covering:
+The library includes a comprehensive test suite with 202 tests covering:
 
-- Unit tests for all modules (7 test files)
-- Integration tests for workflows (2 test files)
+- Unit tests for all modules (8 test files)
+- Integration tests for workflows (3 test files)
 - Production validation scenarios (19 production tests)
-- Edge case testing with 95.87% code coverage
+- Edge case testing with 96.37% code coverage
 - Error scenario validation and recovery testing
 - Performance testing for bulk operations and concurrent access
 - Memory management and cleanup validation
 
 **Coverage Metrics**:
-- Statement Coverage: 95.87%
-- Branch Coverage: 98.68%
+- Statement Coverage: 96.37%
+- Branch Coverage: 98.87%
 - Function Coverage: 100%
-- Line Coverage: 95.85%
+- Line Coverage: 96.35%
 
 Run tests:
 ```bash
 npm test                # Run all tests
-npm run test:unit       # Run unit tests only  
+npm run test:unit       # Run unit tests only
+npm run test:integration # Run integration tests only
 npm run test:coverage   # Run with coverage report
 npm run test:watch      # Watch mode for development
 ```

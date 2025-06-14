@@ -28,7 +28,7 @@ Comprehensive analysis of current dependencies reveals an **optimally managed, s
 **Purpose**: JavaScript testing framework
 **Security Status**: ✅ Secure - Latest stable version
 **Maintenance Status**: ✅ Excellent - Active development by Meta
-**Usage Analysis**: Powers comprehensive test suite with 167 tests
+**Usage Analysis**: Powers comprehensive test suite with 202 tests
 **Recommendation**: **Keep** - Essential for testing infrastructure
 
 #### qtests (^1.1.0)
