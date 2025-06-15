@@ -430,12 +430,12 @@ The server uses `PORT` if set; otherwise it starts on `5000` and exposes basic u
 
 ## Testing
 
-The library includes a comprehensive test suite with 202 tests covering:
+The library includes a comprehensive test suite with 12 suites and 202 tests covering:
 
 - Unit tests for all modules (8 test files)
 - Integration tests for workflows (3 test files)
 - Production validation scenarios (19 production tests)
-- Edge case testing with 96.37% code coverage
+- Edge case testing with 96.37% statement coverage
 - Error scenario validation and recovery testing
 - Performance testing for bulk operations and concurrent access
 - Memory management and cleanup validation
