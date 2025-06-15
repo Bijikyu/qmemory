@@ -249,7 +249,7 @@ const user = await storage.getUser(1);
 ```
 
 ##### getUserByUsername(username)
-Retrieves user by username.
+Retrieves user by username. Returns `undefined` when the username is invalid or no user exists.
 
 ```javascript
 const user = await storage.getUserByUsername('alice');
