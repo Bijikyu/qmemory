@@ -9,7 +9,7 @@ This Node.js utility library is ready for deployment as an npm package or for in
 ### Required Dependencies
 - Node.js 18+ or 20+
 - MongoDB 4.4+ (for production use)
-- Mongoose 7.0+
+- Mongoose 8.0+
 
 ### Development Dependencies
 - Jest for testing
