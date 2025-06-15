@@ -74,7 +74,9 @@ const {
 ### HTTP Utilities
 
 All HTTP utility functions return the Express response object so additional calls
-can be chained in your route handlers.
+can be chained in your route handlers. Each response includes an ISO `timestamp`
+field for easier log correlation, and the utilities throw an error when the
+provided response object does not implement `status()` and `json()`.
 
 #### sendNotFound(res, message)
 Sends a standardized 404 Not Found response.
@@ -226,6 +228,8 @@ const userStorage = new MemStorage(); // defaults to 10000 users
 
 ##### createUser(insertUser)
 Creates a new user with auto-generated ID. Usernames are automatically trimmed of leading and trailing whitespace.
+Throws an error if the username already exists, if the value is not a non-empty string,
+or when the storage reaches its `maxUsers` limit.
 
 ```javascript
 const user = await storage.createUser({
@@ -238,7 +242,7 @@ const user = await storage.createUser({
 ```
 
 ##### getUser(id)
-Retrieves user by numeric ID.
+Retrieves user by numeric ID. Returns `undefined` when the ID is invalid or no user exists.
 
 ```javascript
 const user = await storage.getUser(1);
@@ -259,7 +263,7 @@ const allUsers = await storage.getAllUsers();
 ```
 
 ##### deleteUser(id)
-Deletes a user by ID.
+Deletes a user by ID. Returns `false` when the ID is invalid or the user was not found.
 
 ```javascript
 const wasDeleted = await storage.deleteUser(1); // returns boolean
