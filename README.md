@@ -7,6 +7,7 @@ A comprehensive Node.js utility library providing MongoDB document operations, H
 
 - Node.js 18+
 - MongoDB 4.4+ (for production mode)
+- Mongoose 8+ (peer dependency)
 
 ## Installation
 
@@ -71,6 +72,9 @@ const {
 ## API Reference
 
 ### HTTP Utilities
+
+All HTTP utility functions return the Express response object so additional calls
+can be chained in your route handlers.
 
 #### sendNotFound(res, message)
 Sends a standardized 404 Not Found response.
