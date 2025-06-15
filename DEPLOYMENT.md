@@ -13,6 +13,8 @@ This Node.js utility library is ready for deployment as an npm package or for in
 
 ### Development Dependencies
 - Jest for testing
+- Express for local integration servers
+- Supertest for HTTP assertions
 - Coverage reporting tools
 
 ## Deployment Options
