@@ -490,6 +490,7 @@ app.get('/health', (req, res) => {
 - `mongoose`: Required for MongoDB operations
 - `@types/node`: TypeScript definitions
 - `jest`: Testing framework
+- `qtests`: Testing utilities used by this library
 
 ## License
 
