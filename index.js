@@ -49,7 +49,7 @@ const {
   createCursorPaginatedResponse,
   validateSorting
 } = require('./lib/pagination-utils'); // pagination parameter validation and response formatting
-const { DatabaseMetrics, RequestMetrics, SystemMetrics, PerformanceMonitor } = require('./lib/performance-utils'); // performance monitoring and metrics collection
+const { DatabaseMetrics, RequestMetrics, SystemMetrics, PerformanceMonitor, performanceMonitor } = require('./lib/performance-utils'); // performance monitoring and metrics collection
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -116,5 +116,6 @@ module.exports = { // re-exposes modules so consumers import from one place
   DatabaseMetrics, // database query performance tracking with slow query detection
   RequestMetrics, // HTTP endpoint performance monitoring with response time analysis
   SystemMetrics, // system resource utilization tracking with memory and CPU monitoring
-  PerformanceMonitor // unified performance monitoring orchestration with automated alerting
+  PerformanceMonitor, // unified performance monitoring orchestration with automated alerting
+  performanceMonitor // singleton instance for immediate application-wide monitoring
 };

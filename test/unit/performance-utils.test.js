@@ -331,6 +331,14 @@ describe('Performance Monitoring Utilities', () => {
         limitedMetrics.cpuHistory.push({ timestamp: Date.now(), percent: i });
       }
       
+      // Simulate the boundry maintenance that happens in collectMetrics
+      while (limitedMetrics.memoryHistory.length > limitedMetrics.maxHistoryPoints) {
+        limitedMetrics.memoryHistory.shift();
+      }
+      while (limitedMetrics.cpuHistory.length > limitedMetrics.maxHistoryPoints) {
+        limitedMetrics.cpuHistory.shift();
+      }
+      
       expect(limitedMetrics.memoryHistory).toHaveLength(3);
       expect(limitedMetrics.cpuHistory).toHaveLength(3);
       

@@ -1,0 +1,111 @@
+const { sendJsonResponse } = require('./responseUtils');
+
+/**
+ * Validates and extracts pagination parameters from request query
+ * 
+ * Rationale: Pagination parameters need consistent validation across all
+ * paginated endpoints. This function handles parameter extraction, type
+ * conversion, validation, and error response generation in a standardized way.
+ * 
+ * Validation Rules:
+ * - Page must be a positive integer (minimum 1)
+ * - Limit must be a positive integer (minimum 1)
+ * - Both parameters have sensible defaults if not provided
+ * - Maximum limit can be enforced to prevent resource exhaustion
+ * 
+ * @param {Object} req - Express request object containing query parameters
+ * @param {Object} res - Express response object for sending error responses
+ * @param {Object} options - Configuration options for pagination defaults
+ * @param {number} options.defaultPage - Default page number (default: 1)
+ * @param {number} options.defaultLimit - Default page size (default: 50)
+ * @param {number} options.maxLimit - Maximum allowed page size (default: 100)
+ * @returns {Object|null} Pagination object with page, limit, skip, or null if validation fails
+ */
+function validatePagination(req, res, options = {}) { // standard query pagination
+    console.log(`validatePagination is running with query: ${JSON.stringify(req.query)}`);
+    
+    try {
+        // Set default options
+        const {
+            defaultPage = 1,
+            defaultLimit = 50,
+            maxLimit = 100
+        } = options;
+        
+        // Ensure query object exists to prevent errors
+        req.query = req.query || {};
+        
+        // Extract and convert pagination parameters with defaults
+        const page = parseInt(req.query.page) || defaultPage;
+        const limit = parseInt(req.query.limit) || defaultLimit;
+        
+        // Validate page parameter
+        if (page < 1 || !Number.isInteger(page)) {
+            console.log(`validatePagination is returning null due to invalid page: ${page}`);
+            sendJsonResponse(res, 400, { 
+                error: 'Page must be a positive integer starting from 1' 
+            });
+            return null;
+        }
+        
+        // Validate limit parameter
+        if (limit < 1 || !Number.isInteger(limit)) {
+            console.log(`validatePagination is returning null due to invalid limit: ${limit}`);
+            sendJsonResponse(res, 400, { 
+                error: 'Limit must be a positive integer starting from 1' 
+            });
+            return null;
+        }
+        
+        // Enforce maximum limit to prevent resource exhaustion
+        if (limit > maxLimit) {
+            console.log(`validatePagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`);
+            sendJsonResponse(res, 400, { 
+                error: `Limit cannot exceed ${maxLimit} records per page` 
+            });
+            return null;
+        }
+        
+        // Calculate database skip offset (0-based for database queries)
+        const skip = (page - 1) * limit;
+        
+        const pagination = { page, limit, skip };
+        console.log(`validatePagination is returning: ${JSON.stringify(pagination)}`);
+        return pagination;
+        
+    } catch (error) {
+        console.error('Pagination validation error:', error);
+        sendJsonResponse(res, 500, { 
+            error: 'Internal server error during pagination validation' 
+        });
+        return null;
+    }
+}
+
+/**
+ * Creates pagination metadata for API responses
+ * 
+ * Rationale: Clients need pagination metadata to build navigation controls
+ * and understand the full dataset context. This function generates standard
+ * pagination metadata that can be included in API responses.
+ * 
+ * @param {number} page - Current page number
+ * @param {number} limit - Records per page
+ * @param {number} totalRecords - Total number of records in dataset
+ * @returns {Object} Pagination metadata object
+ */
+function createPaginationMeta(page, limit, totalRecords) { // metadata for client navigation
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+    
+    return {
+        currentPage: page,
+        totalPages,
+        totalRecords,
+        recordsPerPage: limit,
+        hasNextPage,
+        hasPrevPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: hasPrevPage ? page - 1 : null
+    };
