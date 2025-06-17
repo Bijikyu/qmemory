@@ -24,7 +24,9 @@ const {
   MemStorage,
   sendNotFound,
   sendInternalServerError,
-  ensureMongoDB
+  ensureMongoDB,
+  validatePagination,
+  createPaginatedResponse
 } = require('./index');
 
 const app = express();
@@ -110,7 +112,7 @@ app.get('/', (req, res) => { // basic API index for manual exploration
     description: 'Production-ready Node.js utility library demonstration',
     endpoints: {
       'GET /health': 'Health check and system status',
-      'GET /users': 'List all users',
+      'GET /users': 'List users with pagination (?page=1&limit=10)',
       'POST /users': 'Create new user (JSON: {username, displayName})', // updated to reflect display name usage
       'GET /users/:id': 'Get user by ID',
       'DELETE /users/:id': 'Delete user by ID',
@@ -127,12 +129,38 @@ app.get('/', (req, res) => { // basic API index for manual exploration
 });
 
 // User management endpoints
-app.get('/users', async (req, res) => { // list all stored users for testing purposes
+app.get('/users', async (req, res) => { // paginated user listing with query parameter support
   try {
-    const users = await storage.getAllUsers(); // await promise to get user array reliably
-    sendSuccess(res, `Found ${users.length} users`, users);
+    // Validate pagination parameters and get configuration
+    const pagination = validatePagination(req, res, {
+      defaultPage: 1,
+      defaultLimit: 10,
+      maxLimit: 50
+    });
+    
+    // If validation failed, response was already sent
+    if (!pagination) return;
+    
+    // Get all users from storage
+    const allUsers = await storage.getAllUsers();
+    
+    // Apply pagination to the results
+    const startIndex = pagination.skip;
+    const endIndex = startIndex + pagination.limit;
+    const paginatedUsers = allUsers.slice(startIndex, endIndex);
+    
+    // Create complete paginated response with metadata
+    const response = createPaginatedResponse(
+      paginatedUsers,
+      pagination.page,
+      pagination.limit,
+      allUsers.length
+    );
+    
+    logInfo(`Paginated users: page ${pagination.page}, showing ${paginatedUsers.length} of ${allUsers.length} total`);
+    res.status(200).json(response);
   } catch (error) {
-    logError('Failed to fetch users', error); // log ensures visibility in dev
+    logError('Failed to fetch users', error);
     sendInternalServerError(res, 'Failed to fetch users');
   }
 });

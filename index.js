@@ -39,6 +39,7 @@ const {
 const { MemStorage, storage } = require('./lib/storage'); // in-memory storage class and singleton instance
 const { greet, add, isEven } = require('./lib/utils'); // basic utility functions for common operations
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
+const { validatePagination, createPaginationMeta, createPaginatedResponse } = require('./lib/pagination-utils'); // pagination parameter validation and response formatting
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -87,5 +88,11 @@ module.exports = { // re-exposes modules so consumers import from one place
   // Standardized logging functions for function entry, exit, and error tracking
   logFunctionEntry, // logs when a function begins execution
   logFunctionExit, // logs when a function completes execution
-  logFunctionError // logs errors with context
+  logFunctionError, // logs errors with context
+
+  // Pagination utilities - Parameter validation and response formatting for paginated endpoints
+  // Standardized pagination handling reduces controller complexity and ensures consistent API behavior
+  validatePagination, // validates query parameters and returns pagination config or sends error response
+  createPaginationMeta, // generates navigation metadata for paginated API responses
+  createPaginatedResponse // creates complete paginated response with data and metadata
 };
