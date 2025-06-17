@@ -22,7 +22,16 @@ const {
   sendInternalServerError,
   sendServiceUnavailable // helper for 503 responses
 } = require('./lib/http-utils'); // Central location for HTTP helpers promotes consistency
-const { ensureMongoDB, ensureUnique } = require('./lib/database-utils'); // Database helpers keep controllers clean
+const { 
+  ensureMongoDB, 
+  ensureUnique, 
+  handleMongoError, 
+  safeDbOperation, 
+  retryDbOperation, 
+  ensureIdempotency, 
+  optimizeQuery, 
+  createAggregationPipeline 
+} = require('./lib/database-utils'); // Database helpers keep controllers clean
 const {
   performUserDocOp,
   findUserDoc,
@@ -63,10 +72,16 @@ module.exports = { // re-exposes modules so consumers import from one place
   sendInternalServerError, // 500 response helper re-exported for consistency
   sendServiceUnavailable, // 503 response helper re-exported for unified API
 
-  // Database utilities - MongoDB connection and validation helpers re-exposed from database-utils
+  // Database utilities - MongoDB connection and advanced operation helpers re-exposed from database-utils
   // These functions provide robust database interaction patterns with proper error handling
   ensureMongoDB, // initializes MongoDB connection for consumers
   ensureUnique, // duplicate check helper re-exported for unified API
+  handleMongoError, // centralized MongoDB error handling and classification
+  safeDbOperation, // safe operation wrapper with error handling and timing
+  retryDbOperation, // retry logic for recoverable database errors
+  ensureIdempotency, // idempotency checking for critical operations
+  optimizeQuery, // query optimization helper for performance enhancement
+  createAggregationPipeline, // aggregation pipeline builder for analytics operations
 
   // Document operations - High-level document manipulation utilities re-exposed from document-ops
   // These encapsulate common CRUD patterns for user-owned documents,
