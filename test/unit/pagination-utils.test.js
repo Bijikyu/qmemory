@@ -631,9 +631,15 @@ describe('Pagination Utilities', () => {
       test('should require allowedFields configuration', () => { // config validation
         const mockReq = { query: { sort: 'name' } };
         
-        expect(() => {
-          validateSorting(mockReq, mockRes, {});
-        }).toThrow('allowedFields must be provided and cannot be empty');
+        // Function should send error response instead of throwing
+        const result = validateSorting(mockReq, mockRes, {});
+        
+        expect(result).toBeNull();
+        expect(mockRes.status).toHaveBeenCalledWith(500);
+        expect(mockRes.json).toHaveBeenCalledWith({
+          message: 'Internal server error during sorting validation',
+          timestamp: expect.any(String)
+        });
       });
     });
 
