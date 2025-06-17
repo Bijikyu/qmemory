@@ -25,19 +25,19 @@ const {
 // Mock Mongoose models for demonstration
 const createMockModel = (modelName) => ({
   modelName,
-  findOne: jest.fn(),
-  find: jest.fn(),
-  create: jest.fn(),
-  updateOne: jest.fn(),
-  deleteOne: jest.fn(),
-  aggregate: jest.fn(),
-  lean: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  limit: jest.fn().mockReturnThis(),
-  skip: jest.fn().mockReturnThis(),
-  sort: jest.fn().mockReturnThis(),
-  populate: jest.fn().mockReturnThis(),
-  hint: jest.fn().mockReturnThis()
+  findOne: () => Promise.resolve(null),
+  find: () => Promise.resolve([]),
+  create: (data) => Promise.resolve({ _id: 'mock_' + Date.now(), ...data }),
+  updateOne: () => Promise.resolve({ matchedCount: 1, modifiedCount: 1 }),
+  deleteOne: () => Promise.resolve({ deletedCount: 1 }),
+  aggregate: () => Promise.resolve([]),
+  lean: function() { return this; },
+  select: function() { return this; },
+  limit: function() { return this; },
+  skip: function() { return this; },
+  sort: function() { return this; },
+  populate: function() { return this; },
+  hint: function() { return this; }
 });
 
 async function demo1_paymentProcessingWithIdempotency() {
@@ -78,8 +78,9 @@ async function demo1_paymentProcessingWithIdempotency() {
     return result;
   };
   
-  // Mock existing payment for idempotency test
-  PaymentModel.findOne.mockResolvedValueOnce({
+  // Override findOne for idempotency test
+  const originalFindOne = PaymentModel.findOne;
+  PaymentModel.findOne = () => Promise.resolve({
     _id: 'existing_payment_123',
     amount: 100,
     idempotencyKey: 'payment_duplicate_test',
@@ -93,11 +94,14 @@ async function demo1_paymentProcessingWithIdempotency() {
   );
   
   // Test new payment processing
-  PaymentModel.findOne.mockResolvedValueOnce(null);
+  PaymentModel.findOne = () => Promise.resolve(null);
   await processPayment(
     { amount: 50, currency: 'USD', customerId: 'cust_456' },
     'payment_new_123'
   );
+  
+  // Restore original function
+  PaymentModel.findOne = originalFindOne;
 }
 
 async function demo2_userRegistrationWithRetryLogic() {

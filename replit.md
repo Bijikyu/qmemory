@@ -63,6 +63,15 @@ All document operations enforce user ownership constraints automatically:
 - `deleteUserDocOr404` - Deletes user-owned documents
 - `listUserDocs` - Lists documents filtered by user ownership
 
+### Enhanced Database Utilities
+Advanced database operation helpers for production reliability:
+- `handleMongoError` - Centralized MongoDB error handling with structured classification
+- `safeDbOperation` - Safe operation wrapper with consistent error handling and performance timing
+- `retryDbOperation` - Sophisticated retry logic with exponential backoff for recoverable errors
+- `ensureIdempotency` - Idempotency checking for critical operations (payments, webhooks)
+- `optimizeQuery` - Query optimization helper with lean queries, field selection, and index hints
+- `createAggregationPipeline` - Aggregation pipeline builder for analytics and reporting
+
 ### Storage Solutions
 - **MemStorage Class**: In-memory storage with Map-based data structure
 - **Singleton Instance**: Application-wide shared storage (`storage`)
@@ -129,6 +138,7 @@ Changelog:
 - June 17, 2025. Added performance monitoring utilities with database tracking, HTTP monitoring, system metrics, and automated alerting
 - June 17, 2025. Enhanced pagination with cursor-based navigation, advanced sorting, and security validation (46 tests passing, 88% coverage)
 - June 17, 2025. Enhanced performance monitoring with singleton pattern for immediate application-wide monitoring (41 tests passing, 97.6% coverage)
+- June 17, 2025. Enhanced database utilities with comprehensive MongoDB error handling, safe operation wrappers, retry logic, idempotency patterns, query optimization, and aggregation pipeline builders (25 tests passing, 90.5% coverage)
 
 ## User Preferences
 
