@@ -1,0 +1,173 @@
+// Database document helper utilities for MongoDB operations
+// Centralizes common CRUD patterns, error handling, and type safety across storage operations
+// Eliminates duplicate try-catch blocks and findById/findByIdAndUpdate patterns
+
+const { Document, Model } = require("mongoose"); //mongoose types for helpers
+
+/**
+ * Generic helper for safe document retrieval by ID
+ * Handles invalid ObjectId errors and provides consistent error handling
+ * @param model - Mongoose model to query
+ * @param id - Document ID to find
+ * @returns Document or undefined if not found/error
+ */
+async function findDocumentById<T extends Document>(
+  model: Model<T>, 
+  id: string
+): Promise<T | undefined> {
+  console.log(`findDocumentById is running with ${model.modelName} model and ${id} id`); // Entry logging per REPLITAGENT guidelines
+  try {
+    const document = await model.findById(id); // MongoDB findById with Mongoose model for type safety
+    const result = document || undefined; // Normalize null to undefined for consistent return type
+    console.log(`findDocumentById is returning ${result ? 'document found' : 'undefined'}`); // Exit logging per REPLITAGENT guidelines
+    return result;
+  } catch (error) {
+    console.log(`findDocumentById is returning undefined due to error`); // Error case logging per REPLITAGENT guidelines
+    return undefined; // Handle invalid ObjectId or database connection errors gracefully
+  }
+}
+
+/**
+ * Generic helper for safe document update by ID
+ * Standardizes update operations with consistent error handling and new document return
+ * @param model - Mongoose model to update
+ * @param id - Document ID to update
+ * @param updates - Partial updates to apply
+ * @returns Updated document or undefined if not found/error
+ */
+async function updateDocumentById<T extends Document>(
+  model: Model<T>, 
+  id: string, 
+  updates: Partial<T>
+): Promise<T | undefined> {
+  console.log(`updateDocumentById is running with ${model.modelName} model, ${id} id, and updates`); // Entry logging per REPLITAGENT guidelines
+  try {
+    const document = await model.findByIdAndUpdate(id, updates, { new: true }); // MongoDB update with new document return for immediate use
+    const result = document || undefined; // Normalize null to undefined for consistent return type
+    console.log(`updateDocumentById is returning ${result ? `updated document` : `undefined`}`); // Exit logging per REPLITAGENT guidelines
+    return result;
+  } catch (error) {
+    console.log(`updateDocumentById is returning undefined due to error`); // Error case logging per REPLITAGENT guidelines
+    return undefined; // Handle invalid ObjectId, validation errors, or database connection issues gracefully
+  }
+}
+
+/**
+ * Generic helper for safe document deletion by ID
+ * Provides consistent boolean return pattern for deletion operations
+ * @param model - Mongoose model to delete from
+ * @param id - Document ID to delete
+ * @returns True if deleted successfully, false otherwise
+ */
+async function deleteDocumentById<T extends Document>(
+  model: Model<T>, 
+  id: string
+): Promise<boolean> {
+  console.log(`deleteDocumentById is running with ${model.modelName} model and ${id} id`); // Entry logging per REPLITAGENT guidelines
+  try {
+    const result = await model.findByIdAndDelete(id); // MongoDB deletion with immediate result for boolean conversion
+    const success = !!result; // Convert truthy/falsy to explicit boolean for consistent return type
+    console.log(`deleteDocumentById is returning ${success}`); // Exit logging per REPLITAGENT guidelines
+    return success;
+  } catch (error) {
+    console.log(`deleteDocumentById is returning false due to error`); // Error case logging per REPLITAGENT guidelines
+    return false; // Handle invalid ObjectId or database connection errors gracefully
+  }
+}
+
+/**
+ * Generic helper for safe document creation
+ * Standardizes document creation with consistent error handling
+ * @param model - Mongoose model to create document in
+ * @param data - Data to create document with
+ * @returns Created document
+ * @throws Error if creation fails (validation, duplicate key, etc.)
+ */
+async function createDocument<T extends Document, U>(
+  model: Model<T>, 
+  data: U
+): Promise<T> {
+  console.log(`createDocument is running with ${model.modelName} model and data`); // Entry logging per REPLITAGENT guidelines
+  const document = new model(data); // Create Mongoose document instance for validation and middleware hooks
+  const result = await document.save(); // Persist to MongoDB with schema validation and pre/post hooks
+  console.log(`createDocument is returning created document`); // Exit logging per REPLITAGENT guidelines
+  return result;
+}
+
+/**
+ * Generic helper for safe document query with find condition
+ * Handles database errors gracefully and provides consistent return pattern
+ * @param model - Mongoose model to query
+ * @param condition - Query condition object
+ * @param sortOptions - Optional sort configuration
+ * @returns Array of documents or empty array on error
+ */
+async function findDocuments<T extends Document>(
+  model: Model<T>, 
+  condition: any, 
+  sortOptions?: any
+): Promise<T[]> {
+  console.log(`findDocuments is running with ${model.modelName} model and condition`); // Entry logging per REPLITAGENT guidelines
+  try {
+    let query = model.find(condition); // MongoDB query builder with find condition for document filtering
+    if (sortOptions) {
+      query = query.sort(sortOptions); // Apply sorting if provided for consistent result ordering
+    }
+    const result = await query; // Execute query and return document array
+    console.log(`findDocuments is returning ${result.length} documents`); // Exit logging per REPLITAGENT guidelines
+    return result;
+  } catch (error) {
+    console.log(`findDocuments is returning empty array due to error`); // Error case logging per REPLITAGENT guidelines
+    return []; // Handle database errors gracefully with empty array fallback
+  }
+}
+
+/**
+ * Generic helper for safe single document query with find condition
+ * Provides consistent undefined return for not found or error cases
+ * @param model - Mongoose model to query
+ * @param condition - Query condition object
+ * @returns Document or undefined if not found/error
+ */
+async function findOneDocument<T extends Document>(
+  model: Model<T>, 
+  condition: any
+): Promise<T | undefined> {
+  console.log(`findOneDocument is running with ${model.modelName} model and condition`); // Entry logging per REPLITAGENT guidelines
+  try {
+    const document = await model.findOne(condition); // MongoDB findOne query for single document retrieval
+    const result = document || undefined; // Normalize null to undefined for consistent return type
+    console.log(`findOneDocument is returning ${result ? `document found` : `undefined`}`); // Exit logging per REPLITAGENT guidelines
+    return result;
+  } catch (error) {
+    console.log(`findOneDocument is returning undefined due to error`); // Error case logging per REPLITAGENT guidelines
+    return undefined; // Handle database errors gracefully with undefined fallback
+  }
+}
+
+/**
+ * Helper for bulk document updates with consistent error handling
+ * Useful for operations like reordering where multiple documents need updates
+ * @param model - Mongoose model to update
+ * @param updates - Array of update operations with id and data
+ * @returns Number of successful updates
+ */
+async function bulkUpdateDocuments<T extends Document>(
+  model: Model<T>, 
+  updates: Array<{ id: string; data: Partial<T> }>
+): Promise<number> {
+  console.log(`bulkUpdateDocuments is running with ${model.modelName} model and ${updates.length} updates`); // Entry logging per REPLITAGENT guidelines
+  let successCount = 0; // Track successful updates for return value
+  
+  for (const update of updates) {
+    try {
+      const result = await model.findByIdAndUpdate(update.id, update.data); // MongoDB update operation for each document
+      if (result) successCount++; // Increment counter only if document was found and updated
+    } catch (error) {
+      continue; // Continue with other updates even if one fails to prevent cascading failures
+    }
+  }
+  
+  console.log(`bulkUpdateDocuments is returning ${successCount} successful updates`); // Exit logging per REPLITAGENT guidelines
+  return successCount;
+}

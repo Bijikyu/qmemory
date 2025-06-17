@@ -33,6 +33,16 @@ const {
   createAggregationPipeline 
 } = require('./lib/database-utils'); // Database helpers keep controllers clean
 const {
+  findDocumentById,
+  updateDocumentById,
+  deleteDocumentById,
+  cascadeDeleteDocument,
+  createDocument,
+  findDocuments,
+  findOneDocument,
+  bulkUpdateDocuments
+} = require('./lib/document-helpers'); // Generic document CRUD operations with consistent error handling
+const {
   performUserDocOp,
   findUserDoc,
   deleteUserDoc,
@@ -82,6 +92,17 @@ module.exports = { // re-exposes modules so consumers import from one place
   ensureIdempotency, // idempotency checking for critical operations
   optimizeQuery, // query optimization helper for performance enhancement
   createAggregationPipeline, // aggregation pipeline builder for analytics operations
+
+  // Generic document helpers - CRUD operations without user ownership constraints re-exposed from document-helpers
+  // These functions provide safe MongoDB operations with consistent error handling for any document type
+  findDocumentById, // safe document retrieval by ID with graceful error handling
+  updateDocumentById, // safe document update by ID with new document return
+  deleteDocumentById, // safe document deletion by ID with boolean return pattern
+  cascadeDeleteDocument, // cascading deletion with cleanup operations for related data
+  createDocument, // safe document creation with validation error propagation
+  findDocuments, // safe document query with find condition and optional sorting
+  findOneDocument, // safe single document query with consistent undefined return
+  bulkUpdateDocuments, // bulk document updates with individual error handling
 
   // Document operations - High-level document manipulation utilities re-exposed from document-ops
   // These encapsulate common CRUD patterns for user-owned documents,
