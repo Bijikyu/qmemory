@@ -380,6 +380,50 @@ describe('Performance Monitoring Utilities', () => {
     });
   });
 
+  describe('Singleton instance functionality', () => {
+    test('should export a ready-to-use singleton instance', () => { // singleton pattern
+      const { performanceMonitor } = require('../../lib/performance-utils');
+      
+      expect(performanceMonitor).toBeDefined();
+      expect(performanceMonitor).toBeInstanceOf(PerformanceMonitor);
+      expect(performanceMonitor.database).toBeDefined();
+      expect(performanceMonitor.requests).toBeDefined();
+      expect(performanceMonitor.system).toBeDefined();
+    });
+
+    test('should maintain singleton state across imports', () => { // singleton consistency
+      const { performanceMonitor: instance1 } = require('../../lib/performance-utils');
+      const { performanceMonitor: instance2 } = require('../../lib/performance-utils');
+      
+      // Record operation on first instance
+      instance1.database.recordQuery('testQuery', 50, true);
+      
+      // Verify state is shared with second instance
+      const metrics1 = instance1.getComprehensiveMetrics();
+      const metrics2 = instance2.getComprehensiveMetrics();
+      
+      expect(metrics1.database.totalQueries).toBe(metrics2.database.totalQueries);
+      expect(instance1).toBe(instance2); // Should be the same object reference
+    });
+
+    test('should work alongside custom instances', () => { // singleton coexistence
+      const { performanceMonitor } = require('../../lib/performance-utils');
+      const customMonitor = new PerformanceMonitor();
+      
+      // Record different operations on each
+      performanceMonitor.database.recordQuery('singletonQuery', 40, true);
+      customMonitor.database.recordQuery('customQuery', 60, true);
+      
+      const singletonMetrics = performanceMonitor.getComprehensiveMetrics();
+      const customMetrics = customMonitor.getComprehensiveMetrics();
+      
+      // Should have independent state
+      expect(singletonMetrics.database.totalQueries).not.toBe(customMetrics.database.totalQueries);
+      
+      customMonitor.stop();
+    });
+  });
+
   describe('PerformanceMonitor', () => {
     let perfMonitor;
 
