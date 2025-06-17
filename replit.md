@@ -72,6 +72,17 @@ Advanced database operation helpers for production reliability:
 - `optimizeQuery` - Query optimization helper with lean queries, field selection, and index hints
 - `createAggregationPipeline` - Aggregation pipeline builder for analytics and reporting
 
+### Generic Document Helpers
+MongoDB CRUD operations without user ownership constraints:
+- `findDocumentById` - Safe document retrieval by ID with graceful error handling
+- `updateDocumentById` - Safe document update by ID with new document return
+- `deleteDocumentById` - Safe document deletion by ID with boolean return pattern
+- `cascadeDeleteDocument` - Cascading deletion with cleanup operations for related data
+- `createDocument` - Safe document creation with validation error propagation
+- `findDocuments` - Safe document query with find condition and optional sorting
+- `findOneDocument` - Safe single document query with consistent undefined return
+- `bulkUpdateDocuments` - Bulk document updates with individual error handling
+
 ### Storage Solutions
 - **MemStorage Class**: In-memory storage with Map-based data structure
 - **Singleton Instance**: Application-wide shared storage (`storage`)
@@ -139,6 +150,7 @@ Changelog:
 - June 17, 2025. Enhanced pagination with cursor-based navigation, advanced sorting, and security validation (46 tests passing, 88% coverage)
 - June 17, 2025. Enhanced performance monitoring with singleton pattern for immediate application-wide monitoring (41 tests passing, 97.6% coverage)
 - June 17, 2025. Enhanced database utilities with comprehensive MongoDB error handling, safe operation wrappers, retry logic, idempotency patterns, query optimization, and aggregation pipeline builders (25 tests passing, 90.5% coverage)
+- June 17, 2025. Added generic document helpers for MongoDB CRUD operations with cascading deletion, bulk updates, and consistent error handling (24 tests passing, 79.8% coverage)
 
 ## User Preferences
 
