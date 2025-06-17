@@ -19,6 +19,7 @@ The library follows a barrel export pattern with functionality organized into sp
 - `lib/storage.js` - In-memory storage implementation
 - `lib/utils.js` - Basic utility functions
 - `lib/logging-utils.js` - Centralized logging patterns
+- `lib/pagination-utils.js` - Pagination parameter validation and response formatting
 
 ## Key Components
 
@@ -28,6 +29,12 @@ Provides standardized HTTP response helpers for Express.js applications:
 - `sendConflict` - 409 responses for duplicate resources
 - `sendInternalServerError` - 500 responses with error logging
 - `sendServiceUnavailable` - 503 responses for database connectivity issues
+
+### Pagination Utilities
+Standardized pagination parameter validation and response formatting:
+- `validatePagination` - Validates query parameters and returns pagination config or sends error response
+- `createPaginationMeta` - Generates navigation metadata for paginated API responses
+- `createPaginatedResponse` - Creates complete paginated response with data and metadata
 
 ### Database Operations
 All document operations enforce user ownership constraints automatically:
@@ -99,6 +106,7 @@ Includes Docker configuration with:
 
 Changelog:
 - June 17, 2025. Initial setup
+- June 17, 2025. Added pagination utilities with comprehensive validation, metadata generation, and response formatting
 
 ## User Preferences
 
