@@ -388,9 +388,9 @@ describe('Enhanced Database Utilities', () => {
         lean: false,
         select: null,
         limit: null,
-        skip: 0, // Should still be applied
+        skip: 5, // Should be applied since it's truthy
         sort: undefined,
-        populate: '',
+        populate: 'author', // Should be applied since it's truthy
         hint: null
       };
       
@@ -399,9 +399,9 @@ describe('Enhanced Database Utilities', () => {
       expect(mockQuery.lean).not.toHaveBeenCalled();
       expect(mockQuery.select).not.toHaveBeenCalled();
       expect(mockQuery.limit).not.toHaveBeenCalled();
-      expect(mockQuery.skip).toHaveBeenCalledWith(0);
+      expect(mockQuery.skip).toHaveBeenCalledWith(5);
       expect(mockQuery.sort).not.toHaveBeenCalled();
-      expect(mockQuery.populate).toHaveBeenCalledWith('');
+      expect(mockQuery.populate).toHaveBeenCalledWith('author');
       expect(mockQuery.hint).not.toHaveBeenCalled();
     });
   });

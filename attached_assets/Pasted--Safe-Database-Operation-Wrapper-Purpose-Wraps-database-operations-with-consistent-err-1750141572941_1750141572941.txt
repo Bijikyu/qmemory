@@ -1,0 +1,107 @@
+/**
+ * Safe Database Operation Wrapper
+ * 
+ * Purpose: Wraps database operations with consistent error handling and logging
+ * Consolidates try-catch patterns from multiple service files.
+ * 
+ * Wrapper rationale:
+ * - Consistent error handling across all database operations
+ * - Automatic logging and monitoring for database interactions
+ * - Retry logic for recoverable errors
+ * - Performance tracking for optimization
+ */
+async function safeDbOperation(operation, operationName, context = {}) {
+    const startTime = Date.now();
+    
+    try {
+        const result = await operation();
+        const processingTime = Date.now() - startTime;
+        
+        logger.debug('Database operation completed', {
+            operation: operationName,
+            processingTime,
+            context,
+            success: true
+        });
+        
+        return { success: true, data: result, processingTime };
+        
+    } catch (error) {
+        const processingTime = Date.now() - startTime;
+        const errorResult = handleMongoError(error, operationName, context);
+        
+        logger.error('Database operation failed', {
+            operation: operationName,
+            processingTime,
+            context,
+            error: errorResult
+        });
+        
+        return { 
+            success: false, 
+            error: errorResult, 
+            processingTime 
+        };
+    }
+}
+
+/**
+ * Retry Logic for Database Operations
+ * 
+ * Purpose: Implements retry logic for recoverable database errors
+ * Consolidates retry patterns from webhook processing and payment services.
+ * 
+ * Retry rationale:
+ * - Network issues and timeouts are often transient
+ * - Duplicate key errors in race conditions may resolve with retry
+ * - Exponential backoff prevents overwhelming database during issues
+ * - Maximum retry limits prevent infinite loops
+ */
+async function retryDbOperation(operation, operationName, options = {}) {
+    const {
+        maxRetries = 3,
+        baseDelay = 1000,
+        maxDelay = 10000,
+        retryCondition = (error) => error.recoverable,
+        context = {}
+    } = options;
+
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+        const result = await safeDbOperation(operation, operationName, { ...context, attempt });
+        
+        if (result.success) {
+            if (attempt > 1) {
+                logger.info('Database operation succeeded after retry', {
+                    operation: operationName,
+                    attempt,
+                    context
+                });
+            }
+            return result;
+        }
+        
+        lastError = result.error;
+        
+        // Don't retry if not recoverable or max attempts reached
+        if (!retryCondition(result.error) || attempt > maxRetries) {
+            break;
+        }
+        
+        // Calculate delay with exponential backoff
+        const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
+        
+        logger.warn('Database operation failed, retrying', {
+            operation: operationName,
+            attempt,
+            nextRetryIn: delay,
+            error: result.error.type,
+            context
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    return { success: false, error: lastError };
+}
