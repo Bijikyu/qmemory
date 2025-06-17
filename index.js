@@ -20,7 +20,10 @@ const {
   sendNotFound,
   sendConflict,
   sendInternalServerError,
-  sendServiceUnavailable // helper for 503 responses
+  sendServiceUnavailable, // helper for 503 responses
+  validateResponseObject, // validates Express response objects
+  sanitizeMessage,        // sanitizes error messages for safe client responses
+  getTimestamp           // generates consistent ISO timestamp strings
 } = require('./lib/http-utils'); // Central location for HTTP helpers promotes consistency
 const { 
   ensureMongoDB, 
@@ -81,6 +84,9 @@ module.exports = { // re-exposes modules so consumers import from one place
   sendConflict, // 409 conflict helper re-exported for barrel pattern
   sendInternalServerError, // 500 response helper re-exported for consistency
   sendServiceUnavailable, // 503 response helper re-exported for unified API
+  validateResponseObject, // validates Express response objects for custom HTTP helpers
+  sanitizeMessage, // sanitizes error messages for safe client responses
+  getTimestamp, // generates consistent ISO timestamp strings
 
   // Database utilities - MongoDB connection and advanced operation helpers re-exposed from database-utils
   // These functions provide robust database interaction patterns with proper error handling
