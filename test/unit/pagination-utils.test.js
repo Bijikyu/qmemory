@@ -10,7 +10,12 @@
 const {
   validatePagination,
   createPaginationMeta,
-  createPaginatedResponse
+  createPaginatedResponse,
+  validateCursorPagination,
+  createCursor,
+  createCursorPaginationMeta,
+  createCursorPaginatedResponse,
+  validateSorting
 } = require('../../lib/pagination-utils');
 
 describe('Pagination Utilities', () => {
@@ -378,6 +383,272 @@ describe('Pagination Utilities', () => {
       expect(() => {
         validatePagination(mockReq, invalidRes);
       }).toThrow();
+    });
+  });
+
+  describe('Enhanced Pagination Features', () => {
+    describe('validateCursorPagination', () => {
+      test('should validate cursor pagination with defaults', () => { // basic cursor validation
+        const mockReq = { query: {} };
+        
+        const result = validateCursorPagination(mockReq, mockRes);
+        
+        expect(result).toEqual({
+          limit: 50,
+          cursor: null,
+          direction: 'next',
+          sort: 'id',
+          rawCursor: null
+        });
+      });
+
+      test('should validate cursor pagination with custom parameters', () => { // custom cursor parameters
+        const mockReq = { 
+          query: { 
+            limit: '25', 
+            direction: 'prev', 
+            sort: 'createdAt' 
+          } 
+        };
+        
+        const result = validateCursorPagination(mockReq, mockRes);
+        
+        expect(result).toEqual({
+          limit: 25,
+          cursor: null,
+          direction: 'prev',
+          sort: 'createdAt',
+          rawCursor: null
+        });
+      });
+
+      test('should decode valid cursor', () => { // cursor decoding
+        const cursorData = { id: 123, createdAt: '2023-01-01T00:00:00.000Z', timestamp: '2023-01-01T00:00:00.000Z' };
+        const encodedCursor = Buffer.from(JSON.stringify(cursorData), 'utf-8').toString('base64');
+        
+        const mockReq = { query: { cursor: encodedCursor } };
+        
+        const result = validateCursorPagination(mockReq, mockRes);
+        
+        expect(result.cursor).toEqual(cursorData);
+        expect(result.rawCursor).toBe(encodedCursor);
+      });
+
+      test('should reject invalid cursor', () => { // invalid cursor handling
+        const mockReq = { query: { cursor: 'invalid-cursor' } };
+        
+        const result = validateCursorPagination(mockReq, mockRes);
+        
+        expect(result).toBeNull();
+        expect(mockRes.status).toHaveBeenCalledWith(400);
+        expect(mockRes.json).toHaveBeenCalledWith({
+          message: 'Invalid cursor format',
+          timestamp: expect.any(String)
+        });
+      });
+
+      test('should reject invalid direction', () => { // direction validation
+        const mockReq = { query: { direction: 'invalid' } };
+        
+        const result = validateCursorPagination(mockReq, mockRes);
+        
+        expect(result).toBeNull();
+        expect(mockRes.status).toHaveBeenCalledWith(400);
+        expect(mockRes.json).toHaveBeenCalledWith({
+          message: 'Direction must be either "next" or "prev"',
+          timestamp: expect.any(String)
+        });
+      });
+
+      test('should enforce maximum limit for cursor pagination', () => { // cursor max limit
+        const mockReq = { query: { limit: '200' } };
+        
+        const result = validateCursorPagination(mockReq, mockRes);
+        
+        expect(result).toBeNull();
+        expect(mockRes.status).toHaveBeenCalledWith(400);
+        expect(mockRes.json).toHaveBeenCalledWith({
+          message: 'Limit cannot exceed 100 records per page',
+          timestamp: expect.any(String)
+        });
+      });
+    });
+
+    describe('createCursor', () => {
+      test('should create encoded cursor for record', () => { // cursor creation
+        const record = { id: 123, name: 'Test', createdAt: '2023-01-01T00:00:00.000Z' };
+        
+        const cursor = createCursor(record, 'createdAt');
+        
+        expect(cursor).toBeDefined();
+        expect(typeof cursor).toBe('string');
+        
+        // Decode and verify cursor content
+        const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
+        expect(decoded.createdAt).toBe('2023-01-01T00:00:00.000Z');
+        expect(decoded.id).toBe(123);
+        expect(decoded.timestamp).toBeDefined();
+      });
+
+      test('should handle null record', () => { // null record handling
+        const cursor = createCursor(null);
+        expect(cursor).toBeNull();
+      });
+
+      test('should support MongoDB style _id', () => { // MongoDB compatibility
+        const record = { _id: '507f1f77bcf86cd799439011', name: 'Test' };
+        
+        const cursor = createCursor(record);
+        
+        const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
+        expect(decoded.id).toBe('507f1f77bcf86cd799439011');
+      });
+    });
+
+    describe('createCursorPaginationMeta', () => {
+      test('should create cursor metadata for next direction', () => { // next direction metadata
+        const data = [
+          { id: 1, name: 'Item 1' },
+          { id: 2, name: 'Item 2' }
+        ];
+        const pagination = { limit: 10, direction: 'next', sort: 'id' };
+        
+        const meta = createCursorPaginationMeta(data, pagination, true, 'id');
+        
+        expect(meta.limit).toBe(10);
+        expect(meta.direction).toBe('next');
+        expect(meta.sort).toBe('id');
+        expect(meta.hasMore).toBe(true);
+        expect(meta.cursors.next).toBeDefined();
+        expect(meta.cursors.prev).toBeDefined();
+      });
+
+      test('should create cursor metadata for prev direction', () => { // prev direction metadata
+        const data = [
+          { id: 3, name: 'Item 3' },
+          { id: 4, name: 'Item 4' }
+        ];
+        const pagination = { limit: 10, direction: 'prev', sort: 'id' };
+        
+        const meta = createCursorPaginationMeta(data, pagination, true, 'id');
+        
+        expect(meta.direction).toBe('prev');
+        expect(meta.hasMore).toBe(true);
+        expect(meta.cursors.next).toBeDefined();
+        expect(meta.cursors.prev).toBeDefined();
+      });
+
+      test('should handle empty data', () => { // empty data handling
+        const pagination = { limit: 10, direction: 'next', sort: 'id' };
+        
+        const meta = createCursorPaginationMeta([], pagination, false, 'id');
+        
+        expect(meta.hasMore).toBe(false);
+        expect(meta.cursors.next).toBeUndefined();
+        expect(meta.cursors.prev).toBeUndefined();
+      });
+    });
+
+    describe('validateSorting', () => {
+      test('should validate single sort field', () => { // single field sorting
+        const mockReq = { query: { sort: 'name' } };
+        const options = { allowedFields: ['name', 'email', 'createdAt'] };
+        
+        const result = validateSorting(mockReq, mockRes, options);
+        
+        expect(result).toEqual({
+          sortConfig: [{ field: 'name', direction: 'asc' }],
+          sortString: 'name',
+          primarySort: { field: 'name', direction: 'asc' }
+        });
+      });
+
+      test('should validate multiple sort fields', () => { // multiple field sorting
+        const mockReq = { query: { sort: 'name,-createdAt,email' } };
+        const options = { allowedFields: ['name', 'email', 'createdAt'] };
+        
+        const result = validateSorting(mockReq, mockRes, options);
+        
+        expect(result.sortConfig).toEqual([
+          { field: 'name', direction: 'asc' },
+          { field: 'createdAt', direction: 'desc' },
+          { field: 'email', direction: 'asc' }
+        ]);
+        expect(result.primarySort).toEqual({ field: 'name', direction: 'asc' });
+      });
+
+      test('should reject disallowed fields', () => { // field security validation
+        const mockReq = { query: { sort: 'password' } };
+        const options = { allowedFields: ['name', 'email'] };
+        
+        const result = validateSorting(mockReq, mockRes, options);
+        
+        expect(result).toBeNull();
+        expect(mockRes.status).toHaveBeenCalledWith(400);
+        expect(mockRes.json).toHaveBeenCalledWith({
+          message: 'Invalid sort field: password. Allowed fields: name, email',
+          timestamp: expect.any(String)
+        });
+      });
+
+      test('should enforce maximum sort fields', () => { // max fields validation
+        const mockReq = { query: { sort: 'name,email,createdAt,updatedAt' } };
+        const options = { allowedFields: ['name', 'email', 'createdAt', 'updatedAt'], maxSortFields: 3 };
+        
+        const result = validateSorting(mockReq, mockRes, options);
+        
+        expect(result).toBeNull();
+        expect(mockRes.status).toHaveBeenCalledWith(400);
+        expect(mockRes.json).toHaveBeenCalledWith({
+          message: 'Cannot sort by more than 3 fields',
+          timestamp: expect.any(String)
+        });
+      });
+
+      test('should reject invalid field name format', () => { // field format validation
+        const mockReq = { query: { sort: 'user.name' } };
+        const options = { allowedFields: ['user.name'] };
+        
+        const result = validateSorting(mockReq, mockRes, options);
+        
+        expect(result).toBeNull();
+        expect(mockRes.status).toHaveBeenCalledWith(400);
+        expect(mockRes.json).toHaveBeenCalledWith({
+          message: 'Invalid field name format: user.name',
+          timestamp: expect.any(String)
+        });
+      });
+
+      test('should use default sort when no sort provided', () => { // default sorting
+        const mockReq = { query: {} };
+        const options = { allowedFields: ['id', 'name', 'createdAt'], defaultSort: '-createdAt' };
+        
+        const result = validateSorting(mockReq, mockRes, options);
+        
+        expect(result.sortConfig).toEqual([{ field: 'createdAt', direction: 'desc' }]);
+      });
+
+      test('should require allowedFields configuration', () => { // config validation
+        const mockReq = { query: { sort: 'name' } };
+        
+        expect(() => {
+          validateSorting(mockReq, mockRes, {});
+        }).toThrow('allowedFields must be provided and cannot be empty');
+      });
+    });
+
+    describe('createCursorPaginatedResponse', () => {
+      test('should create complete cursor response', () => { // complete cursor response
+        const data = [{ id: 1, name: 'Item 1' }];
+        const pagination = { limit: 10, direction: 'next', sort: 'id' };
+        
+        const response = createCursorPaginatedResponse(data, pagination, true, 'id');
+        
+        expect(response.data).toEqual(data);
+        expect(response.pagination).toBeDefined();
+        expect(response.pagination.hasMore).toBe(true);
+        expect(response.timestamp).toBeDefined();
+      });
     });
   });
 

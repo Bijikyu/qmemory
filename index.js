@@ -39,7 +39,16 @@ const {
 const { MemStorage, storage } = require('./lib/storage'); // in-memory storage class and singleton instance
 const { greet, add, isEven } = require('./lib/utils'); // basic utility functions for common operations
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
-const { validatePagination, createPaginationMeta, createPaginatedResponse } = require('./lib/pagination-utils'); // pagination parameter validation and response formatting
+const { 
+  validatePagination, 
+  createPaginationMeta, 
+  createPaginatedResponse,
+  validateCursorPagination,
+  createCursor,
+  createCursorPaginationMeta,
+  createCursorPaginatedResponse,
+  validateSorting
+} = require('./lib/pagination-utils'); // pagination parameter validation and response formatting
 const { DatabaseMetrics, RequestMetrics, SystemMetrics, PerformanceMonitor } = require('./lib/performance-utils'); // performance monitoring and metrics collection
 
 // Export all functions for use as a module
@@ -96,6 +105,11 @@ module.exports = { // re-exposes modules so consumers import from one place
   validatePagination, // validates query parameters and returns pagination config or sends error response
   createPaginationMeta, // generates navigation metadata for paginated API responses
   createPaginatedResponse, // creates complete paginated response with data and metadata
+  validateCursorPagination, // validates cursor-based pagination parameters for large datasets
+  createCursor, // generates encoded cursors for navigation positioning
+  createCursorPaginationMeta, // creates cursor pagination metadata for API responses
+  createCursorPaginatedResponse, // creates complete cursor-based paginated response
+  validateSorting, // validates and extracts sorting parameters with security checks
 
   // Performance monitoring utilities - Comprehensive performance tracking and metrics collection
   // Real-time monitoring enables proactive optimization and issue detection across all application layers
