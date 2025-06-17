@@ -182,13 +182,13 @@ describe('Pagination Utilities', () => {
       const originalConsoleError = console.error;
       console.error = jest.fn();
       
-      // Create request that will cause an error (null query causes TypeError)
-      const mockReq = null;
+      // Create request that will cause an error - invalid response object
+      const mockReq = { query: {} };
+      const invalidRes = { status: 'not-a-function' }; // Invalid response object
       
-      const result = validatePagination(mockReq, mockRes);
-      
-      expect(result).toBeNull();
-      expect(console.error).toHaveBeenCalledWith('Pagination validation error:', expect.any(Error));
+      expect(() => {
+        validatePagination(mockReq, invalidRes);
+      }).toThrow('Invalid Express response object provided');
       
       // Restore console.error
       console.error = originalConsoleError;
