@@ -20,6 +20,7 @@ The library follows a barrel export pattern with functionality organized into sp
 - `lib/utils.js` - Basic utility functions
 - `lib/logging-utils.js` - Centralized logging patterns
 - `lib/pagination-utils.js` - Pagination parameter validation and response formatting
+- `lib/performance-utils.js` - Performance monitoring and metrics collection utilities
 
 ## Key Components
 
@@ -35,6 +36,13 @@ Standardized pagination parameter validation and response formatting:
 - `validatePagination` - Validates query parameters and returns pagination config or sends error response
 - `createPaginationMeta` - Generates navigation metadata for paginated API responses
 - `createPaginatedResponse` - Creates complete paginated response with data and metadata
+
+### Performance Monitoring Utilities
+Comprehensive performance tracking and metrics collection across all application layers:
+- `DatabaseMetrics` - Database query performance tracking with slow query detection and statistical analysis
+- `RequestMetrics` - HTTP endpoint performance monitoring with response time analysis and error tracking
+- `SystemMetrics` - System resource utilization tracking with memory and CPU monitoring
+- `PerformanceMonitor` - Unified performance monitoring orchestration with automated alerting and health checks
 
 ### Database Operations
 All document operations enforce user ownership constraints automatically:
@@ -107,6 +115,7 @@ Includes Docker configuration with:
 Changelog:
 - June 17, 2025. Initial setup
 - June 17, 2025. Added pagination utilities with comprehensive validation, metadata generation, and response formatting
+- June 17, 2025. Added performance monitoring utilities with database tracking, HTTP monitoring, system metrics, and automated alerting
 
 ## User Preferences
 

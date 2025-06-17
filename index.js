@@ -40,6 +40,7 @@ const { MemStorage, storage } = require('./lib/storage'); // in-memory storage c
 const { greet, add, isEven } = require('./lib/utils'); // basic utility functions for common operations
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { validatePagination, createPaginationMeta, createPaginatedResponse } = require('./lib/pagination-utils'); // pagination parameter validation and response formatting
+const { DatabaseMetrics, RequestMetrics, SystemMetrics, PerformanceMonitor } = require('./lib/performance-utils'); // performance monitoring and metrics collection
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -94,5 +95,12 @@ module.exports = { // re-exposes modules so consumers import from one place
   // Standardized pagination handling reduces controller complexity and ensures consistent API behavior
   validatePagination, // validates query parameters and returns pagination config or sends error response
   createPaginationMeta, // generates navigation metadata for paginated API responses
-  createPaginatedResponse // creates complete paginated response with data and metadata
+  createPaginatedResponse, // creates complete paginated response with data and metadata
+
+  // Performance monitoring utilities - Comprehensive performance tracking and metrics collection
+  // Real-time monitoring enables proactive optimization and issue detection across all application layers
+  DatabaseMetrics, // database query performance tracking with slow query detection
+  RequestMetrics, // HTTP endpoint performance monitoring with response time analysis
+  SystemMetrics, // system resource utilization tracking with memory and CPU monitoring
+  PerformanceMonitor // unified performance monitoring orchestration with automated alerting
 };
