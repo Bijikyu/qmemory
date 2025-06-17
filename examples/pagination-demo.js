@@ -92,7 +92,7 @@ async function demo2_customPagination() {
     
     if (!pagination) return;
     
-    const allUsers = await qmemory.storage.listUsers();
+    const allUsers = await qmemory.storage.getAllUsers();
     const pageData = allUsers.slice(pagination.skip, pagination.skip + pagination.limit);
     const response = qmemory.createPaginatedResponse(pageData, pagination.page, pagination.limit, allUsers.length);
     
