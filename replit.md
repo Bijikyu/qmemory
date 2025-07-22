@@ -21,6 +21,7 @@ The library follows a barrel export pattern with functionality organized into sp
 - `lib/logging-utils.js` - Centralized logging patterns
 - `lib/pagination-utils.js` - Pagination parameter validation and response formatting
 - `lib/performance-utils.js` - Performance monitoring and metrics collection utilities
+- `lib/cache-utils.js` - Redis-based caching with environment-aware behavior
 
 ## Key Components
 
@@ -54,6 +55,14 @@ Comprehensive performance tracking and metrics collection across all application
 - `RequestMetrics` - HTTP endpoint performance monitoring with response time analysis and error tracking
 - `SystemMetrics` - System resource utilization tracking with memory and CPU monitoring
 - `PerformanceMonitor` - Unified performance monitoring orchestration with automated alerting and health checks
+
+### Cache Utilities
+Redis-based caching system with intelligent environment awareness:
+- `withCache` - Main caching function that wraps expensive operations with TTL management
+- `initializeRedisClient` - Redis connection setup for production environments with graceful fallback
+- `disconnectRedis` - Graceful Redis connection cleanup and resource management
+- `invalidateCache` - Cache invalidation for fresh data requirements with pattern-based clearing
+- `getCacheStats` - Cache monitoring and health check utilities for performance insights
 
 ### Database Operations
 All document operations enforce user ownership constraints automatically:
@@ -108,6 +117,7 @@ MongoDB CRUD operations without user ownership constraints:
 - **mongoose**: ^8.15.1 - MongoDB object modeling
 - **@types/node**: ^22.15.31 - TypeScript definitions
 - **qtests**: ^1.0.4 - Testing utilities
+- **redis**: ^4.6.0 - Redis client for production caching
 
 ### Development Dependencies
 - **jest**: ^29.7.0 - Testing framework
@@ -151,6 +161,7 @@ Changelog:
 - June 17, 2025. Enhanced performance monitoring with singleton pattern for immediate application-wide monitoring (41 tests passing, 97.6% coverage)
 - June 17, 2025. Enhanced database utilities with comprehensive MongoDB error handling, safe operation wrappers, retry logic, idempotency patterns, query optimization, and aggregation pipeline builders (25 tests passing, 90.5% coverage)
 - June 17, 2025. Added generic document helpers for MongoDB CRUD operations with cascading deletion, bulk updates, and consistent error handling (24 tests passing, 79.8% coverage)
+- January 22, 2025. Added comprehensive Redis-based caching utilities with environment-aware behavior, graceful fallback patterns, and production/development mode adaptation (cache bypass in dev, Redis persistence in production)
 
 ## User Preferences
 

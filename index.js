@@ -72,6 +72,13 @@ const {
   validateSorting
 } = require('./lib/pagination-utils'); // pagination parameter validation and response formatting
 const { DatabaseMetrics, RequestMetrics, SystemMetrics, PerformanceMonitor, performanceMonitor } = require('./lib/performance-utils'); // performance monitoring and metrics collection
+const { 
+  withCache, 
+  initializeRedisClient, 
+  disconnectRedis, 
+  invalidateCache, 
+  getCacheStats 
+} = require('./lib/cache-utils'); // Redis-based caching with development mode bypass
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -159,5 +166,13 @@ module.exports = { // re-exposes modules so consumers import from one place
   RequestMetrics, // HTTP endpoint performance monitoring with response time analysis
   SystemMetrics, // system resource utilization tracking with memory and CPU monitoring
   PerformanceMonitor, // unified performance monitoring orchestration with automated alerting
-  performanceMonitor // singleton instance for immediate application-wide monitoring
+  performanceMonitor, // singleton instance for immediate application-wide monitoring
+
+  // Cache utilities - Redis-based caching with environment-aware behavior
+  // Intelligent caching that adapts between development and production modes
+  withCache, // main caching function for wrapping expensive operations with TTL
+  initializeRedisClient, // Redis connection setup for production environments
+  disconnectRedis, // graceful Redis connection cleanup and resource management
+  invalidateCache, // cache invalidation for fresh data requirements and pattern-based clearing
+  getCacheStats // cache monitoring and health check utilities for performance insights
 };
