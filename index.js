@@ -79,6 +79,13 @@ const {
   invalidateCache, 
   getCacheStats 
 } = require('./lib/cache-utils'); // Redis-based caching with development mode bypass
+const {
+  IStorage,
+  MemoryBinaryStorage,
+  FileSystemBinaryStorage,
+  StorageFactory,
+  getDefaultStorage
+} = require('./lib/binary-storage'); // Binary data storage interface and implementations
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -174,5 +181,13 @@ module.exports = { // re-exposes modules so consumers import from one place
   initializeRedisClient, // Redis connection setup for production environments
   disconnectRedis, // graceful Redis connection cleanup and resource management
   invalidateCache, // cache invalidation for fresh data requirements and pattern-based clearing
-  getCacheStats // cache monitoring and health check utilities for performance insights
+  getCacheStats, // cache monitoring and health check utilities for performance insights
+
+  // Binary storage utilities - Interface and implementations for storing binary data
+  // Provides unified interface for memory, file system, and cloud-based binary data storage
+  IStorage, // storage interface defining standard binary data operations (save, get, delete, exists)
+  MemoryBinaryStorage, // in-memory binary storage for development and caching scenarios
+  FileSystemBinaryStorage, // file system binary storage for local persistence
+  StorageFactory, // factory for creating storage instances based on configuration
+  getDefaultStorage // default storage instance for immediate use
 };
