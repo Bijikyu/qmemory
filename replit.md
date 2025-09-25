@@ -174,6 +174,7 @@ Changelog:
 - June 17, 2025. Added generic document helpers for MongoDB CRUD operations with cascading deletion, bulk updates, and consistent error handling (24 tests passing, 79.8% coverage)
 - January 22, 2025. Added comprehensive Redis-based caching utilities with environment-aware behavior, graceful fallback patterns, and production/development mode adaptation (cache bypass in dev, Redis persistence in production)
 - January 22, 2025. Added comprehensive binary storage interface with multiple implementations: in-memory storage for development, file system storage for local persistence, and cloud storage integration with Replit Object Storage. Includes unified IStorage interface, storage factory pattern, comprehensive validation, and performance optimization (45 tests passing, excellent performance metrics: 0.13ms per write, 0.02ms per read)
+- September 25, 2025. Added LRU cache functionality with performance monitoring integration. Includes createCache function for size-limited in-memory caching with TTL support, comprehensive cache hit/miss tracking, and performance monitoring functions (incCacheHit, incCacheMiss, setCacheKeys, getCacheMetrics, resetCacheMetrics). All functionality tested and integrated with existing performance monitoring system (6 tests passing, 86.95% coverage for LRU cache, 74.07% coverage for perf monitoring)
 
 ## User Preferences
 
