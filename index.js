@@ -82,6 +82,8 @@ const {
 const { createCache } = require('./lib/lru-cache'); // LRU cache with performance monitoring
 const { incCacheHit, incCacheMiss, setCacheKeys, getCacheMetrics, resetCacheMetrics } = require('./lib/perf'); // Cache performance monitoring functions
 const { normalizeFieldName, getCollectionName, denormalizeFieldName, normalizeObjectFields, denormalizeObjectFields } = require('./lib/field-utils'); // Field name normalization and collection utilities
+const { getMongoType, getSupportedTypes, isSupportedType } = require('./lib/typeMap'); // JavaScript to Mongoose type mapping
+const { mapParameterToMongoType, mapParametersToSchema, generateMongooseSchema } = require('./lib/mongoose-mapper'); // Parameter to Mongoose field descriptor mapping
 const {
   IStorage,
   MemoryBinaryStorage,
@@ -202,6 +204,16 @@ module.exports = { // re-exposes modules so consumers import from one place
   denormalizeFieldName, // Convert snake_case back to camelCase
   normalizeObjectFields, // Normalize entire objects to snake_case
   denormalizeObjectFields, // Denormalize entire objects back to camelCase
+
+  // Type mapping utilities - JavaScript to Mongoose type conversion
+  getMongoType, // Map generic types to Mongoose types
+  getSupportedTypes, // Get all supported type mappings
+  isSupportedType, // Check if a type is supported
+
+  // Mongoose schema mapping - Parameter to field descriptor conversion
+  mapParameterToMongoType, // Map parameter to Mongoose field descriptor with validation
+  mapParametersToSchema, // Map multiple parameters to schema object
+  generateMongooseSchema, // Generate complete Mongoose schema from parameters
 
   // Binary storage utilities - Interface and implementations for storing binary data
   // Provides unified interface for memory, file system, and cloud-based binary data storage
