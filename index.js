@@ -81,6 +81,7 @@ const {
 } = require('./lib/cache-utils'); // Redis-based caching with development mode bypass
 const { createCache } = require('./lib/lru-cache'); // LRU cache with performance monitoring
 const { incCacheHit, incCacheMiss, setCacheKeys, getCacheMetrics, resetCacheMetrics } = require('./lib/perf'); // Cache performance monitoring functions
+const { normalizeFieldName, getCollectionName, denormalizeFieldName, normalizeObjectFields, denormalizeObjectFields } = require('./lib/field-utils'); // Field name normalization and collection utilities
 const {
   IStorage,
   MemoryBinaryStorage,
@@ -194,6 +195,13 @@ module.exports = { // re-exposes modules so consumers import from one place
   setCacheKeys, // Set current key count for cache
   getCacheMetrics, // Get performance metrics for caches
   resetCacheMetrics, // Reset cache performance metrics
+
+  // Field utilities - Name normalization and collection name generation
+  normalizeFieldName, // Convert camelCase/PascalCase to snake_case
+  getCollectionName, // Derive pluralized snake_case collection names
+  denormalizeFieldName, // Convert snake_case back to camelCase
+  normalizeObjectFields, // Normalize entire objects to snake_case
+  denormalizeObjectFields, // Denormalize entire objects back to camelCase
 
   // Binary storage utilities - Interface and implementations for storing binary data
   // Provides unified interface for memory, file system, and cloud-based binary data storage
