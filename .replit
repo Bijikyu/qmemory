@@ -14,7 +14,7 @@ deploymentTarget = "autoscale"
 ignorePorts = false
 
 [workflows]
-runButton = "Run Tests"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Run Tests"
@@ -24,6 +24,27 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm test"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Demo App"
+
+[[workflows.workflow]]
+name = "Demo App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node demo-app.js"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[ports]]
 localPort = 33225
@@ -35,6 +56,10 @@ externalPort = 3000
 
 [[ports]]
 localPort = 46329
+externalPort = 80
+
+[[ports]]
+localPort = 5000
 externalPort = 80
 
 [agent]

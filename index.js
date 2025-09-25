@@ -79,6 +79,8 @@ const {
   invalidateCache, 
   getCacheStats 
 } = require('./lib/cache-utils'); // Redis-based caching with development mode bypass
+const { createCache } = require('./lib/lru-cache'); // LRU cache with performance monitoring
+const { incCacheHit, incCacheMiss, setCacheKeys, getCacheMetrics, resetCacheMetrics } = require('./lib/perf'); // Cache performance monitoring functions
 const {
   IStorage,
   MemoryBinaryStorage,
@@ -182,6 +184,16 @@ module.exports = { // re-exposes modules so consumers import from one place
   disconnectRedis, // graceful Redis connection cleanup and resource management
   invalidateCache, // cache invalidation for fresh data requirements and pattern-based clearing
   getCacheStats, // cache monitoring and health check utilities for performance insights
+
+  // LRU Cache - in-memory caching with size limits and performance monitoring
+  createCache, // Create LRU cache instance with performance tracking
+  
+  // Cache Performance Monitoring - hit/miss tracking and metrics
+  incCacheHit, // Increment cache hit counter
+  incCacheMiss, // Increment cache miss counter  
+  setCacheKeys, // Set current key count for cache
+  getCacheMetrics, // Get performance metrics for caches
+  resetCacheMetrics, // Reset cache performance metrics
 
   // Binary storage utilities - Interface and implementations for storing binary data
   // Provides unified interface for memory, file system, and cloud-based binary data storage
