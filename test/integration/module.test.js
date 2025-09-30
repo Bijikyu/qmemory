@@ -6,6 +6,7 @@
  */
 
 const qmemory = require('../../index'); // import library entry point
+const { testHelpers } = require('qtests/lib/envUtils.js');
 
 describe('QMemory Module Integration', () => { // Ensures exported API works together
   test('should export all expected functions and classes', () => { // verifies public API surface
@@ -75,10 +76,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
   });
 
   test('should provide consistent HTTP response helpers', () => { // ensure helper output
-    const mockRes = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
-    };
+    const mockRes = testHelpers.createRes();
 
     qmemory.sendNotFound(mockRes, 'Integration test message');
 
@@ -91,10 +89,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
 
   test('should handle cross-module interactions', async () => { // modules work together
     // Test that HTTP utils work with storage operations
-    const mockRes = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
-    };
+    const mockRes = testHelpers.createRes();
 
     await qmemory.storage.clear();
     
@@ -131,7 +126,7 @@ describe('QMemory Module Integration', () => { // Ensures exported API works tog
   });
 
   test('should handle error scenarios gracefully', async () => { // covers null/edge data
-    const mockRes = createMockResponse();
+    const mockRes = testHelpers.createRes();
     
     // Test with undefined/null values
     qmemory.sendNotFound(mockRes, null);

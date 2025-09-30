@@ -7,12 +7,13 @@ jest.mock('../../lib/database-utils'); // isolate database utils
 
 const { validateDocumentUniqueness, hasUniqueFieldChanges } = require('../../lib/document-ops'); // helpers under test
 const { ensureUnique } = require('../../lib/database-utils'); // mocked uniqueness checker
+const { testHelpers } = require('qtests/lib/envUtils.js');
 
 describe('Document Ops Helper Functions', () => { // group helper tests
   let mockRes; // holds mock response
 
   beforeEach(() => {
-    mockRes = createMockResponse(); // fresh mock response for each test
+    mockRes = testHelpers.createRes(); // standardized Express-like response mock
     jest.clearAllMocks(); // reset mock history
   });
 
@@ -67,10 +68,5 @@ describe('Document Ops Helper Functions', () => { // group helper tests
     });
   });
 
-  function createMockResponse() { // simple Express response mock
-    return {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
-    };
-  }
+  // no custom response mock needed; qtests provides helpers
 });

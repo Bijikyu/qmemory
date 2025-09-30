@@ -5,20 +5,14 @@
  */
 
 const { sendNotFound, sendConflict, sendInternalServerError, sendServiceUnavailable } = require('../../lib/http-utils'); // functions under test
+// Prefer qtests helpers over ad-hoc response mocks
+const { testHelpers } = require('qtests/lib/envUtils.js');
 
 describe('HTTP Utils Module', () => { // Tests standardized HTTP response helpers
   let mockRes;
 
-  // Helper function to create mock Express response object
-  function createMockResponse() {
-    return {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
-    };
-  }
-
   beforeEach(() => {
-    mockRes = createMockResponse();
+    mockRes = testHelpers.createRes();
   });
 
   describe('sendNotFound function', () => { // verify 404 helper behavior

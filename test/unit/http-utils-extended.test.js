@@ -4,6 +4,7 @@
  */
 
 const { sendNotFound, sendConflict, sendInternalServerError, sendServiceUnavailable } = require('../../lib/http-utils');
+const { testHelpers } = require('qtests/lib/envUtils.js');
 
 describe('HTTP Utils Extended Coverage', () => { // covers additional edge cases
   let mockRes;
@@ -12,10 +13,7 @@ describe('HTTP Utils Extended Coverage', () => { // covers additional edge cases
   let warnSpy;
 
   beforeEach(() => {
-    mockRes = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
-    };
+    mockRes = testHelpers.createRes();
     consoleSpy = jest.spyOn(console, 'log').mockImplementation();
     errorSpy = jest.spyOn(console, 'error').mockImplementation();
     warnSpy = jest.spyOn(console, 'warn').mockImplementation();

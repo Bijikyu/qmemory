@@ -1,14 +1,15 @@
 {
   "name": "qmemory",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A comprehensive production-ready Node.js utility library with MongoDB document operations, user ownership enforcement, Express.js HTTP utilities, environment-aware logging, and in-memory storage. Features 96%+ test coverage with comprehensive error handling and security patterns.",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
+    "test": "node qtests-runner.mjs",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:unit": "jest test/unit",
-    "test:integration": "jest test/integration"
+    "test:integration": "jest test/integration",
+    "pretest": "node scripts/clean-dist.mjs && node scripts/ensure-runner.mjs"
   },
   "keywords": [
     "mongodb",
@@ -56,13 +57,26 @@
     "google-auth-library": "^10.2.1",
     "lru-cache": "^11.2.2",
     "mongoose": "^8.15.1",
-    "qtests": "^1.0.4",
+    "qgenutils": "^1.0.3",
     "redis": "^5.6.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.4",
+    "@babel/preset-env": "^7.28.3",
+    "agentsqripts": "^1.1.0",
+    "arqitect": "^1.1.1",
+    "babel-jest": "^30.2.0",
     "express": "^4.18.2",
+    "fileflows": "^1.0.3",
     "jest": "^29.7.0",
-    "supertest": "^6.3.4"
+    "loqatevars": "^1.0.6",
+    "madge": "^8.0.0",
+    "qtests": "^2.0.0",
+    "quantumagent": "^1.0.5",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.4.4",
+    "typescript": "^5.9.2",
+    "unqommented": "^1.1.0"
   },
   "repository": {
     "type": "git",

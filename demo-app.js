@@ -28,44 +28,55 @@ const {
   validatePagination,
   createPaginatedResponse
 } = require('./index');
+const { logger, sanitizeString, getEnvVar, requireEnvVars, gracefulShutdown } = require('./lib/qgenutils-wrapper');
 
 const app = express();
-const port = process.env.PORT || 5000;
+// Prefer typed/env-aware port retrieval via qgenutils
+const port = getEnvVar('PORT', process.env.PORT || 5000, 'number');
 
-// Local helper functions provide minimal implementations since the library
-// no longer exports these utilities
-function logInfo(...args) { console.log('[INFO]', ...args); } // unify info logging
-function logError(...args) { console.error('[ERROR]', ...args); } // unify error logging
+// Optional: enforce required env vars in production
+if (process.env.NODE_ENV === 'production') {
+  try {
+    requireEnvVars(['PORT']);
+  } catch (err) {
+    if (logger && logger.error) {
+      logger.error('Environment validation failed', { error: err.message });
+    } else {
+      // Fallback logging
+      console.error('Environment validation failed', err);
+    }
+    process.exit(1);
+  }
+}
+
+// Local helper wrappers forward to qgenutils.logger for structured logging
+function logInfo(...args) { try { logger && logger.info && logger.info(args.join(' ')); } catch (_) {} }
+function logError(...args) { try { logger && logger.error && logger.error(args.join(' ')); } catch (_) {} }
 function sendSuccess(res, message, data) { // send standard 200 response
-  console.log(`sendSuccess is running with ${message}`); // trace call for debugging
   try {
     const payload = { message, timestamp: new Date().toISOString() };
     if (data !== undefined) payload.data = data; // include optional data
     res.status(200).json(payload);
-    console.log(`sendSuccess is returning ${JSON.stringify(payload)}`); // confirm output
+    logger && logger.debug && logger.debug('sendSuccess response sent', { message });
   } catch (error) {
-    console.error('sendSuccess failed', error); // log failure path
+    logError('sendSuccess failed', error);
   }
 }
 function sendBadRequest(res, message) { // send standard 400 response
-  console.log(`sendBadRequest is running with ${message}`); // trace call for debugging
   try {
     const payload = { message, timestamp: new Date().toISOString() };
     res.status(400).json(payload);
-    console.log('sendBadRequest has run resulting in a final value of 400'); // confirm completion
+    logger && logger.debug && logger.debug('sendBadRequest response sent', { message });
   } catch (error) {
-    console.error('sendBadRequest failed', error); // log failure path
+    logError('sendBadRequest failed', error);
   }
 }
 
-function sanitizeInput(str) { // remove spaces and html tags to mitigate xss
-  console.log(`sanitizeInput is running with ${str}`); // trace sanitizer use
+function sanitizeInput(str) { // robust input sanitization via qgenutils
   try {
-    const value = typeof str === 'string' ? str.trim().replace(/<[^>]*>/g, '') : '';
-    console.log(`sanitizeInput is returning ${value}`); // confirm sanitized result
-    return value;
+    return sanitizeString(str);
   } catch (error) {
-    console.error('sanitizeInput failed', error); // log sanitizer errors
+    logError('sanitizeInput failed', error);
     return '';
   }
 }
@@ -256,18 +267,14 @@ app.use((req, res) => {
   sendNotFound(res, 'Endpoint not found'); // unified not-found response
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => { // capture container shutdown event for graceful exit
-  logInfo('SIGTERM received, shutting down gracefully'); // log exit request for operators
-  if (server) { // only close when server was started to prevent undefined errors
-    server.close(() => { // close server to release port before process exits
-      logInfo('Server closed'); // confirm server has been closed for reliability
-      process.exit(0); // exit after server shutdown
-    });
-  } else { // handle case where server was never started (e.g. in tests)
-    process.exit(0); // exit immediately without server cleanup
+// Graceful shutdown via qgenutils
+function registerGracefulShutdown(serverInstance) {
+  try {
+    gracefulShutdown(serverInstance, null, 10000); // handles SIGTERM/SIGINT
+  } catch (err) {
+    logError('Failed to register graceful shutdown', err);
   }
-});
+}
 
 
 let server; // holds HTTP server instance when started manually or via CLI
@@ -282,8 +289,9 @@ if (require.main === module) { // start server only when running this file direc
         .then(() => logInfo('Created demo user'))
         .catch(err => logError('Failed to create demo user:', err));
     }
+    // Register shutdown handlers after server starts
+    registerGracefulShutdown(server);
   });
 }
 
 module.exports = { app, server }; // export server for tests and app for external usage
-

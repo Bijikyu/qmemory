@@ -4,6 +4,7 @@
  */
 
 const request = require('supertest');
+const { testHelpers } = require('qtests/lib/envUtils.js');
 
 let server; // will hold HTTP server instance across tests
 let agent; // supertest agent for making requests
@@ -127,9 +128,10 @@ describe('Demo App API', () => {
   });
 
   test('/users/clear responds 400 in production', async () => {
-    process.env.NODE_ENV = 'production';
-    const res = await agent.post('/users/clear');
-    expect(res.status).toBe(400);
-    process.env.NODE_ENV = 'test';
+    await testHelpers.withSavedEnv(async () => {
+      process.env.NODE_ENV = 'production';
+      const res = await agent.post('/users/clear');
+      expect(res.status).toBe(400);
+    });
   });
 });

@@ -22,6 +22,7 @@ const {
 const { ensureUnique } = require('../../lib/database-utils');
 const { sendNotFound } = require('../../lib/http-utils');
 const mongoose = require('mongoose');
+const { testHelpers } = require('qtests/lib/envUtils.js');
 
 describe('Document Operations Module', () => { // Unit tests for higher-level document helpers
   let mockModel;
@@ -44,12 +45,8 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       findById: jest.fn()
     };
 
-    mockRes = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
-    };
     mockModel = createMockModel();
-    mockRes = createMockResponse();
+    mockRes = testHelpers.createRes();
     jest.clearAllMocks();
   });
 
@@ -469,13 +466,6 @@ describe('Document Operations Module', () => { // Unit tests for higher-level do
       create: jest.fn(),
       findById: jest.fn(),
       mockImplementation: jest.fn(),
-    };
-  }
-
-  function createMockResponse() {
-    return {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
     };
   }
 });
