@@ -16,15 +16,18 @@
 
 // Import organized modules - each module handles a specific domain of functionality
 // This separation allows for easier testing, maintenance, and selective importing
-const {
-  sendNotFound,
-  sendConflict,
-  sendInternalServerError,
-  sendServiceUnavailable, // helper for 503 responses
+const { 
+  sendNotFound, 
+  sendConflict, 
+  sendInternalServerError, 
+  sendServiceUnavailable, // enhanced 503 responses with retry guidance
   validateResponseObject, // validates Express response objects
   sanitizeMessage,        // sanitizes error messages for safe client responses
-  getTimestamp           // generates consistent ISO timestamp strings
-} = require('./lib/http-utils'); // Central location for HTTP helpers promotes consistency
+  getTimestamp,           // generates consistent ISO timestamp strings
+  sendValidationError,     // enhanced validation error responses
+  sendAuthError,          // enhanced authentication error responses
+  generateRequestId        // unique request ID generation for correlation
+} = require('./lib/http-utils'); // Enhanced HTTP helpers with qerrors AI analysis
 const { 
   ensureMongoDB, 
   ensureUnique, 

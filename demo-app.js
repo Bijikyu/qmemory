@@ -28,7 +28,7 @@ const {
   validatePagination,
   createPaginatedResponse
 } = require('./index');
-const { logger, sanitizeString, getEnvVar, requireEnvVars, gracefulShutdown } = require('./lib/qgenutils-wrapper');
+const { logger, sanitizeString, getEnvVar, requireEnvVars, gracefulShutdown } = require('./lib/qgenutils-wrapper'); // Enhanced utilities with qerrors integration
 
 const app = express();
 // Prefer typed/env-aware port retrieval via qgenutils
