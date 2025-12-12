@@ -63,6 +63,7 @@ const { greet, add, isEven, dedupeByFirst, dedupeByLowercaseFirst, dedupeByLast,
 const { getEmails, createEmailTarget, isValidEmail, normalizeEmail, getEmailDomain, filterValidEmails } = require('./lib/email-utils'); // email aggregation and validation utilities
 const { CircuitBreaker, createCircuitBreaker, STATES: CIRCUIT_BREAKER_STATES } = require('./lib/circuit-breaker'); // circuit breaker for fault tolerance
 const { CircuitBreakerFactory, getCircuitBreakerFactory, getManagedCircuitBreaker, getCircuitBreakerStats, getCircuitBreakerFactoryStats, clearAllCircuitBreakers, shutdownCircuitBreakerFactory } = require('./lib/circuit-breaker-factory'); // circuit breaker factory with lifecycle management
+const { updateMetrics: updateHealthMetrics, incrementActiveRequests, decrementActiveRequests, getRequestMetrics, resetMetrics: resetHealthMetrics, checkMemoryHealth, checkCpuHealth, checkFilesystemHealth, runCustomCheck, determineOverallStatus, getHealthStatus, healthCheckMiddleware, readinessCheckMiddleware, livenessCheckMiddleware, setupHealthRoutes } = require('./lib/health-check'); // health check service for monitoring
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -197,6 +198,24 @@ module.exports = { // re-exposes modules so consumers import from one place
   getCircuitBreakerFactoryStats, // get factory-level statistics
   clearAllCircuitBreakers, // clear all circuit breakers manually
   shutdownCircuitBreakerFactory, // graceful shutdown of factory
+
+  // Health check utilities - Application health monitoring for Kubernetes and load balancers
+  // Provides comprehensive health status, readiness probes, and liveness checks
+  updateHealthMetrics, // update request metrics for health tracking
+  incrementActiveRequests, // track active concurrent requests
+  decrementActiveRequests, // decrement active request counter
+  getRequestMetrics, // get current request metrics snapshot
+  resetHealthMetrics, // reset health metrics counters
+  checkMemoryHealth, // check memory usage health status
+  checkCpuHealth, // check CPU load health status
+  checkFilesystemHealth, // check filesystem access health
+  runCustomCheck, // run custom health check function
+  determineOverallStatus, // determine healthy/degraded/unhealthy from checks
+  getHealthStatus, // get comprehensive health status report
+  healthCheckMiddleware, // Express middleware for /health endpoint
+  readinessCheckMiddleware, // Express middleware for Kubernetes readiness probe
+  livenessCheckMiddleware, // Express middleware for Kubernetes liveness probe
+  setupHealthRoutes, // setup all health routes on Express app
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
