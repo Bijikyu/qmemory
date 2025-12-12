@@ -68,11 +68,15 @@ const { CircuitBreaker, createCircuitBreaker, STATES: CIRCUIT_BREAKER_STATES } =
 const { CircuitBreakerFactory, getCircuitBreakerFactory, getManagedCircuitBreaker, getCircuitBreakerStats, getCircuitBreakerFactoryStats, clearAllCircuitBreakers, shutdownCircuitBreakerFactory } = require('./lib/circuit-breaker-factory'); // circuit breaker factory with lifecycle management
 const { updateMetrics: updateHealthMetrics, incrementActiveRequests, decrementActiveRequests, getRequestMetrics, resetMetrics: resetHealthMetrics, checkMemoryHealth, checkCpuHealth, checkFilesystemHealth, runCustomCheck, determineOverallStatus, getHealthStatus, healthCheckMiddleware, readinessCheckMiddleware, livenessCheckMiddleware, setupHealthRoutes } = require('./lib/health-check'); // health check service for monitoring
 const { TestMemoryManager, createMemoryManager, createLeakDetectionSession, quickMemoryCheck, withMemoryTracking, setupTestMemoryMonitoring, teardownTestMemoryMonitoring } = require('./lib/test-memory-manager'); // test memory management and leak detection
-const { AsyncQueue, createAsyncQueue, getDefaultQueue, shutdownDefaultQueue, queueTask } = require('./lib/async-queue'); // async job queue with priority and retries
+const { AsyncQueue, createQueue } = require('./lib/async-queue'); // simplified async queue
 const { SimpleDatabasePool, DatabaseConnectionPool, databaseConnectionPool, createDatabasePool, acquireDatabaseConnection, releaseDatabaseConnection, executeDatabaseQuery, getDatabasePoolStats, getDatabasePoolHealth, shutdownDatabasePools } = require('./lib/database-pool'); // database connection pooling
 const { createCrudService, createPaginatedService, createValidatedService, findByFieldIgnoreCase, createDuplicateError, escapeRegex: escapeRegexCrud, validateData } = require('./lib/crud-service-factory'); // CRUD service factory for Mongoose models
 const { checkDuplicateByField, validateUniqueField, validateUniqueFields, createUniqueValidator, handleDuplicateKeyError, withDuplicateKeyHandling, createUniqueFieldMiddleware, createUniqueFieldsMiddleware, isDuplicateError, createBatchUniqueChecker } = require('./lib/unique-validator'); // unique field validation for MongoDB
-const { estimateJsonSize, streamJsonStringify, streamJsonStringifyAsync, truncateObjectForLogging, safeJsonStringify, safeJsonParse, StreamingJsonParser, createJsonStream, serializeToChunks, calculateBatchSize } = require('./lib/streaming-json'); // streaming JSON serialization
+const { 
+  safeJsonStringify, 
+  safeJsonParse,
+  JSON
+} = require('./lib/streaming-json'); // JSON utilities from Node.js built-ins
 const { FastMath, FastString, LockFreeQueue, ObjectPool, FastTimer, FastMemory, FastHash, FastOps, Cast, Prop } = require('./lib/fast-operations'); // high-performance operations
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
@@ -87,13 +91,10 @@ const {
 } = require('./lib/pagination-utils'); // pagination parameter validation and response formatting
 const { DatabaseMetrics, RequestMetrics, SystemMetrics, PerformanceMonitor, performanceMonitor } = require('./lib/performance-utils'); // performance monitoring and metrics collection
 const { 
-  withCache, 
-  initializeRedisClient, 
-  disconnectRedis, 
-  invalidateCache, 
-  getCacheStats 
-} = require('./lib/cache-utils'); // Redis-based caching with development mode bypass
-const { createCache } = require('./lib/lru-cache'); // LRU cache with performance monitoring
+  createRedisClient, 
+  redis 
+} = require('./lib/cache-utils'); // Redis client from npm module
+const { LRUCache } = require('./lib/lru-cache'); // LRU cache from npm module
 const { incCacheHit, incCacheMiss, setCacheKeys, getCacheMetrics, resetCacheMetrics } = require('./lib/perf'); // Cache performance monitoring functions
 const { normalizeFieldName, getCollectionName, denormalizeFieldName, normalizeObjectFields, denormalizeObjectFields } = require('./lib/field-utils'); // Field name normalization and collection utilities
 const { getMongoType, getSupportedTypes, isSupportedType } = require('./lib/typeMap'); // JavaScript to Mongoose type mapping
@@ -237,13 +238,9 @@ module.exports = { // re-exposes modules so consumers import from one place
   setupTestMemoryMonitoring, // Jest beforeAll helper
   teardownTestMemoryMonitoring, // Jest afterAll helper
 
-  // Async queue - Background job processing with priority and retries
-  // Production-ready queue for moving I/O out of request paths
-  AsyncQueue, // class for job queue with full control
-  createAsyncQueue, // create new queue instance
-  getDefaultQueue, // get/create singleton default queue
-  shutdownDefaultQueue, // graceful shutdown of default queue
-  queueTask, // simple helper to queue a task
+  // Async queue - Simplified background job processing
+  AsyncQueue, // class for job queue
+  createQueue, // create new queue instance
 
   // Database connection pool - Scalable connection management with health monitoring
   // Supports Redis, PostgreSQL, MySQL, and MongoDB with automatic recovery
@@ -281,18 +278,10 @@ module.exports = { // re-exposes modules so consumers import from one place
   isDuplicateError, // check if error is duplicate error
   createBatchUniqueChecker, // batch uniqueness checker for bulk operations
 
-  // Streaming JSON - Memory-efficient JSON handling for large payloads
-  // Chunked serialization, size estimation, and safe parsing
-  estimateJsonSize, // estimate JSON size before serialization
-  streamJsonStringify, // generator that yields JSON chunks
-  streamJsonStringifyAsync, // async generator with backpressure support
-  truncateObjectForLogging, // truncate large objects for safe logging
-  safeJsonStringify, // stringify with automatic truncation
+  // JSON utilities - Safe JSON operations from Node.js built-ins
+  safeJsonStringify, // stringify with error handling
   safeJsonParse, // parse with error handling and default value
-  StreamingJsonParser, // class for incremental JSON parsing
-  createJsonStream, // create JSON transform stream
-  serializeToChunks, // serialize to array of chunks
-  calculateBatchSize, // calculate memory-safe batch size
+  JSON, // built-in JSON object for direct access
 
   // Fast operations - Ultra-high performance core operations
   // Optimized for speed in critical code paths (20-40% speedup)
@@ -332,16 +321,12 @@ module.exports = { // re-exposes modules so consumers import from one place
   PerformanceMonitor, // unified performance monitoring orchestration with automated alerting
   performanceMonitor, // singleton instance for immediate application-wide monitoring
 
-  // Cache utilities - Redis-based caching with environment-aware behavior
-  // Intelligent caching that adapts between development and production modes
-  withCache, // main caching function for wrapping expensive operations with TTL
-  initializeRedisClient, // Redis connection setup for production environments
-  disconnectRedis, // graceful Redis connection cleanup and resource management
-  invalidateCache, // cache invalidation for fresh data requirements and pattern-based clearing
-  getCacheStats, // cache monitoring and health check utilities for performance insights
+  // Cache utilities - Redis client from npm module
+  createRedisClient, // create Redis client with configuration
+  redis, // redis module for direct usage
 
-  // LRU Cache - in-memory caching with size limits and performance monitoring
-  createCache, // Create LRU cache instance with performance tracking
+  // LRU Cache - in-memory caching with size limits
+  LRUCache, // LRU cache class from npm module
   
   // Cache Performance Monitoring - hit/miss tracking and metrics
   incCacheHit, // Increment cache hit counter
