@@ -69,6 +69,7 @@ const { AsyncQueue, createAsyncQueue, getDefaultQueue, shutdownDefaultQueue, que
 const { SimpleDatabasePool, DatabaseConnectionPool, databaseConnectionPool, createDatabasePool, acquireDatabaseConnection, releaseDatabaseConnection, executeDatabaseQuery, getDatabasePoolStats, getDatabasePoolHealth, shutdownDatabasePools } = require('./lib/database-pool'); // database connection pooling
 const { createCrudService, createPaginatedService, createValidatedService, findByFieldIgnoreCase, createDuplicateError, escapeRegex: escapeRegexCrud, validateData } = require('./lib/crud-service-factory'); // CRUD service factory for Mongoose models
 const { checkDuplicateByField, validateUniqueField, validateUniqueFields, createUniqueValidator, handleDuplicateKeyError, withDuplicateKeyHandling, createUniqueFieldMiddleware, createUniqueFieldsMiddleware, isDuplicateError, createBatchUniqueChecker } = require('./lib/unique-validator'); // unique field validation for MongoDB
+const { estimateJsonSize, streamJsonStringify, streamJsonStringifyAsync, truncateObjectForLogging, safeJsonStringify, safeJsonParse, StreamingJsonParser, createJsonStream, serializeToChunks, calculateBatchSize } = require('./lib/streaming-json'); // streaming JSON serialization
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -275,6 +276,19 @@ module.exports = { // re-exposes modules so consumers import from one place
   createUniqueFieldsMiddleware, // Express middleware for multiple fields
   isDuplicateError, // check if error is duplicate error
   createBatchUniqueChecker, // batch uniqueness checker for bulk operations
+
+  // Streaming JSON - Memory-efficient JSON handling for large payloads
+  // Chunked serialization, size estimation, and safe parsing
+  estimateJsonSize, // estimate JSON size before serialization
+  streamJsonStringify, // generator that yields JSON chunks
+  streamJsonStringifyAsync, // async generator with backpressure support
+  truncateObjectForLogging, // truncate large objects for safe logging
+  safeJsonStringify, // stringify with automatic truncation
+  safeJsonParse, // parse with error handling and default value
+  StreamingJsonParser, // class for incremental JSON parsing
+  createJsonStream, // create JSON transform stream
+  serializeToChunks, // serialize to array of chunks
+  calculateBatchSize, // calculate memory-safe batch size
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
