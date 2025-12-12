@@ -91,6 +91,20 @@ const {
   StorageFactory,
   getDefaultStorage
 } = require('./lib/binary-storage'); // Binary data storage interface and implementations
+const {
+  serializeDocument,
+  serializeMongooseDocument,
+  mapAndSerialize,
+  saveAndSerialize,
+  mapAndSerializeObj,
+  serializeDocumentObj,
+  serializeMongooseDocumentObj,
+  saveAndSerializeObj,
+  safeSerializeDocument,
+  safeMapAndSerialize,
+  serializeFields,
+  serializeWithoutFields
+} = require('./lib/serialization-utils'); // Document serialization utilities for API response formatting
 
 // Export all functions for use as a module
 // This barrel export pattern provides a single import point for consumers
@@ -222,5 +236,20 @@ module.exports = { // re-exposes modules so consumers import from one place
   MemoryBinaryStorage, // in-memory binary storage for development and caching scenarios
   FileSystemBinaryStorage, // file system binary storage for local persistence
   StorageFactory, // factory for creating storage instances based on configuration
-  getDefaultStorage // default storage instance for immediate use
+  getDefaultStorage, // default storage instance for immediate use
+
+  // Serialization utilities - Document to plain object conversion for API responses
+  // Provides consistent serialization of Mongoose documents for JSON-safe responses
+  serializeDocument, // core serialization with toObject/toJSON/spread strategy
+  serializeMongooseDocument, // semantic wrapper for Mongoose-specific serialization
+  mapAndSerialize, // batch serialize arrays of documents
+  saveAndSerialize, // save document then serialize in one operation
+  mapAndSerializeObj, // object-based wrapper for array serialization
+  serializeDocumentObj, // object-based wrapper for single document
+  serializeMongooseDocumentObj, // object-based wrapper for Mongoose documents
+  saveAndSerializeObj, // object-based wrapper for save-and-serialize
+  safeSerializeDocument, // null-safe serialization with default value support
+  safeMapAndSerialize, // null-safe array serialization
+  serializeFields, // selective field serialization
+  serializeWithoutFields // serialization with field exclusion
 };
