@@ -66,6 +66,7 @@ const { CircuitBreakerFactory, getCircuitBreakerFactory, getManagedCircuitBreake
 const { updateMetrics: updateHealthMetrics, incrementActiveRequests, decrementActiveRequests, getRequestMetrics, resetMetrics: resetHealthMetrics, checkMemoryHealth, checkCpuHealth, checkFilesystemHealth, runCustomCheck, determineOverallStatus, getHealthStatus, healthCheckMiddleware, readinessCheckMiddleware, livenessCheckMiddleware, setupHealthRoutes } = require('./lib/health-check'); // health check service for monitoring
 const { TestMemoryManager, createMemoryManager, createLeakDetectionSession, quickMemoryCheck, withMemoryTracking, setupTestMemoryMonitoring, teardownTestMemoryMonitoring } = require('./lib/test-memory-manager'); // test memory management and leak detection
 const { AsyncQueue, createAsyncQueue, getDefaultQueue, shutdownDefaultQueue, queueTask } = require('./lib/async-queue'); // async job queue with priority and retries
+const { SimpleDatabasePool, DatabaseConnectionPool, databaseConnectionPool, createDatabasePool, acquireDatabaseConnection, releaseDatabaseConnection, executeDatabaseQuery, getDatabasePoolStats, getDatabasePoolHealth, shutdownDatabasePools } = require('./lib/database-pool'); // database connection pooling
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -236,6 +237,19 @@ module.exports = { // re-exposes modules so consumers import from one place
   getDefaultQueue, // get/create singleton default queue
   shutdownDefaultQueue, // graceful shutdown of default queue
   queueTask, // simple helper to queue a task
+
+  // Database connection pool - Scalable connection management with health monitoring
+  // Supports Redis, PostgreSQL, MySQL, and MongoDB with automatic recovery
+  SimpleDatabasePool, // single database pool class
+  DatabaseConnectionPool, // multi-database pool manager class
+  databaseConnectionPool, // singleton pool manager instance
+  createDatabasePool, // create pool for database URL
+  acquireDatabaseConnection, // acquire connection from pool
+  releaseDatabaseConnection, // release connection back to pool
+  executeDatabaseQuery, // execute query with auto connection management
+  getDatabasePoolStats, // get statistics for all pools
+  getDatabasePoolHealth, // get health status for all pools
+  shutdownDatabasePools, // graceful shutdown of all pools
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
