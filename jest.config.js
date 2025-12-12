@@ -30,6 +30,9 @@ module.exports = {
     }
   },
   transform: {}, // No transformation needed for plain JS
+  transformIgnorePatterns: [
+    'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue)/)' // Transform the new ES modules
+  ],
   moduleFileExtensions: ['js', 'json'], // Resolve only JS and JSON modules
   testPathIgnorePatterns: [
     '<rootDir>/node_modules/' // Ignore tests inside node_modules

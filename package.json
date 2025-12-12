@@ -45,6 +45,7 @@
   "author": "Q",
   "license": "ISC",
   "dependencies": {
+    "@godaddy/terminus": "^4.12.1",
     "@google-cloud/storage": "^7.16.0",
     "@types/node": "^22.15.31",
     "@uppy/aws-s3": "^4.3.2",
@@ -54,10 +55,15 @@
     "@uppy/file-input": "^4.2.2",
     "@uppy/progress-bar": "^4.3.2",
     "@uppy/react": "^4.5.2",
+    "bee-queue": "^2.0.0",
+    "change-case": "^5.4.4",
     "dotenv": "^17.2.3",
+    "email-validator": "^2.0.4",
     "google-auth-library": "^10.2.1",
     "lru-cache": "^11.2.2",
     "mongoose": "^8.15.1",
+    "opossum": "^9.0.0",
+    "pluralize": "^8.0.0",
     "qerrors": "^1.2.7",
     "qgenutils": "^1.0.3",
     "redis": "^5.6.0"
