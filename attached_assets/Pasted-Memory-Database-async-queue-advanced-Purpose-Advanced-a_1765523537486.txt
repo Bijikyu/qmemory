@@ -1,0 +1,1013 @@
+Memory/Database
+@async-queue/advanced
+Purpose: Advanced async queue system with priority, delays, retries, and bounded memory management. Explanation:
+This is a production-ready async queue system that handles background job processing with sophisticated features. It solves the common problem of managing I/O operations outside request paths, preventing request timeouts and improving application responsiveness. The queue supports priority-based processing, delayed job execution, automatic retries with exponential backoff, and bounded memory usage to prevent memory leaks. It's completely generic and can handle any type of async job, making it reusable across different applications from image processing to email sending to data analytics pipelines.
+
+Key features include EventEmitter pattern for real-time monitoring, configurable concurrency limits, comprehensive statistics tracking, health status monitoring, and graceful shutdown capabilities. The bounded job history prevents unbounded memory growth, making it suitable for long-running production services.
+
+/**
+ * Async queue system for moving I/O operations out of request paths
+ * Implements background job processing, queue management, and resource optimization
+ */
+import { EventEmitter } from 'events';
+import { qerrors } from 'qerrors';
+export interface QueueJob {
+  id: string;
+  type: string;
+  data: any;
+  priority: number;
+  attempts: number;
+  maxAttempts: number;
+  delay: number;
+  createdAt: number;
+  scheduledAt: number;
+  timeout: number;
+  resolve: (result: any) => void;
+  reject: (error: Error) => void;
+}
+interface QueueStats {
+  totalJobs: number;
+  pendingJobs: number;
+  activeJobs: number;
+  completedJobs: number;
+  failedJobs: number;
+  averageProcessingTime: number;
+  queueUtilization: number;
+}
+interface QueueOptions {
+  maxConcurrency: number;
+  maxQueueSize: number;
+  defaultTimeout: number;
+  retryDelay: number;
+  maxRetries: number;
+  enablePriority: boolean;
+  enableDelay: boolean;
+}
+export class AsyncQueue extends EventEmitter {
+  private pendingJobs: QueueJob[] = [];
+  private activeJobs: Map<string, QueueJob> = new Map();
+  // SCALABILITY FIX: Bounded job history to prevent unbounded memory growth
+  private completedJobs: Set<string> = new Set();
+  private failedJobs: Set<string> = new Set();
+  private readonly maxJobHistory = 1000; // Limit history to 1000 jobs
+  private processors: Map<string, (job: QueueJob) => Promise<any>> = new Map();
+  private processingInterval: NodeJS.Timeout | null = null;
+  private stats: QueueStats;
+  private options: QueueOptions;
+  constructor(options: Partial<QueueOptions> = {}) {
+    super();
+    
+    this.options = {
+      maxConcurrency: 5,
+      maxQueueSize: 1000,
+      defaultTimeout: 30000, // 30 seconds
+      retryDelay: 5000, // 5 seconds
+      maxRetries: 3,
+      enablePriority: true,
+      enableDelay: true,
+      ...options
+    };
+    this.stats = {
+      totalJobs: 0,
+      pendingJobs: 0,
+      activeJobs: 0,
+      completedJobs: 0,
+      failedJobs: 0,
+      averageProcessingTime: 0,
+      queueUtilization: 0
+    };
+    this.startProcessing();
+  }
+  /**
+   * Registers a processor for a specific job type
+   */
+  registerProcessor(jobType: string, processor: (job: QueueJob) => Promise<any>): void {
+    this.processors.set(jobType, processor);
+    console.log(`[asyncQueue] Registered processor for job type: ${jobType}`);
+  }
+  /**
+   * Adds a job to the queue
+   */
+  async addJob<T>(
+    type: string,
+    data: any,
+    options: {
+      priority?: number;
+      delay?: number;
+      timeout?: number;
+      maxRetries?: number;
+    } = {}
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      // Check queue size limit
+      if (this.pendingJobs.length >= this.options.maxQueueSize) {
+        reject(new Error('Queue is full'));
+        return;
+      }
+      const job: QueueJob = {
+        id: this.generateJobId(),
+        type,
+        data,
+        priority: options.priority || 0,
+        attempts: 0,
+        maxAttempts: options.maxRetries || this.options.maxRetries,
+        delay: options.delay || 0,
+        createdAt: Date.now(),
+        scheduledAt: Date.now() + (options.delay || 0),
+        timeout: options.timeout || this.options.defaultTimeout,
+        resolve,
+        reject
+      };
+      this.pendingJobs.push(job);
+      this.stats.totalJobs++;
+      this.stats.pendingJobs++;
+      this.stats.queueUtilization = (this.pendingJobs.length / this.options.maxQueueSize) * 100;
+      this.emit('jobAdded', job);
+      console.log(`[asyncQueue] Job added: ${job.id} (${type})`);
+    });
+  }
+  /**
+   * Starts the queue processing loop
+   */
+  private startProcessing(): void {
+    this.processingInterval = setInterval(() => {
+      this.processQueue();
+    }, 1000); // Process every second
+    console.log('[asyncQueue] Queue processing started');
+  }
+  /**
+   * Processes jobs in the queue
+   */
+  private async processQueue(): Promise<void> {
+    // Check if we can process more jobs
+    if (this.activeJobs.size >= this.options.maxConcurrency) {
+      return;
+    }
+    const now = Date.now();
+    const jobsToProcess: QueueJob[] = [];
+    // SCALABILITY FIX: More efficient job extraction
+    const availableSlots = this.options.maxConcurrency - this.activeJobs.size;
+    let readyJobIndex = 0;
+    
+    while (readyJobIndex < this.pendingJobs.length && jobsToProcess.length < availableSlots) {
+      const job = this.pendingJobs[readyJobIndex];
+      
+      if (job.scheduledAt <= now) {
+        jobsToProcess.push(job);
+        // Remove job efficiently by swapping with last element
+        const lastIndex = this.pendingJobs.length - 1;
+        this.pendingJobs[readyJobIndex] = this.pendingJobs[lastIndex];
+        this.pendingJobs.pop();
+        this.stats.pendingJobs--;
+        // Don't increment readyJobIndex since we swapped
+      } else {
+        readyJobIndex++; // Only move forward if job isn't ready
+      }
+    }
+    // Sort by priority if enabled
+    if (this.options.enablePriority) {
+      jobsToProcess.sort((a, b) => b.priority - a.priority);
+    }
+    // Process jobs
+    for (const job of jobsToProcess) {
+      this.processJob(job);
+    }
+  }
+  /**
+   * Processes a single job
+   */
+  private async processJob(job: QueueJob): Promise<void> {
+    const processor = this.processors.get(job.type);
+    if (!processor) {
+      this.failJob(job, new Error(`No processor registered for job type: ${job.type}`));
+      return;
+    }
+    this.activeJobs.set(job.id, job);
+    this.stats.activeJobs++;
+    job.attempts++;
+    const startTime = Date.now();
+    this.emit('jobStarted', job);
+    // Set up timeout
+    const timeout = setTimeout(() => {
+      this.failJob(job, new Error(`Job timeout after ${job.timeout}ms`));
+    }, job.timeout);
+    try {
+      const result = await processor(job);
+      clearTimeout(timeout);
+      
+      const processingTime = Date.now() - startTime;
+      this.updateProcessingTimeStats(processingTime);
+      
+      this.completeJob(job, result);
+    } catch (error) {
+      clearTimeout(timeout);
+      this.handleJobFailure(job, error as Error);
+    }
+  }
+  /**
+   * Handles job completion - OPTIMIZED: Bounded job history
+   */
+  private completeJob(job: QueueJob, result: any): void {
+    this.activeJobs.delete(job.id);
+    
+    // SCALABILITY FIX: Maintain bounded job history
+    this.completedJobs.add(job.id);
+    if (this.completedJobs.size > this.maxJobHistory) {
+      const oldestJob = this.completedJobs.values().next().value;
+      if (oldestJob) {
+        this.completedJobs.delete(oldestJob);
+      }
+    }
+    
+    this.stats.activeJobs--;
+    this.stats.completedJobs++;
+    job.resolve(result);
+    this.emit('jobCompleted', job, result);
+    
+    console.log(`[asyncQueue] Job completed: ${job.id} (${job.type})`);
+  }
+  /**
+   * Handles job failure
+   */
+  private handleJobFailure(job: QueueJob, error: Error): void {
+    if (job.attempts >= job.maxAttempts) {
+      this.failJob(job, error);
+    } else {
+      // Retry job with delay
+      this.retryJob(job, error);
+    }
+  }
+  /**
+   * Fails a job permanently - OPTIMIZED: Bounded job history
+   */
+  private failJob(job: QueueJob, error: Error): void {
+    this.activeJobs.delete(job.id);
+    
+    // SCALABILITY FIX: Maintain bounded job history for failed jobs too
+    this.failedJobs.add(job.id);
+    if (this.failedJobs.size > this.maxJobHistory) {
+      const oldestJob = this.failedJobs.values().next().value;
+      if (oldestJob) {
+        this.failedJobs.delete(oldestJob);
+      }
+    }
+    
+    this.stats.activeJobs--;
+    this.stats.failedJobs++;
+    job.reject(error);
+    this.emit('jobFailed', job, error);
+    
+    console.error(`[asyncQueue] Job failed: ${job.id} (${job.type}) - ${error.message}`);
+    qerrors(error, 'asyncQueue.jobFailed', { jobId: job.id, jobType: job.type });
+  }
+  /**
+   * Retries a job
+   */
+  private retryJob(job: QueueJob, error: Error): void {
+    this.activeJobs.delete(job.id);
+    this.stats.activeJobs--;
+    // Schedule retry with exponential backoff
+    const retryDelay = this.options.retryDelay * Math.pow(2, job.attempts - 1);
+    job.scheduledAt = Date.now() + retryDelay;
+    this.pendingJobs.push(job);
+    this.stats.pendingJobs++;
+    this.emit('jobRetry', job, error);
+    console.warn(`[asyncQueue] Job retry scheduled: ${job.id} (${job.type}) - attempt ${job.attempts + 1}`);
+  }
+  /**
+   * Updates processing time statistics
+   */
+  private updateProcessingTimeStats(processingTime: number): void {
+    // Simple moving average
+    this.stats.averageProcessingTime = 
+      (this.stats.averageProcessingTime * 0.9) + (processingTime * 0.1);
+  }
+  /**
+   * Generates a unique job ID
+   */
+  private generateJobId(): string {
+    return `job_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  }
+  /**
+   * Gets current queue statistics
+   */
+  getStats(): QueueStats {
+    return { ...this.stats };
+  }
+  /**
+   * Gets queue health status
+   */
+  getHealthStatus(): {
+    status: 'healthy' | 'warning' | 'critical';
+    stats: QueueStats;
+    issues: string[];
+  } {
+    const stats = this.getStats();
+    const issues: string[] = [];
+    let status: 'healthy' | 'warning' | 'critical' = 'healthy';
+    // Check queue utilization
+    if (stats.queueUtilization > 80) {
+      status = 'critical';
+      issues.push(`High queue utilization: ${stats.queueUtilization.toFixed(1)}%`);
+    } else if (stats.queueUtilization > 60) {
+      status = 'warning';
+      issues.push(`Elevated queue utilization: ${stats.queueUtilization.toFixed(1)}%`);
+    }
+    // Check failure rate
+    const totalProcessed = stats.completedJobs + stats.failedJobs;
+    if (totalProcessed > 0) {
+      const failureRate = (stats.failedJobs / totalProcessed) * 100;
+      if (failureRate > 20) {
+        status = 'critical';
+        issues.push(`High failure rate: ${failureRate.toFixed(1)}%`);
+      } else if (failureRate > 10) {
+        status = 'warning';
+        issues.push(`Elevated failure rate: ${failureRate.toFixed(1)}%`);
+      }
+    }
+    // Check average processing time
+    if (stats.averageProcessingTime > 30000) {
+      status = 'critical';
+      issues.push(`Very high average processing time: ${stats.averageProcessingTime.toFixed(0)}ms`);
+    } else if (stats.averageProcessingTime > 10000) {
+      status = 'warning';
+      issues.push(`High average processing time: ${stats.averageProcessingTime.toFixed(0)}ms`);
+    }
+    return { status, stats, issues };
+  }
+  /**
+   * Clears old completed and failed jobs
+   */
+  cleanup(maxAge: number = 3600000): void { // 1 hour default
+    const now = Date.now();
+    let cleanedCount = 0;
+    // Clean completed jobs
+    const completedJobsArray = Array.from(this.completedJobs);
+    for (const jobId of completedJobsArray) {
+      const job = Array.from(this.activeJobs.values()).find(j => j.id === jobId);
+      if (job && (now - job.createdAt) > maxAge) {
+        this.completedJobs.delete(jobId);
+        cleanedCount++;
+      }
+    }
+    // Clean failed jobs
+    const failedJobsArray = Array.from(this.failedJobs);
+    for (const jobId of failedJobsArray) {
+      const job = Array.from(this.activeJobs.values()).find(j => j.id === jobId);
+      if (job && (now - job.createdAt) > maxAge) {
+        this.failedJobs.delete(jobId);
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      console.log(`[asyncQueue] Cleaned up ${cleanedCount} old jobs`);
+    }
+  }
+  /**
+   * Pauses queue processing
+   */
+  pause(): void {
+    if (this.processingInterval) {
+      clearInterval(this.processingInterval);
+      this.processingInterval = null;
+    }
+    console.log('[asyncQueue] Queue processing paused');
+  }
+  /**
+   * Resumes queue processing
+   */
+  resume(): void {
+    if (!this.processingInterval) {
+      this.startProcessing();
+    }
+    console.log('[asyncQueue] Queue processing resumed');
+  }
+  /**
+   * Cleanup method for graceful shutdown
+   */
+  async shutdown(): Promise<void> {
+    this.pause();
+    // Wait for active jobs to complete or timeout
+    const maxWaitTime = 30000; // 30 seconds
+    const startTime = Date.now();
+    while (this.activeJobs.size > 0 && (Date.now() - startTime) < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    // Fail remaining active jobs
+    const activeJobsArray = Array.from(this.activeJobs.values());
+    for (const job of activeJobsArray) {
+      job.reject(new Error('Queue shutdown - job cancelled'));
+    }
+    this.activeJobs.clear();
+    this.processors.clear();
+    
+    console.log('[asyncQueue] Queue shutdown complete');
+  }
+}
+// SCALABILITY FIX: Optimized async queue for better resource management
+export const asyncQueue = new AsyncQueue({
+  maxConcurrency: 3,      // Reduced concurrency for lower memory usage
+  maxQueueSize: 500,     // Smaller queue size to prevent memory bloat
+  defaultTimeout: 15000, // Shorter timeout for faster resource recovery
+  retryDelay: 2000,      // Shorter retry delay
+  maxRetries: 2,        // Fewer retries to reduce resource consumption
+  enablePriority: true,
+  enableDelay: true
+});
+
+@memory-manager/realtime
+Purpose: Real-time memory monitoring with automatic cleanup and garbage collection optimization. Explanation:
+This is a comprehensive memory management system that provides real-time monitoring of Node.js application memory usage with automatic cleanup strategies. It solves the critical problem of memory leaks in long-running Node.js applications by implementing proactive memory monitoring, configurable thresholds, and automatic cleanup routines. The system tracks heap usage, external memory, and RSS, providing detailed statistics and health status monitoring.
+
+Key features include configurable warning/critical/emergency thresholds, automatic garbage collection triggering, aggressive cleanup strategies for memory emergencies, and comprehensive logging. It's completely framework-agnostic and can be integrated into any Node.js application, from web servers to background workers to microservices. The system helps prevent OutOfMemory errors and maintains optimal application performance.
+
+/**
+ * Memory management utilities for scalability and performance monitoring
+ * Implements aggressive cleanup strategies to prevent memory leaks
+ */
+import { qerrors } from 'qerrors';
+interface MemoryStats {
+  heapUsed: number;
+  heapTotal: number;
+  external: number;
+  rss: number;
+  heapUsagePercent: number;
+}
+interface MemoryThresholds {
+  warningPercent: number;
+  criticalPercent: number;
+  emergencyPercent: number;
+  maxHeapSizeMB: number;
+}
+export class MemoryManager {
+  private thresholds: MemoryThresholds;
+  private monitoringInterval: NodeJS.Timeout | null = null;
+  private gcInterval: NodeJS.Timeout | null = null;
+  private lastCleanup: number = 0;
+  private cleanupCooldown: number = 30000; // 30 seconds between cleanups
+  constructor(thresholds?: Partial<MemoryThresholds>) {
+    this.thresholds = {
+      warningPercent: 70,
+      criticalPercent: 85,
+      emergencyPercent: 95,
+      maxHeapSizeMB: 512,
+      ...thresholds
+    };
+  }
+  /**
+   * Starts memory monitoring with automatic cleanup
+   */
+  startMonitoring(): void {
+    if (this.monitoringInterval) {
+      this.stopMonitoring();
+    }
+    // Monitor memory every 15 seconds for early detection
+    this.monitoringInterval = setInterval(() => {
+      this.checkMemoryUsage();
+    }, 15000);
+    // Schedule periodic garbage collection if available
+    if ((global as any).gc) {
+      this.gcInterval = setInterval(() => {
+        this.performGarbageCollection();
+      }, 60000); // Every minute
+    }
+    console.log('[memory] Memory monitoring started');
+  }
+  /**
+   * Stops all memory monitoring intervals
+   */
+  stopMonitoring(): void {
+    if (this.monitoringInterval) {
+      clearInterval(this.monitoringInterval);
+      this.monitoringInterval = null;
+    }
+    if (this.gcInterval) {
+      clearInterval(this.gcInterval);
+      this.gcInterval = null;
+    }
+    console.log('[memory] Memory monitoring stopped');
+  }
+  /**
+   * Gets current memory statistics
+   */
+  getCurrentStats(): MemoryStats {
+    const memUsage = process.memoryUsage();
+    const heapUsagePercent = memUsage.heapTotal > 0 
+      ? (memUsage.heapUsed / memUsage.heapTotal) * 100 
+      : 0;
+    return {
+      heapUsed: memUsage.heapUsed,
+      heapTotal: memUsage.heapTotal,
+      external: memUsage.external,
+      rss: memUsage.rss,
+      heapUsagePercent
+    };
+  }
+  /**
+   * Checks memory usage and triggers appropriate actions
+   */
+  private async checkMemoryUsage(): Promise<void> {
+    const stats = this.getCurrentStats();
+    const heapUsedMB = stats.heapUsed / 1024 / 1024;
+    const heapTotalMB = stats.heapTotal / 1024 / 1024;
+    // Log memory usage every 5 minutes
+    if (Date.now() % 300000 < 15000) {
+      console.log(`[memory] Heap: ${heapUsedMB.toFixed(2)}MB/${heapTotalMB.toFixed(2)}MB (${stats.heapUsagePercent.toFixed(2)}%)`);
+    }
+    // Check thresholds and take action
+    if (stats.heapUsagePercent >= this.thresholds.emergencyPercent) {
+      await this.handleEmergencyMemory(stats);
+    } else if (stats.heapUsagePercent >= this.thresholds.criticalPercent) {
+      this.handleCriticalMemory(stats);
+    } else if (stats.heapUsagePercent >= this.thresholds.warningPercent) {
+      this.handleWarningMemory(stats);
+    }
+    // Check absolute heap size limit
+    if (heapUsedMB >= this.thresholds.maxHeapSizeMB) {
+      await this.handleMaxHeapSizeExceeded(stats);
+    }
+  }
+  /**
+   * Handles emergency memory situations
+   */
+  private async handleEmergencyMemory(stats: MemoryStats): Promise<void> {
+    const heapUsedMB = stats.heapUsed / 1024 / 1024;
+    console.error(`[memory] EMERGENCY: High memory usage ${heapUsedMB.toFixed(2)}MB (${stats.heapUsagePercent.toFixed(2)}%)`);
+    
+    // Force immediate garbage collection
+    this.performGarbageCollection();
+    
+    // Trigger aggressive cleanup
+    await this.performAggressiveCleanup();
+    
+    // Log for monitoring
+    qerrors(new Error('Emergency memory threshold exceeded'), 'memory.emergency', {
+      heapUsed: heapUsedMB,
+      heapUsagePercent: stats.heapUsagePercent
+    });
+  }
+  /**
+   * Handles critical memory situations
+   */
+  private handleCriticalMemory(stats: MemoryStats): void {
+    const heapUsedMB = stats.heapUsed / 1024 / 1024;
+    console.warn(`[memory] CRITICAL: High memory usage ${heapUsedMB.toFixed(2)}MB (${stats.heapUsagePercent.toFixed(2)}%)`);
+    
+    // Force garbage collection
+    this.performGarbageCollection();
+    
+    // Trigger moderate cleanup
+    this.performModerateCleanup();
+  }
+  /**
+   * Handles warning memory situations
+   */
+  private handleWarningMemory(stats: MemoryStats): void {
+    const heapUsedMB = stats.heapUsed / 1024 / 1024;
+    console.warn(`[memory] WARNING: Elevated memory usage ${heapUsedMB.toFixed(2)}MB (${stats.heapUsagePercent.toFixed(2)}%)`);
+    
+    // Suggest garbage collection
+    this.performGarbageCollection();
+  }
+  /**
+   * Handles maximum heap size exceeded
+   */
+  private async handleMaxHeapSizeExceeded(stats: MemoryStats): Promise<void> {
+    const heapUsedMB = stats.heapUsed / 1024 / 1024;
+    console.error(`[memory] MAX HEAP EXCEEDED: ${heapUsedMB.toFixed(2)}MB > ${this.thresholds.maxHeapSizeMB}MB`);
+    
+    // Force garbage collection
+    this.performGarbageCollection();
+    
+    // Perform most aggressive cleanup
+    await this.performAggressiveCleanup();
+    
+    // Log critical error
+    qerrors(new Error('Maximum heap size exceeded'), 'memory.maxHeapExceeded', {
+      heapUsed: heapUsedMB,
+      maxHeapSize: this.thresholds.maxHeapSizeMB
+    });
+  }
+  /**
+   * Performs garbage collection if available
+   */
+  private performGarbageCollection(): void {
+    if ((global as any).gc) {
+      try {
+        (global as any).gc();
+        console.log('[memory] Forced garbage collection completed');
+      } catch (error) {
+        qerrors(error as Error, 'memory.gcFailed');
+      }
+    }
+  }
+  /**
+   * Performs aggressive memory cleanup
+   */
+  private async performAggressiveCleanup(): Promise<void> {
+    const now = Date.now();
+    
+    // Prevent too frequent cleanups
+    if (now - this.lastCleanup < this.cleanupCooldown) {
+      return;
+    }
+    
+    this.lastCleanup = now;
+    
+    try {
+      // SCALABILITY FIX: Use async/await with proper delays instead of busy-wait loops
+      // Force garbage collection multiple times with proper async delays
+      for (let i = 0; i < 3; i++) {
+        this.performGarbageCollection();
+        // Use async delay instead of blocking busy-wait
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      console.log('[memory] Aggressive cleanup completed');
+    } catch (error) {
+      qerrors(error as Error, 'memory.aggressiveCleanupFailed');
+    }
+  }
+  /**
+   * Performs moderate memory cleanup
+   */
+  private performModerateCleanup(): void {
+    const now = Date.now();
+    
+    // Prevent too frequent cleanups
+    if (now - this.lastCleanup < this.cleanupCooldown) {
+      return;
+    }
+    
+    this.lastCleanup = now;
+    
+    try {
+      // Force garbage collection
+      this.performGarbageCollection();
+      
+      console.log('[memory] Moderate cleanup completed');
+    } catch (error) {
+      qerrors(error as Error, 'memory.moderateCleanupFailed');
+    }
+  }
+  /**
+   * Gets memory health status
+   */
+  getHealthStatus(): {
+    status: 'healthy' | 'warning' | 'critical' | 'emergency';
+    stats: MemoryStats;
+    thresholds: MemoryThresholds;
+  } {
+    const stats = this.getCurrentStats();
+    
+    let status: 'healthy' | 'warning' | 'critical' | 'emergency' = 'healthy';
+    
+    if (stats.heapUsagePercent >= this.thresholds.emergencyPercent) {
+      status = 'emergency';
+    } else if (stats.heapUsagePercent >= this.thresholds.criticalPercent) {
+      status = 'critical';
+    } else if (stats.heapUsagePercent >= this.thresholds.warningPercent) {
+      status = 'warning';
+    }
+    
+    return {
+      status,
+      stats,
+      thresholds: this.thresholds
+    };
+  }
+  /**
+   * Cleanup method for graceful shutdown
+   */
+  cleanup(): void {
+    this.stopMonitoring();
+    console.log('[memory] Memory manager cleaned up');
+  }
+}
+// SCALABILITY FIX: Balanced memory manager for optimal performance
+export const memoryManager = new MemoryManager({
+  warningPercent: 80,      // Higher warning threshold to reduce unnecessary cleanup
+  criticalPercent: 90,     // Higher critical threshold for better performance
+  emergencyPercent: 95,   // Emergency threshold for immediate action
+  maxHeapSizeMB: 1024     // Increased max heap size for better cache efficiency
+});
+
+@job-queue/redis
+Purpose: Redis-based job queue system with worker management and priority processing. Explanation:
+This is a production-ready Redis-based job queue system that provides persistent job processing with proper worker management. It solves the problem of reliable job processing across application restarts and distributed systems by using Redis as a persistent backend. The system integrates with BullMQ for robust queue management and supports configurable concurrency, job priorities, automatic retries with exponential backoff, and comprehensive monitoring.
+
+Key features include Redis-based persistence for job durability, configurable worker concurrency, intelligent job priority calculation based on complexity and age, automatic retry mechanisms, comprehensive queue statistics, and health monitoring. The system is designed for scalability and can handle high-volume job processing scenarios, making it suitable for image processing pipelines, data processing tasks, email campaigns, and any background job processing needs.
+
+/**
+ * Redis-based async job queue system for scalable job processing
+ * Replaces in-memory job processing with persistent queue and proper worker management
+ */
+// Import bullmq dynamically to avoid TypeScript path resolution issues
+let Queue: any, Worker: any;
+try {
+  const bullmq = require('bullmq');
+  Queue = bullmq.Queue;
+  Worker = bullmq.Worker;
+} catch (error) {
+  console.error('Failed to import bullmq:', error);
+  // Fallback implementations would go here
+}
+import { qerrors } from 'qerrors';
+import * as localVars from '../config/localVars';
+// Import storage modules with require to avoid TypeScript resolution issues
+const { databaseStorage } = require('../../db/databaseStorage');
+const { executeTransformChain, fetchImageBuffer } = require('../features/jobs/transformService');
+const { uploadToObjectStorage } = require('../features/jobs/s3Client');
+// SCALABILITY FIX: Optimized job queue configuration with resource awareness
+const QUEUE_NAME = 'image-processing';
+const CONCURRENCY = 3; // Number of parallel workers
+const JOB_TIMEOUT = 60000; // 60 seconds per job
+const MAX_ATTEMPTS = 3; // Maximum retry attempts
+const RESOURCE_CHECK_INTERVAL = 10000; // Check system resources every 10 seconds
+/**
+ * Job data structure for the queue
+ */
+interface JobData {
+  jobId: string;
+  imageRef: string;
+  chain: any[];
+  timestamp: number;
+}
+/**
+ * Redis-based job queue manager
+ */
+export class JobQueueManager {
+  private queue: any = null;
+  private worker: any = null;
+  private isConnected: boolean = false;
+  /**
+   * Initializes Redis connection and queue
+   */
+  async initialize(): Promise<void> {
+    try {
+      const redisUrl = localVars.config.redisUrl;
+      if (!redisUrl) {
+        console.warn('[jobQueue] Redis not configured, falling back to in-memory processing');
+        return;
+      }
+      // Create queue with Redis connection
+      this.queue = new Queue(QUEUE_NAME, {
+        connection: {
+          url: redisUrl,
+        },
+        defaultJobOptions: {
+          removeOnComplete: 100, // Keep last 100 completed jobs
+          removeOnFail: 50, // Keep last 50 failed jobs
+          attempts: MAX_ATTEMPTS,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+        },
+      });
+      // Create worker for processing jobs
+      this.worker = new Worker(
+        QUEUE_NAME,
+        async (job: any) => {
+          await this.processJob(job);
+        },
+        {
+          connection: {
+            url: redisUrl,
+          },
+          concurrency: CONCURRENCY,
+        }
+      );
+      // Set up event listeners
+      this.setupEventListeners();
+      this.isConnected = true;
+      console.log('[jobQueue] Redis-based job queue initialized');
+    } catch (error: any) {
+      qerrors(error as Error, 'jobQueue.initializeFailed');
+      console.error('[jobQueue] Failed to initialize Redis queue:', error);
+      throw error;
+    }
+  }
+  /**
+   * Adds a job to the queue
+   */
+  async addJob(jobData: JobData): Promise<void> {
+    if (!this.queue) {
+      throw new Error('Job queue not initialized');
+    }
+    try {
+      await this.queue.add('process-image', jobData, {
+        priority: this.getJobPriority(jobData),
+        delay: 1000, // Small delay to ensure job is saved to DB first
+      });
+      
+      console.log(`[jobQueue] Job ${jobData.jobId} added to queue`);
+    } catch (error) {
+      qerrors(error as Error, 'jobQueue.addJobFailed', { jobId: jobData.jobId });
+      throw new Error(`Failed to add job to queue: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+  /**
+   * Gets queue statistics for monitoring
+   */
+  async getQueueStats(): Promise<{
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+    waiting: number;
+    workerStatus: string;
+  }> {
+    if (!this.queue) {
+      return {
+        active: 0,
+        completed: 0,
+        failed: 0,
+        delayed: 0,
+        waiting: 0,
+        workerStatus: 'not_initialized'
+      };
+    }
+    try {
+      const [active, completed, failed, delayed, waiting] = await Promise.all([
+        this.queue.getActiveCount(),
+        this.queue.getCompletedCount(),
+        this.queue.getFailedCount(),
+        this.queue.getDelayedCount(),
+        this.queue.getWaitingCount(),
+      ]);
+      return {
+        active,
+        completed,
+        failed,
+        delayed,
+        waiting,
+        workerStatus: this.worker ? 'active' : 'inactive'
+      };
+    } catch (error) {
+      qerrors(error as Error, 'jobQueue.getStatsFailed');
+      return {
+        active: 0,
+        completed: 0,
+        failed: 0,
+        delayed: 0,
+        waiting: 0,
+        workerStatus: 'error'
+      };
+    }
+  }
+  /**
+   * Processes a single job from the queue
+   */
+  private async processJob(job: any): Promise<void> {
+    const { jobId, imageRef, chain } = job.data;
+    
+    try {
+      console.log(`[jobQueue] Processing job ${jobId}`);
+      
+      // Update job status to processing
+      await databaseStorage.updateJob(jobId, { status: 'processing' });
+      
+      // Fetch input image
+      const inputBuffer = await fetchImageBuffer(imageRef);
+      
+      // Execute transformation chain
+      const { buffer: outputBuffer, metadata } = await executeTransformChain(inputBuffer, chain);
+      
+      // Upload result to storage
+      const filename = `processed-image.${metadata.format}`;
+      const resultRef = await uploadToObjectStorage(outputBuffer, filename, metadata.description);
+      
+      // Update job with success
+await databaseStorage.updateJob(jobId, {
+        status: 'completed',
+        resultRef,
+        error: undefined
+      });
+      
+      console.log(`[jobQueue] Job ${jobId} completed successfully`);
+    } catch (error) {
+      console.error(`[jobQueue] Job ${jobId} failed:`, error);
+      
+      // Update job with error
+await databaseStorage.updateJob(jobId, {
+        status: 'failed',
+        resultRef: undefined,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Re-throw error to trigger BullMQ retry mechanism
+      throw error;
+    }
+  }
+  /**
+   * SCALABILITY FIX: Enhanced job priority calculation based on multiple factors
+   */
+  private getJobPriority(jobData: JobData): number {
+    let priority = 5; // Base priority
+    
+    // Factor 1: Job complexity (fewer transformations = higher priority)
+    const complexity = jobData.chain.length;
+    if (complexity <= 1) {
+      priority += 5; // Simple jobs get highest priority
+    } else if (complexity <= 3) {
+      priority += 2; // Medium complexity
+    } else if (complexity > 5) {
+      priority -= 2; // Complex jobs get lower priority
+    }
+    
+    // Factor 2: Job age (older jobs get higher priority)
+    const ageMs = Date.now() - jobData.timestamp;
+    if (ageMs > 60000) { // Older than 1 minute
+      priority += 3;
+    } else if (ageMs > 300000) { // Older than 5 minutes
+      priority += 5;
+    }
+    
+    // Factor 3: Resource requirements based on transformation types
+    const hasHeavyProcessing = jobData.chain.some((transform: any) => 
+      transform.type === 'removeBackground' || 
+      transform.type === 'faceCrop' ||
+      transform.type === 'bodyCrop'
+    );
+    
+    if (hasHeavyProcessing) {
+      priority -= 1; // Slightly lower priority for resource-intensive jobs
+    }
+    
+    // Factor 4: System load awareness (would need system metrics in real implementation)
+    // For now, use time-based priority adjustment
+    const hourOfDay = new Date().getHours();
+    if (hourOfDay >= 9 && hourOfDay <= 17) {
+      priority -= 1; // Lower priority during peak hours
+    }
+    
+    // Ensure priority is within valid range
+    return Math.max(1, Math.min(10, priority));
+  }
+  /**
+   * Sets up event listeners for the queue and worker
+   */
+  private setupEventListeners(): void {
+    if (!this.queue || !this.worker) return;
+    // Queue events
+    this.queue.on('error', (error: any) => {
+      qerrors(error, 'jobQueue.queueError');
+      console.error('[jobQueue] Queue error:', error);
+    });
+    // Worker events
+    this.worker.on('error', (error: any) => {
+      qerrors(error, 'jobQueue.workerError');
+      console.error('[jobQueue] Worker error:', error);
+    });
+    this.worker.on('closing', () => {
+      console.log('[jobQueue] Worker closing');
+    });
+    this.worker.on('closed', () => {
+      console.log('[jobQueue] Worker closed');
+    });
+  }
+  /**
+   * Gracefully shuts down the queue and worker
+   */
+  async shutdown(): Promise<void> {
+    try {
+      if (this.worker) {
+        await this.worker.close();
+        this.worker = null;
+      }
+      if (this.queue) {
+        await this.queue.close();
+        this.queue = null;
+      }
+      this.isConnected = false;
+      console.log('[jobQueue] Queue and worker shut down gracefully');
+    } catch (error) {
+      qerrors(error as Error, 'jobQueue.shutdownFailed');
+      console.error('[jobQueue] Error during shutdown:', error);
+    }
+  }
+  /**
+   * Health check for the queue system
+   */
+  async healthCheck(): Promise<{ status: 'healthy' | 'unhealthy'; details: any }> {
+    try {
+      if (!this.isConnected) {
+        return { status: 'unhealthy', details: { reason: 'not_connected' } };
+      }
+      const stats = await this.getQueueStats();
+      const isHealthy = stats.workerStatus === 'active' && stats.active < CONCURRENCY * 2;
+      return {
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        details: stats
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      };
+    }
+  }
+}
+// Export singleton instance
+export const jobQueueManager = new JobQueueManager();

@@ -65,6 +65,7 @@ const { CircuitBreaker, createCircuitBreaker, STATES: CIRCUIT_BREAKER_STATES } =
 const { CircuitBreakerFactory, getCircuitBreakerFactory, getManagedCircuitBreaker, getCircuitBreakerStats, getCircuitBreakerFactoryStats, clearAllCircuitBreakers, shutdownCircuitBreakerFactory } = require('./lib/circuit-breaker-factory'); // circuit breaker factory with lifecycle management
 const { updateMetrics: updateHealthMetrics, incrementActiveRequests, decrementActiveRequests, getRequestMetrics, resetMetrics: resetHealthMetrics, checkMemoryHealth, checkCpuHealth, checkFilesystemHealth, runCustomCheck, determineOverallStatus, getHealthStatus, healthCheckMiddleware, readinessCheckMiddleware, livenessCheckMiddleware, setupHealthRoutes } = require('./lib/health-check'); // health check service for monitoring
 const { TestMemoryManager, createMemoryManager, createLeakDetectionSession, quickMemoryCheck, withMemoryTracking, setupTestMemoryMonitoring, teardownTestMemoryMonitoring } = require('./lib/test-memory-manager'); // test memory management and leak detection
+const { AsyncQueue, createAsyncQueue, getDefaultQueue, shutdownDefaultQueue, queueTask } = require('./lib/async-queue'); // async job queue with priority and retries
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -227,6 +228,14 @@ module.exports = { // re-exposes modules so consumers import from one place
   withMemoryTracking, // run function with memory tracking
   setupTestMemoryMonitoring, // Jest beforeAll helper
   teardownTestMemoryMonitoring, // Jest afterAll helper
+
+  // Async queue - Background job processing with priority and retries
+  // Production-ready queue for moving I/O out of request paths
+  AsyncQueue, // class for job queue with full control
+  createAsyncQueue, // create new queue instance
+  getDefaultQueue, // get/create singleton default queue
+  shutdownDefaultQueue, // graceful shutdown of default queue
+  queueTask, // simple helper to queue a task
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
