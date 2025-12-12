@@ -64,6 +64,7 @@ const { getEmails, createEmailTarget, isValidEmail, normalizeEmail, getEmailDoma
 const { CircuitBreaker, createCircuitBreaker, STATES: CIRCUIT_BREAKER_STATES } = require('./lib/circuit-breaker'); // circuit breaker for fault tolerance
 const { CircuitBreakerFactory, getCircuitBreakerFactory, getManagedCircuitBreaker, getCircuitBreakerStats, getCircuitBreakerFactoryStats, clearAllCircuitBreakers, shutdownCircuitBreakerFactory } = require('./lib/circuit-breaker-factory'); // circuit breaker factory with lifecycle management
 const { updateMetrics: updateHealthMetrics, incrementActiveRequests, decrementActiveRequests, getRequestMetrics, resetMetrics: resetHealthMetrics, checkMemoryHealth, checkCpuHealth, checkFilesystemHealth, runCustomCheck, determineOverallStatus, getHealthStatus, healthCheckMiddleware, readinessCheckMiddleware, livenessCheckMiddleware, setupHealthRoutes } = require('./lib/health-check'); // health check service for monitoring
+const { TestMemoryManager, createMemoryManager, createLeakDetectionSession, quickMemoryCheck, withMemoryTracking, setupTestMemoryMonitoring, teardownTestMemoryMonitoring } = require('./lib/test-memory-manager'); // test memory management and leak detection
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -216,6 +217,16 @@ module.exports = { // re-exposes modules so consumers import from one place
   readinessCheckMiddleware, // Express middleware for Kubernetes readiness probe
   livenessCheckMiddleware, // Express middleware for Kubernetes liveness probe
   setupHealthRoutes, // setup all health routes on Express app
+
+  // Test memory management - Memory tracking and leak detection for test environments
+  // Prevents memory leaks in test suites, CI pipelines, and integration tests
+  TestMemoryManager, // class for comprehensive memory monitoring
+  createMemoryManager, // create new memory manager instance
+  createLeakDetectionSession, // create and start leak detection session
+  quickMemoryCheck, // quick memory check with GC
+  withMemoryTracking, // run function with memory tracking
+  setupTestMemoryMonitoring, // Jest beforeAll helper
+  teardownTestMemoryMonitoring, // Jest afterAll helper
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
