@@ -59,7 +59,8 @@ const {
   hasUniqueFieldChanges // helper for change detection
 } = require('./lib/document-ops'); // Higher level document handling utilities
 const { MemStorage, storage } = require('./lib/storage'); // in-memory storage class and singleton instance
-const { greet, add, isEven } = require('./lib/utils'); // basic utility functions for common operations
+const { greet, add, isEven, dedupeByFirst, dedupeByLowercaseFirst, dedupeByLast, dedupe } = require('./lib/utils'); // basic utility functions for common operations
+const { getEmails, createEmailTarget, isValidEmail, normalizeEmail, getEmailDomain, filterValidEmails } = require('./lib/email-utils'); // email aggregation and validation utilities
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -168,6 +169,19 @@ module.exports = { // re-exposes modules so consumers import from one place
   greet, // generates a greeting string
   add, // performs simple integer addition
   isEven, // checks numeric parity
+  dedupeByFirst, // deduplicate array keeping first occurrence by key
+  dedupeByLowercaseFirst, // case-insensitive deduplication keeping first occurrence
+  dedupeByLast, // deduplicate array keeping last occurrence by key
+  dedupe, // simple primitive array deduplication
+
+  // Email utilities - Email aggregation and validation for contact discovery
+  // Provides email aggregation from multiple sources with deduplication and validation
+  getEmails, // aggregate emails from multiple discovery sources with deduplication
+  createEmailTarget, // create email contact object with source attribution
+  isValidEmail, // validate email format
+  normalizeEmail, // normalize email to lowercase
+  getEmailDomain, // extract domain from email address
+  filterValidEmails, // filter array to only valid emails
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
