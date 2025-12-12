@@ -61,6 +61,8 @@ const {
 const { MemStorage, storage } = require('./lib/storage'); // in-memory storage class and singleton instance
 const { greet, add, isEven, dedupeByFirst, dedupeByLowercaseFirst, dedupeByLast, dedupe } = require('./lib/utils'); // basic utility functions for common operations
 const { getEmails, createEmailTarget, isValidEmail, normalizeEmail, getEmailDomain, filterValidEmails } = require('./lib/email-utils'); // email aggregation and validation utilities
+const { CircuitBreaker, createCircuitBreaker, STATES: CIRCUIT_BREAKER_STATES } = require('./lib/circuit-breaker'); // circuit breaker for fault tolerance
+const { CircuitBreakerFactory, getCircuitBreakerFactory, getManagedCircuitBreaker, getCircuitBreakerStats, getCircuitBreakerFactoryStats, clearAllCircuitBreakers, shutdownCircuitBreakerFactory } = require('./lib/circuit-breaker-factory'); // circuit breaker factory with lifecycle management
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -182,6 +184,19 @@ module.exports = { // re-exposes modules so consumers import from one place
   normalizeEmail, // normalize email to lowercase
   getEmailDomain, // extract domain from email address
   filterValidEmails, // filter array to only valid emails
+
+  // Circuit breaker utilities - Fault tolerance and resilience patterns
+  // Prevents cascading failures by monitoring operations and opening circuit when thresholds exceeded
+  CircuitBreaker, // circuit breaker class for wrapping operations
+  createCircuitBreaker, // create new circuit breaker instance
+  CIRCUIT_BREAKER_STATES, // circuit breaker states (closed, open, half-open)
+  CircuitBreakerFactory, // factory class for managing multiple breakers
+  getCircuitBreakerFactory, // get or create global factory instance
+  getManagedCircuitBreaker, // get managed circuit breaker for domain
+  getCircuitBreakerStats, // get statistics for all circuit breakers
+  getCircuitBreakerFactoryStats, // get factory-level statistics
+  clearAllCircuitBreakers, // clear all circuit breakers manually
+  shutdownCircuitBreakerFactory, // graceful shutdown of factory
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
