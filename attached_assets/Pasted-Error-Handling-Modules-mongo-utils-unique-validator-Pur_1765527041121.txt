@@ -1,0 +1,213 @@
+Error Handling Modules
+@mongo-utils/unique-validator
+Purpose: Provides standardized MongoDB unique field validation with case-insensitive checking and error handling.
+
+Explanation: This utility eliminates duplicate unique validation logic by providing reusable functions for checking field uniqueness across MongoDB collections. It solves the problem of inconsistent duplicate detection and error messages while supporting both create and update operations. The module is specifically designed for MongoDB/Mongoose applications but the validation patterns can be adapted for other databases.
+
+Where it would be reused: Mongoose applications, MongoDB-based APIs, microservices with unique constraints, data validation systems.
+
+Inputs/Outputs: Takes Mongoose models, field configurations, and data, performs uniqueness checks and throws descriptive errors.
+
+Edge cases: Handles case-insensitive matching, update exclusion, multiple field validation, and MongoDB duplicate key errors.
+
+/**
+ * Unique Validation Utility
+ * Provides standardized unique field validation across all services
+ * Reduces duplication in duplicate checking logic
+ */
+const { logError } = require('./logger');
+/**
+ * Checks if a field value is unique in a model
+ * @param {Object} Model - Mongoose model to check
+ * @param {string} fieldName - Name of the field to check
+ * @param {*} fieldValue - Value to check for uniqueness
+ * @param {string} excludeId - ID to exclude from check (for updates)
+ * @param {string} resourceType - Type of resource for error messages
+ * @returns {Promise<Object|null>} Existing document or null if unique
+ */
+const checkDuplicateByField = async (Model, fieldName, fieldValue, excludeId = null, resourceType = 'resource') => {
+  try {
+    const query = { [fieldName]: { $regex: new RegExp(`^${fieldValue}$`, 'i') } };
+    
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+    
+    const existing = await Model.findOne(query);
+    return existing;
+  } catch (error) {
+    await logError(`Failed to check duplicate ${fieldName}`, {
+      error: error.message,
+      fieldName,
+      fieldValue,
+      resourceType
+    });
+    throw error;
+  }
+};
+/**
+ * Validates that a field value is unique and throws error if not
+ * @param {Object} Model - Mongoose model to check
+ * @param {string} fieldName - Name of the field to check
+ * @param {*} fieldValue - Value to check for uniqueness
+ * @param {string} excludeId - ID to exclude from check (for updates)
+ * @param {string} resourceType - Type of resource for error messages
+ * @throws {Error} If field value is not unique
+ */
+const validateUniqueField = async (Model, fieldName, fieldValue, excludeId = null, resourceType = 'resource') => {
+  const existing = await checkDuplicateByField(Model, fieldName, fieldValue, excludeId, resourceType);
+  
+  if (existing) {
+    const error = new Error(`A ${resourceType} with this ${fieldName} already exists`);
+    error.status = 409;
+    error.field = fieldName;
+    error.value = fieldValue;
+    error.existingId = existing._id;
+    throw error;
+  }
+};
+/**
+ * Validates uniqueness for multiple fields
+ * @param {Object} Model - Mongoose model to check
+ * @param {Object} fieldValueMap - Map of field names to values
+ * @param {string} excludeId - ID to exclude from check (for updates)
+ * @param {string} resourceType - Type of resource for error messages
+ * @throws {Error} If any field value is not unique
+ */
+const validateUniqueFields = async (Model, fieldValueMap, excludeId = null, resourceType = 'resource') => {
+  for (const [fieldName, fieldValue] of Object.entries(fieldValueMap)) {
+    if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+      await validateUniqueField(Model, fieldName, fieldValue, excludeId, resourceType);
+    }
+  }
+};
+/**
+ * Creates a unique field validator for a specific resource type
+ * @param {Object} Model - Mongoose model
+ * @param {string} resourceType - Type of resource
+ * @param {string} uniqueField - Default unique field name
+ * @returns {Object} Validator functions for create and update operations
+ */
+const createUniqueValidator = (Model, resourceType, uniqueField = 'name') => {
+  return {
+    /**
+     * Validates unique constraint for create operations
+     * @param {Object} data - Data to validate
+     * @param {Array} fieldsToCheck - Array of field names to check (default: [uniqueField])
+     */
+    validateCreate: async (data, fieldsToCheck = [uniqueField]) => {
+      const fieldValueMap = {};
+      for (const field of fieldsToCheck) {
+        if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+          fieldValueMap[field] = data[field];
+        }
+      }
+      
+      if (Object.keys(fieldValueMap).length > 0) {
+        await validateUniqueFields(Model, fieldValueMap, null, resourceType);
+      }
+    },
+    /**
+     * Validates unique constraint for update operations
+     * @param {string} id - Resource ID being updated
+     * @param {Object} updateData - Update data to validate
+     * @param {Array} fieldsToCheck - Array of field names to check (default: [uniqueField])
+     */
+    validateUpdate: async (id, updateData, fieldsToCheck = [uniqueField]) => {
+      const fieldValueMap = {};
+      for (const field of fieldsToCheck) {
+        if (updateData[field] !== undefined && updateData[field] !== null && updateData[field] !== '') {
+          fieldValueMap[field] = updateData[field];
+        }
+      }
+      
+      if (Object.keys(fieldValueMap).length > 0) {
+        await validateUniqueFields(Model, fieldValueMap, id, resourceType);
+      }
+    },
+    /**
+     * Checks if a value is unique without throwing
+     * @param {string} fieldName - Field name to check
+     * @param {*} fieldValue - Value to check
+     * @param {string} excludeId - ID to exclude (optional)
+     * @returns {Promise<boolean>} True if unique, false if duplicate
+     */
+    isUnique: async (fieldName, fieldValue, excludeId = null) => {
+      const existing = await checkDuplicateByField(Model, fieldName, fieldValue, excludeId, resourceType);
+      return !existing;
+    }
+  };
+};
+/**
+ * Handles MongoDB duplicate key errors (code 11000)
+ * @param {Error} error - Error to handle
+ * @param {string} resourceType - Type of resource for error messages
+ * @returns {Error} Formatted error or original error
+ */
+const handleDuplicateKeyError = (error, resourceType = 'resource') => {
+  if (error.code === 11000) {
+    const field = Object.keys(error.keyValue)[0];
+    const value = error.keyValue[field];
+    
+    const duplicateError = new Error(`A ${resourceType} with this ${field} already exists`);
+    duplicateError.status = 409;
+    duplicateError.field = field;
+    duplicateError.value = value;
+    duplicateError.isDuplicate = true;
+    
+    return duplicateError;
+  }
+  
+  return error;
+};
+/**
+ * Creates middleware to validate unique fields before processing requests
+ * @param {Object} Model - Mongoose model
+ * @param {string} fieldName - Field name to validate
+ * @param {string} resourceType - Resource type for error messages
+ * @param {string} source - Source of field value ('body', 'params', 'query')
+ * @returns {Function} Express middleware function
+ */
+const createUniqueFieldMiddleware = (Model, fieldName, resourceType, source = 'body') => {
+  return async (req, res, next) => {
+    try {
+      const fieldValue = req[source]?.[fieldName];
+      
+      if (!fieldValue || (source === 'params' && req.params.id)) {
+        // Skip validation if no field value or if updating same resource
+        if (source === 'params' && req.params.id) {
+          const existing = await Model.findById(req.params.id);
+          if (existing && existing[fieldName] === fieldValue) {
+            return next();
+          }
+        }
+        return next();
+      }
+      
+      const excludeId = source === 'params' ? req.params.id : null;
+      await validateUniqueField(Model, fieldName, fieldValue, excludeId, resourceType);
+      
+      next();
+    } catch (error) {
+      if (error.status === 409) {
+        return res.status(409).json({
+          success: false,
+          error: error.message,
+          field: error.field,
+          value: error.value,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      next(error);
+    }
+  };
+};
+module.exports = {
+  checkDuplicateByField,
+  validateUniqueField,
+  validateUniqueFields,
+  createUniqueValidator,
+  handleDuplicateKeyError,
+  createUniqueFieldMiddleware
+};

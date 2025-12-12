@@ -68,6 +68,7 @@ const { TestMemoryManager, createMemoryManager, createLeakDetectionSession, quic
 const { AsyncQueue, createAsyncQueue, getDefaultQueue, shutdownDefaultQueue, queueTask } = require('./lib/async-queue'); // async job queue with priority and retries
 const { SimpleDatabasePool, DatabaseConnectionPool, databaseConnectionPool, createDatabasePool, acquireDatabaseConnection, releaseDatabaseConnection, executeDatabaseQuery, getDatabasePoolStats, getDatabasePoolHealth, shutdownDatabasePools } = require('./lib/database-pool'); // database connection pooling
 const { createCrudService, createPaginatedService, createValidatedService, findByFieldIgnoreCase, createDuplicateError, escapeRegex: escapeRegexCrud, validateData } = require('./lib/crud-service-factory'); // CRUD service factory for Mongoose models
+const { checkDuplicateByField, validateUniqueField, validateUniqueFields, createUniqueValidator, handleDuplicateKeyError, withDuplicateKeyHandling, createUniqueFieldMiddleware, createUniqueFieldsMiddleware, isDuplicateError, createBatchUniqueChecker } = require('./lib/unique-validator'); // unique field validation for MongoDB
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -261,6 +262,19 @@ module.exports = { // re-exposes modules so consumers import from one place
   createDuplicateError, // create standardized duplicate error
   escapeRegexCrud, // escape regex special characters
   validateData, // validate data against rules
+
+  // Unique validator - MongoDB unique field validation with middleware support
+  // Case-insensitive uniqueness checking with create/update support
+  checkDuplicateByField, // check if field value exists
+  validateUniqueField, // validate single field uniqueness (throws on duplicate)
+  validateUniqueFields, // validate multiple fields uniqueness
+  createUniqueValidator, // create validator for resource type
+  handleDuplicateKeyError, // handle MongoDB code 11000 errors
+  withDuplicateKeyHandling, // wrap function with duplicate error handling
+  createUniqueFieldMiddleware, // Express middleware for single field
+  createUniqueFieldsMiddleware, // Express middleware for multiple fields
+  isDuplicateError, // check if error is duplicate error
+  createBatchUniqueChecker, // batch uniqueness checker for bulk operations
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
