@@ -1,0 +1,459 @@
+Memory/Database Modules
+@mongo-utils/crud-service-factory
+Purpose: Generates standardized CRUD service layers for MongoDB/Mongoose models with built-in validation and hooks.
+
+Explanation: This utility eliminates repetitive CRUD service code by providing a factory pattern that creates complete service objects with standard operations like create, read, update, delete, search, and pagination. It solves the problem of duplicating business logic across different resource types while providing lifecycle hooks for customization. The module is database-agnostic within the MongoDB ecosystem and can be used with any Mongoose model.
+
+Where it would be reused: Mongoose applications, MongoDB-based APIs, microservices, data management systems.
+
+Inputs/Outputs: Takes Mongoose models and configuration, returns service objects with complete CRUD operations.
+
+Edge cases: Handles duplicate detection, validation hooks, search functionality, pagination, and relationship management.
+
+/**
+ * CRUD Service Factory
+ * Provides standardized CRUD service patterns for common database operations
+ * Reduces code duplication across service layers
+ */
+const { handleServiceError, createDuplicateError } = require('./errorHandler');
+const { logInfo, logError } = require('./logger');
+const { findByFieldIgnoreCase } = require('./databaseUtils');
+/**
+ * Creates a CRUD service factory for a given Mongoose model
+ * @param {Object} Model - Mongoose model to create service for
+ * @param {string} resourceType - Type of resource for logging and error messages
+ * @param {Object} options - Configuration options
+ * @param {string} options.uniqueField - Field to check for duplicates (default: 'name')
+ * @param {Array} options.searchableFields - Fields that can be searched (default: ['name'])
+ * @param {Function} options.beforeCreate - Hook to run before create
+ * @param {Function} options.afterCreate - Hook to run after create
+ * @param {Function} options.beforeUpdate - Hook to run before update
+ * @param {Function} options.afterUpdate - Hook to run after update
+ * @param {Function} options.beforeDelete - Hook to run before delete
+ * @param {Function} options.afterDelete - Hook to run after delete
+ * @returns {Object} CRUD service object with standard methods
+ */
+const createCrudService = (Model, resourceType, options = {}) => {
+  const {
+    uniqueField = 'name',
+    searchableFields = ['name'],
+    beforeCreate = null,
+    afterCreate = null,
+    beforeUpdate = null,
+    afterUpdate = null,
+    beforeDelete = null,
+    afterDelete = null
+  } = options;
+  /**
+   * Creates a new resource
+   * @param {Object} data - Resource data to create
+   * @returns {Promise<Object>} Created resource
+   */
+  const create = async (data) => {
+    try {
+      // Check for duplicate
+      if (data[uniqueField]) {
+        const existing = await findByFieldIgnoreCase(Model, uniqueField, data[uniqueField]);
+        if (existing) {
+          throw createDuplicateError(resourceType, uniqueField, data[uniqueField]);
+        }
+      }
+      // Run before create hook
+      if (beforeCreate) {
+        data = await beforeCreate(data);
+      }
+      // Create and save
+      const item = new Model(data);
+      const saved = await item.save();
+      // Run after create hook
+      if (afterCreate) {
+        await afterCreate(saved);
+      }
+      // Log success
+      await logInfo(`${resourceType} created successfully`, {
+        [`${resourceType}Id`]: saved._id,
+        [uniqueField]: saved[uniqueField]
+      });
+      return saved;
+    } catch (error) {
+      await handleServiceError(error, `create ${resourceType}`, { data });
+    }
+  };
+  /**
+   * Gets a resource by ID
+   * @param {string} id - Resource ID
+   * @returns {Promise<Object|null>} Resource or null if not found
+   */
+  const getById = async (id) => {
+    try {
+      const item = await Model.findById(id);
+      if (!item) {
+        throw new Error(`${resourceType} not found`);
+      }
+      return item;
+    } catch (error) {
+      await handleServiceError(error, `get ${resourceType} by id`, { id });
+    }
+  };
+  /**
+   * Gets all resources with optional filtering and pagination
+   * @param {Object} filters - Filter criteria
+   * @param {Object} pagination - Pagination options
+   * @param {Object} sort - Sort options
+   * @returns {Promise<Object>} Paginated results
+   */
+  const getAll = async (filters = {}, pagination = {}, sort = {}) => {
+    try {
+      const { page = 1, limit = 10 } = pagination;
+      const skip = (page - 1) * limit;
+      // Build query
+      const query = Model.find(filters);
+      // Apply sorting
+      if (Object.keys(sort).length > 0) {
+        query.sort(sort);
+      } else {
+        query.sort({ createdAt: -1 }); // Default sort
+      }
+      // Apply pagination
+      const [data, total] = await Promise.all([
+        query.skip(skip).limit(limit),
+        Model.countDocuments(filters)
+      ]);
+      return {
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      };
+    } catch (error) {
+      await handleServiceError(error, `get all ${resourceType}`, { filters, pagination, sort });
+    }
+  };
+  /**
+   * Updates a resource by ID
+   * @param {string} id - Resource ID
+   * @param {Object} updateData - Data to update
+   * @returns {Promise<Object>} Updated resource
+   */
+  const update = async (id, updateData) => {
+    try {
+      // Check if resource exists
+      const existing = await Model.findById(id);
+      if (!existing) {
+        throw new Error(`${resourceType} not found`);
+      }
+      // Check for duplicate if updating unique field
+      if (updateData[uniqueField] && updateData[uniqueField] !== existing[uniqueField]) {
+        const duplicate = await findByFieldIgnoreCase(Model, uniqueField, updateData[uniqueField]);
+        if (duplicate && duplicate._id.toString() !== id) {
+          throw createDuplicateError(resourceType, uniqueField, updateData[uniqueField]);
+        }
+      }
+      // Run before update hook
+      if (beforeUpdate) {
+        updateData = await beforeUpdate(updateData, existing);
+      }
+      // Update resource
+      const updated = await Model.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+      // Run after update hook
+      if (afterUpdate) {
+        await afterUpdate(updated);
+      }
+      // Log success
+      await logInfo(`${resourceType} updated successfully`, {
+        [`${resourceType}Id`]: updated._id,
+        [uniqueField]: updated[uniqueField]
+      });
+      return updated;
+    } catch (error) {
+      await handleServiceError(error, `update ${resourceType}`, { id, updateData });
+    }
+  };
+  /**
+   * Deletes a resource by ID
+   * @param {string} id - Resource ID
+   * @returns {Promise<Object>} Deleted resource
+   */
+  const deleteById = async (id) => {
+    try {
+      // Check if resource exists
+      const existing = await Model.findById(id);
+      if (!existing) {
+        throw new Error(`${resourceType} not found`);
+      }
+      // Run before delete hook
+      if (beforeDelete) {
+        await beforeDelete(existing);
+      }
+      // Delete resource
+      const deleted = await Model.findByIdAndDelete(id);
+      // Run after delete hook
+      if (afterDelete) {
+        await afterDelete(deleted);
+      }
+      // Log success
+      await logInfo(`${resourceType} deleted successfully`, {
+        [`${resourceType}Id`]: deleted._id,
+        [uniqueField]: deleted[uniqueField]
+      });
+      return deleted;
+    } catch (error) {
+      await handleServiceError(error, `delete ${resourceType}`, { id });
+    }
+  };
+  /**
+   * Searches resources by text query
+   * @param {string} query - Search query
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>} Search results
+   */
+  const search = async (query, pagination = {}) => {
+    try {
+      const { page = 1, limit = 10 } = pagination;
+      const skip = (page - 1) * limit;
+      // Build search criteria
+      const searchCriteria = {
+        $or: searchableFields.map(field => ({
+          [field]: { $regex: query, $options: 'i' }
+        }))
+      };
+      // Execute search
+      const [data, total] = await Promise.all([
+        Model.find(searchCriteria).skip(skip).limit(limit).sort({ createdAt: -1 }),
+        Model.countDocuments(searchCriteria)
+      ]);
+      return {
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        },
+        query
+      };
+    } catch (error) {
+      await handleServiceError(error, `search ${resourceType}`, { query, pagination });
+    }
+  };
+  /**
+   * Gets resources by field value
+   * @param {string} field - Field name
+   * @param {*} value - Field value
+   * @returns {Promise<Array>} Array of resources
+   */
+  const getByField = async (field, value) => {
+    try {
+      return await Model.find({ [field]: value });
+    } catch (error) {
+      await handleServiceError(error, `get ${resourceType} by field`, { field, value });
+    }
+  };
+  /**
+   * Counts resources matching criteria
+   * @param {Object} filters - Filter criteria
+   * @returns {Promise<number>} Count of resources
+   */
+  const count = async (filters = {}) => {
+    try {
+      return await Model.countDocuments(filters);
+    } catch (error) {
+      await handleServiceError(error, `count ${resourceType}`, { filters });
+    }
+  };
+  return {
+    create,
+    getById,
+    getAll,
+    update,
+    deleteById,
+    search,
+    getByField,
+    count
+  };
+};
+/**
+ * Creates a service factory for email rules
+ * @param {Object} EmailRuleModel - Email rule model
+ * @returns {Object} Email rule service
+ */
+const createEmailRuleService = (EmailRuleModel) => {
+  return createCrudService(EmailRuleModel, 'email rule', {
+    uniqueField: 'name',
+    searchableFields: ['name', 'description', 'category'],
+    beforeCreate: async (data) => {
+      // Validate category and action
+      const validCategories = ['spam', 'marketing', 'social', 'work', 'personal'];
+      const validActions = ['delete', 'archive', 'mark_read', 'move_folder'];
+      
+      if (!validCategories.includes(data.category)) {
+        throw new Error(`Invalid category. Must be one of: ${validCategories.join(', ')}`);
+      }
+      
+      if (!validActions.includes(data.action)) {
+        throw new Error(`Invalid action. Must be one of: ${validActions.join(', ')}`);
+      }
+      
+      return data;
+    }
+  });
+};
+/**
+ * Creates a service factory for email templates
+ * @param {Object} EmailTemplateModel - Email template model
+ * @returns {Object} Email template service
+ */
+const createEmailTemplateService = (EmailTemplateModel) => {
+  return createCrudService(EmailTemplateModel, 'email template', {
+    uniqueField: 'name',
+    searchableFields: ['name', 'subject', 'body'],
+    beforeCreate: async (data) => {
+      // Validate required fields
+      if (!data.subject || !data.body) {
+        throw new Error('Subject and body are required for email templates');
+      }
+      
+      return data;
+    }
+  });
+};
+/**
+ * Creates a service factory for snoozed emails
+ * @param {Object} SnoozedEmailModel - Snoozed email model
+ * @returns {Object} Snoozed email service
+ */
+const createSnoozedEmailService = (SnoozedEmailModel) => {
+  return createCrudService(SnoozedEmailModel, 'snoozed email', {
+    uniqueField: 'emailId',
+    searchableFields: ['emailId', 'subject'],
+    beforeCreate: async (data) => {
+      // Validate snoozeUntil is in the future
+      const snoozeUntil = new Date(data.snoozeUntil);
+      if (snoozeUntil <= new Date()) {
+        throw new Error('Snooze time must be in the future');
+      }
+      
+      return data;
+    }
+  });
+};
+module.exports = {
+  createCrudService,
+  createEmailRuleService,
+  createEmailTemplateService,
+  createSnoozedEmailService
+};
+
+@mongo-utils/paginated-service
+Purpose: Provides standardized pagination service patterns for consistent list operations across MongoDB collections.
+
+Explanation: This utility eliminates duplicate pagination logic by creating a service factory that handles pagination, sorting, filtering, and result formatting consistently across different resource types. It solves the problem of inconsistent pagination implementations and response formats while supporting custom filters and result enhancement. The module is designed specifically for MongoDB applications but can be adapted for other databases.
+
+Where it would be reused: Any Node.js application with MongoDB requiring consistent pagination, list APIs, data dashboards.
+
+Inputs/Outputs: Takes Mongoose models and configuration, returns paginated service functions with standardized response format.
+
+Edge cases: Handles custom filters, query enhancement, result transformation, additional data inclusion, and error handling.
+
+/**
+ * Paginated Service Utility
+ * Provides standardized pagination service patterns for consistent response formats
+ * Reduces code duplication across service layers while maintaining existing API contracts
+ */
+const { logInfo, logError } = require('qerrors');
+/**
+ * Creates a paginated service function with standardized response format
+ * @param {Object} Model - Mongoose model to query
+ * @param {string} resourceType - Type of resource for logging and response naming
+ * @param {Object} options - Configuration options
+ * @param {Object} options.defaultSort - Default sort order (default: { createdAt: -1 })
+ * @param {number} options.defaultLimit - Default page limit (default: 50)
+ * @param {Function} options.queryEnhancer - Function to enhance query before execution
+ * @param {Function} options.resultEnhancer - Function to enhance results after query
+ * @param {Function} options.additionalData - Function to get additional data to include in response
+ * @returns {Function} Paginated service function
+ */
+const createPaginatedService = (Model, resourceType, options = {}) => {
+  const {
+    defaultSort = { createdAt: -1 },
+    defaultLimit = 50,
+    queryEnhancer = null,
+    resultEnhancer = null,
+    additionalData = null
+  } = options;
+  /**
+   * Gets paginated resources with standardized response format
+   * @param {Object} filters - Filter criteria
+   * @param {Object} serviceOptions - Pagination and sorting options
+   * @returns {Promise<Object>} Paginated result with existing API format
+   */
+  return async function getPaginatedResources(filters = {}, serviceOptions = {}) {
+    try {
+      const {
+        page = 1,
+        limit = defaultLimit,
+        sort = defaultSort
+      } = serviceOptions;
+      const skip = (page - 1) * limit;
+      // Build base query
+      let query = Model.find(filters);
+      // Apply query enhancement if provided
+      if (queryEnhancer) {
+        query = queryEnhancer(query, filters);
+      }
+      // Execute query with pagination
+      const [resources, totalCount] = await Promise.all([
+        query
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Model.countDocuments(filters)
+      ]);
+      // Apply result enhancement if provided
+      let enhancedResources = resources;
+      if (resultEnhancer) {
+        enhancedResources = await resultEnhancer(resources, filters);
+      }
+      const totalPages = Math.ceil(totalCount / limit);
+      const hasMore = page < totalPages;
+      // Build response object
+      const response = {
+        [resourceType]: enhancedResources,
+        totalCount,
+        currentPage: page,
+        totalPages,
+        hasMore
+      };
+      // Add additional data if provided
+      if (additionalData) {
+        const extraDataResult = additionalData(filters, enhancedResources);
+        const extraData = extraDataResult && typeof extraDataResult.then === 'function' 
+          ? await extraDataResult 
+          : extraDataResult;
+        Object.assign(response, extraData);
+      }
+      await logInfo(`${resourceType} retrieved successfully`, {
+        filtersCount: Object.keys(filters).length,
+        [`total${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}`]: totalCount,
+        [`returned${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}`]: enhancedResources.length,
+        page,
+        totalPages
+      });
+      return response;
+    } catch (error) {
+      await logError(`Failed to get ${resourceType}`, { 
+        error: error.message,
+        filters,
+        options: serviceOptions 
+      });
+      throw new Error(`${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} retrieval failed: ${error.message}`);
+    }
+  };
+};
+module.exports = {
+  createPaginatedService
+};

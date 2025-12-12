@@ -67,6 +67,7 @@ const { updateMetrics: updateHealthMetrics, incrementActiveRequests, decrementAc
 const { TestMemoryManager, createMemoryManager, createLeakDetectionSession, quickMemoryCheck, withMemoryTracking, setupTestMemoryMonitoring, teardownTestMemoryMonitoring } = require('./lib/test-memory-manager'); // test memory management and leak detection
 const { AsyncQueue, createAsyncQueue, getDefaultQueue, shutdownDefaultQueue, queueTask } = require('./lib/async-queue'); // async job queue with priority and retries
 const { SimpleDatabasePool, DatabaseConnectionPool, databaseConnectionPool, createDatabasePool, acquireDatabaseConnection, releaseDatabaseConnection, executeDatabaseQuery, getDatabasePoolStats, getDatabasePoolHealth, shutdownDatabasePools } = require('./lib/database-pool'); // database connection pooling
+const { createCrudService, createPaginatedService, createValidatedService, findByFieldIgnoreCase, createDuplicateError, escapeRegex: escapeRegexCrud, validateData } = require('./lib/crud-service-factory'); // CRUD service factory for Mongoose models
 const { logFunctionEntry, logFunctionExit, logFunctionError } = require('./lib/logging-utils'); // centralized logging patterns
 const { 
   validatePagination, 
@@ -250,6 +251,16 @@ module.exports = { // re-exposes modules so consumers import from one place
   getDatabasePoolStats, // get statistics for all pools
   getDatabasePoolHealth, // get health status for all pools
   shutdownDatabasePools, // graceful shutdown of all pools
+
+  // CRUD service factory - Standardized data access layer for Mongoose models
+  // Eliminates repetitive CRUD code with lifecycle hooks and validation
+  createCrudService, // create full CRUD service for a model
+  createPaginatedService, // create paginated query service
+  createValidatedService, // create service with validation rules
+  findByFieldIgnoreCase, // case-insensitive field lookup
+  createDuplicateError, // create standardized duplicate error
+  escapeRegexCrud, // escape regex special characters
+  validateData, // validate data against rules
 
   // Logging utilities - Centralized logging patterns for consistent debugging re-exposed from logging-utils
   // Standardized logging functions for function entry, exit, and error tracking
