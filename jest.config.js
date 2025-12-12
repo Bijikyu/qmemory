@@ -15,7 +15,7 @@ module.exports = {
   testMatch: [
     '**/test/**/*.test.js' // Look for tests in any test folder
   ],
-  setupFilesAfterEnv: ['<rootDir>/test/setup.js'], // Reuse common test setup
+  setupFilesAfterEnv: ['<rootDir>/config/jest-require-polyfill.cjs'], // Use CommonJS setup for compatibility
   verbose: true, // Show individual test results for clarity
   clearMocks: true, // Reset mocks automatically between tests
   coverageDirectory: 'coverage', // Output folder for coverage reports
