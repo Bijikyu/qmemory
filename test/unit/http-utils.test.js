@@ -3,7 +3,7 @@
  */
 
 const { sendNotFound, sendConflict, sendInternalServerError, sendServiceUnavailable } = require('../../lib/http-utils');
-const { setupTestEnvironment, expectNotFoundResponse, expectConflictResponse, expectInternalServerErrorResponse, expectServiceUnavailableResponse } = require('../test-utils');
+const { setupTestEnvironment, expectNotFoundResponse } = require('../test-utils');
 
 describe('HTTP Utils Module', () => {
   let mockRes;
@@ -55,6 +55,7 @@ test('should provide default message for non-string values', () => {
       expectNotFoundResponse(mockRes, 'Resource not found');
     });
 
+    test('should handle non-string error values', () => {
       sendNotFound(mockRes, { error: 'not string' });
 
       expect(mockRes.status).toHaveBeenCalledWith(404);
@@ -66,6 +67,13 @@ test('should provide default message for non-string values', () => {
           requestId: expect.any(String)
         }
       });
+    });
+  });
+
+    test('should handle non-string error values', () => {
+      sendNotFound(mockRes, { error: 'not string' });
+
+      expectNotFoundResponse(mockRes, 'Resource not found');
     });
   });
 
@@ -216,4 +224,3 @@ test('should provide default message for non-string values', () => {
       });
     });
   });
-});
