@@ -13,7 +13,8 @@
  */
 
 // Mock the database utilities module BEFORE importing document helpers
-const mockSafeDbOperation = jest.fn();
+const { createMockSafeDbOperation } = require('../test-utils');
+const mockSafeDbOperation = createMockSafeDbOperation();
 jest.mock('../../lib/database-utils', () => ({
   safeDbOperation: mockSafeDbOperation,
   handleMongoError: jest.fn()
@@ -45,16 +46,8 @@ describe('Document Helpers', () => {
       warn: jest.spyOn(console, 'warn').mockImplementation(() => {})
     };
 
-    // Create mock Mongoose model
-    mockModel = {
-      modelName: 'TestModel',
-      findById: jest.fn(),
-      findByIdAndUpdate: jest.fn(),
-      findByIdAndDelete: jest.fn(),
-      find: jest.fn(),
-      findOne: jest.fn(),
-      save: jest.fn()
-    };
+    // Create mock Mongoose model using helper
+    mockModel = require('../test-utils').createMockModel('TestModel');
   });
 
   afterEach(() => {
@@ -397,13 +390,8 @@ describe('Document Helpers', () => {
       mockSafeDbOperation.mockRejectedValue(new Error('Unexpected error'));
 
       // Should not throw, but handle gracefully
-      try {
-        const result = await findDocumentById(mockModel, '123');
-        expect(result).toBeUndefined();
-      } catch (error) {
-        // Document helpers should handle errors gracefully and not throw
-        expect(error).toBeUndefined();
-      }
+      const result = await findDocumentById(mockModel, '123');
+      expect(result).toBeUndefined();
     });
   });
 });

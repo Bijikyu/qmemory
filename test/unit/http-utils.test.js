@@ -3,13 +3,13 @@
  */
 
 const { sendNotFound, sendConflict, sendInternalServerError, sendServiceUnavailable } = require('../../lib/http-utils');
-const { testHelpers } = require('qtests/lib/envUtils.js');
+const { setupTestEnvironment, expectNotFoundResponse, expectConflictResponse, expectInternalServerErrorResponse, expectServiceUnavailableResponse } = require('../test-utils');
 
 describe('HTTP Utils Module', () => {
   let mockRes;
 
   beforeEach(() => {
-    mockRes = testHelpers.createRes();
+    ({ mockRes } = setupTestEnvironment());
   });
 
   describe('sendNotFound function', () => {
@@ -18,55 +18,21 @@ describe('HTTP Utils Module', () => {
 
       sendNotFound(mockRes, message);
 
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
-        error: {
-          type: 'NOT_FOUND',
-          message,
-          timestamp: expect.any(String),
-          requestId: expect.any(String)
-        }
-      });
+      expectNotFoundResponse(mockRes, message);
     });
 
     test('should handle empty message with default', () => {
       sendNotFound(mockRes, '');
       
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
-        error: {
-          type: 'NOT_FOUND',
-          message: 'Resource not found',
-          timestamp: expect.any(String),
-          requestId: expect.any(String)
-        }
-      });
+      expectNotFoundResponse(mockRes, 'Resource not found');
     });
 
     test('should provide default message for null/undefined', () => {
       sendNotFound(mockRes, null);
-      
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
-        error: {
-          type: 'NOT_FOUND',
-          message: 'Resource not found',
-          timestamp: expect.any(String),
-          requestId: expect.any(String)
-        }
-      });
+      expectNotFoundResponse(mockRes, 'Resource not found');
 
       sendNotFound(mockRes, undefined);
-      
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ 
-        error: {
-          type: 'NOT_FOUND',
-          message: 'Resource not found',
-          timestamp: expect.any(String),
-          requestId: expect.any(String)
-        }
-      });
+      expectNotFoundResponse(mockRes, 'Resource not found');
     });
 
     test('should throw error for invalid response object', () => {
@@ -80,29 +46,14 @@ describe('HTTP Utils Module', () => {
 
       sendNotFound(mockRes, longMessage);
 
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        error: {
-          type: 'NOT_FOUND',
-          message: longMessage,
-          timestamp: expect.any(String),
-          requestId: expect.any(String)
-        }
-      });
+      expectNotFoundResponse(mockRes, longMessage);
     });
 
-    test('should provide default message for non-string values', () => {
+test('should provide default message for non-string values', () => {
       sendNotFound(mockRes, 123);
 
-      expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        error: {
-          type: 'NOT_FOUND',
-          message: 'Resource not found',
-          timestamp: expect.any(String),
-          requestId: expect.any(String)
-        }
-      });
+      expectNotFoundResponse(mockRes, 'Resource not found');
+    });
 
       sendNotFound(mockRes, { error: 'not string' });
 
