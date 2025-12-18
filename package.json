@@ -2,14 +2,19 @@
   "name": "qmemory",
   "version": "1.0.2",
   "description": "A comprehensive production-ready Node.js utility library with MongoDB document operations, user ownership enforcement, Express.js HTTP utilities, environment-aware logging, and in-memory storage. Features 96%+ test coverage with comprehensive error handling and security patterns.",
-  "main": "index.js",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.d.ts",
   "scripts": {
     "test": "node qtests-runner.mjs",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:unit": "jest test/unit",
     "test:integration": "jest test/integration",
-    "pretest": "node scripts/clean-dist.mjs && node scripts/ensure-runner.mjs"
+    "pretest": "node scripts/clean-dist.mjs && node scripts/ensure-runner.mjs",
+    "build": "tsc",
+    "dev": "ts-node index.ts",
+    "start": "node dist/index.js"
   },
   "keywords": [
     "mongodb",
@@ -83,12 +88,14 @@
     "loqatevars": "^1.0.6",
     "madge": "^8.0.0",
     "npmcontext": "^1.0.4",
-    "opencode-ai": "1.0.152",
+    "opencode-ai": "1.0.166",
     "qtests": "^2.0.0",
     "quantumagent": "^1.0.5",
     "supertest": "^6.3.4",
     "ts-jest": "^29.4.4",
+    "ts-node": "^10.9.1",
     "typescript": "^5.9.2",
+    "@types/express": "^4.17.21",
     "unqommented": "^1.1.0"
   },
   "repository": {

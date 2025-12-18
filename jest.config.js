@@ -1,15 +1,31 @@
 /**
- * Jest configuration
+ * Jest configuration for TypeScript
  */
-module.exports = {
+/** @type {import('jest').Config} */
+export default {
+  preset: 'ts-jest',
   testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts'],
+  globals: {
+    'ts-jest': {
+      useESM: true,
+      tsconfig: 'tsconfig.json'
+    }
+  },
   collectCoverageFrom: [
+    'lib/**/*.ts',
     'lib/**/*.js',
+    'index.ts',
     'index.js',
-    '!**/node_modules/**'
+    '!**/node_modules/**',
+    '!**/*.d.ts',
+    '!dist/**'
   ],
   testMatch: [
-    '**/test/**/*.test.js'
+    '**/test/**/*.test.ts',
+    '**/test/**/*.test.js',
+    '**/*.test.ts',
+    '**/*.test.js'
   ],
   setupFilesAfterEnv: ['<rootDir>/config/jest-require-polyfill.cjs'],
   verbose: true,
@@ -29,9 +45,10 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue)/)'
   ],
-  moduleFileExtensions: ['js', 'json'],
+  moduleFileExtensions: ['ts', 'js', 'json'],
   testPathIgnorePatterns: [
-    '<rootDir>/node_modules/'
+    '<rootDir>/node_modules/',
+    '<rootDir>/dist/'
   ],
   errorOnDeprecated: true
 };
