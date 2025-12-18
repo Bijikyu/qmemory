@@ -224,7 +224,7 @@ import {
 // Cache utilities
 import { 
   createRedisClient, 
-  redis 
+  redisCreateClient 
 } from './lib/cache-utils.js';
 
 // LRU cache
@@ -357,7 +357,7 @@ export {
   filterValidEmails,
   
   // Circuit breaker
-  CircuitBreaker,
+  type CircuitBreaker,
   createCircuitBreaker,
   CIRCUIT_BREAKER_STATES,
   
@@ -396,7 +396,7 @@ export {
   teardownTestMemoryMonitoring,
   
   // Async queue
-  AsyncQueue,
+  type AsyncQueue,
   createQueue,
   
   // Database pool
@@ -473,7 +473,7 @@ export {
   
   // Cache utilities
   createRedisClient,
-  redis,
+  redisCreateClient,
   
   // LRU cache
   LRUCache,
