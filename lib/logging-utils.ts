@@ -15,6 +15,9 @@
  */
 
 // Direct imports from qerrors
+import * as qerrors from 'qerrors';
+
+// Extract functions from qerrors
 const {
   // Enhanced Logging System
   logDebug,
@@ -61,23 +64,70 @@ const {
   simpleLogger,
   createSimpleWinstonLogger,
   LOG_LEVELS
-} = require('qerrors');
+} = qerrors;
+
+// Interfaces for TypeScript
+interface LogEntryContext {
+  timer?: any;
+  requestId: string;
+  functionName: string;
+  startTime: number;
+}
+
+interface LogFunctionOptions {
+  requestId?: string;
+  userId?: string;
+  metadata?: Record<string, any>;
+}
+
+interface LogExitOptions {
+  metadata?: Record<string, any>;
+}
+
+interface LogErrorOptions {
+  enableAI?: boolean;
+  additionalContext?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+interface AuditContext {
+  userId?: string;
+  sessionId?: string;
+  requestId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  resource?: string;
+  result?: any;
+}
+
+interface AuditOptions {
+  risk?: 'low' | 'medium' | 'high';
+  category?: string;
+  metadata?: Record<string, any>;
+}
+
+interface PerformanceOptions {
+  threshold?: number;
+}
+
+interface PerformanceResult<T> {
+  result: T;
+  performance: {
+    operation: string;
+    duration: number;
+    threshold: number;
+    exceeded: boolean;
+  };
+}
 
 /**
  * Enhanced function entry logging with performance monitoring
- * 
- * Provides comprehensive entry logging with automatic performance timing,
- * request correlation, and structured metadata for debugging.
- * 
- * @param {string} functionName - Name of function being entered
- * @param {Object} params - Parameters passed to function
- * @param {Object} options - Additional logging options
- * @param {string} options.requestId - Unique request identifier for correlation
- * @param {string} options.userId - User identifier for security tracking
- * @param {Object} options.metadata - Additional metadata for logging
- * @returns {Object} Performance timer and context for later use
  */
-function logFunctionEntry(functionName, params = {}, options = {}) {
+export const logFunctionEntry = (
+  functionName: string, 
+  params: Record<string, any> = {}, 
+  options: LogFunctionOptions = {}
+): LogEntryContext => {
   try {
     // Generate unique request ID if not provided
     const requestId = options.requestId || generateUniqueId();
@@ -107,7 +157,7 @@ function logFunctionEntry(functionName, params = {}, options = {}) {
     };
   } catch (error) {
     // Fallback logging if enhanced logging fails
-    console.error(`[LOGGING_ERROR] Failed to log function entry for ${functionName}:`, error.message);
+    console.error(`[LOGGING_ERROR] Failed to log function entry for ${functionName}:`, (error as Error).message);
     return {
       timer: createTimer(),
       requestId: generateUniqueId(),
@@ -115,21 +165,17 @@ function logFunctionEntry(functionName, params = {}, options = {}) {
       startTime: Date.now()
     };
   }
-}
+};
 
 /**
  * Enhanced function exit logging with performance metrics
- * 
- * Provides comprehensive exit logging with automatic performance calculation
- * and result sanitization.
- * 
- * @param {string} functionName - Name of function being exited
- * @param {*} result - Result being returned from function
- * @param {Object} context - Context from logFunctionEntry for correlation
- * @param {Object} options - Additional logging options
- * @returns {Object} Performance metrics and summary
  */
-function logFunctionExit(functionName, result, context = {}, options = {}) {
+export const logFunctionExit = (
+  functionName: string, 
+  result: any, 
+  context: Partial<LogEntryContext> = {}, 
+  options: LogExitOptions = {}
+): { duration: number; success: boolean; requestId: string; performance: any } => {
   try {
     // Calculate performance metrics
     const endTime = Date.now();
@@ -163,12 +209,12 @@ function logFunctionExit(functionName, result, context = {}, options = {}) {
     return {
       duration,
       success: true,
-      requestId: context.requestId,
+      requestId: context.requestId || 'unknown',
       performance: logEntry.performance
     };
   } catch (error) {
     // Fallback logging if enhanced logging fails
-    console.error(`[LOGGING_ERROR] Failed to log function exit for ${functionName}:`, error.message);
+    console.error(`[LOGGING_ERROR] Failed to log function exit for ${functionName}:`, (error as Error).message);
     return {
       duration: 0,
       success: true,
@@ -176,22 +222,17 @@ function logFunctionExit(functionName, result, context = {}, options = {}) {
       performance: null
     };
   }
-}
+};
 
 /**
  * Enhanced function error logging with comprehensive analysis
- * 
- * Provides comprehensive error logging with structured error reporting
- * and security sanitization.
- * 
- * @param {string} functionName - Name of function that encountered error
- * @param {Error} error - Error object that was encountered
- * @param {Object} context - Context from logFunctionEntry for correlation
- * @param {Object} options - Additional logging options
- * @param {boolean} options.enableAI - Enable enhanced error analysis (simplified)
- * @param {Object} options.additionalContext - Additional context for error analysis
  */
-function logFunctionError(functionName, error, context = {}, options = {}) {
+export const logFunctionError = (
+  functionName: string, 
+  error: Error, 
+  context: Partial<LogEntryContext> = {}, 
+  options: LogErrorOptions = {}
+): { duration: number; success: boolean; requestId: string; error: any; performance: any } => {
   try {
     // Calculate performance metrics even for errors
     const endTime = Date.now();
@@ -206,8 +247,8 @@ function logFunctionError(functionName, error, context = {}, options = {}) {
         name: error.name,
         message: sanitizeMessage(error.message, 'Error occurred'),
         stack: error.stack,
-        code: error.code,
-        statusCode: error.statusCode
+        code: (error as any).code,
+        statusCode: (error as any).statusCode
       },
       duration: `${duration}ms`,
       performance: {
@@ -232,13 +273,13 @@ function logFunctionError(functionName, error, context = {}, options = {}) {
     return {
       duration,
       success: false,
-      requestId: context.requestId,
+      requestId: context.requestId || 'unknown',
       error: errorContext.error,
       performance: errorContext.performance
     };
   } catch (loggingError) {
     // Last resort fallback logging
-    console.error(`[LOGGING_ERROR] Failed to log function error for ${functionName}:`, loggingError.message);
+    console.error(`[LOGGING_ERROR] Failed to log function error for ${functionName}:`, (loggingError as Error).message);
     console.error(`[ORIGINAL_ERROR] ${functionName} error:`, error.message);
     return {
       duration: 0,
@@ -248,19 +289,16 @@ function logFunctionError(functionName, error, context = {}, options = {}) {
       performance: null
     };
   }
-}
+};
 
 /**
  * Enhanced audit logging for security and compliance
- * 
- * Provides comprehensive audit logging with user tracking, action classification,
- * and compliance metadata for security monitoring.
- * 
- * @param {string} action - Action being audited
- * @param {Object} context - Audit context including user and system information
- * @param {Object} options - Additional audit options
  */
-function logAuditEvent(action, context = {}, options = {}) {
+export const logAuditEvent = (
+  action: string, 
+  context: AuditContext = {}, 
+  options: AuditOptions = {}
+): any => {
   try {
     // Create comprehensive audit entry
     const auditEntry = {
@@ -284,24 +322,19 @@ function logAuditEvent(action, context = {}, options = {}) {
     return auditEntry;
   } catch (error) {
     // Fallback audit logging
-    console.error(`[AUDIT_ERROR] Failed to log audit event for ${action}:`, error.message);
+    console.error(`[AUDIT_ERROR] Failed to log audit event for ${action}:`, (error as Error).message);
     return null;
   }
-}
+};
 
 /**
  * Performance monitoring helper for critical operations
- * 
- * Provides automatic performance monitoring with threshold alerts
- * and detailed metrics for optimization using qerrors capabilities.
- * 
- * @param {string} operationName - Name of operation being monitored
- * @param {Function} operation - Operation to monitor
- * @param {Object} options - Monitoring options
- * @param {number} options.threshold - Performance threshold in milliseconds
- * @returns {Promise<*>} Operation result with performance metrics
  */
-async function monitorPerformance(operationName, operation, options = {}) {
+export const monitorPerformance = async <T>(
+  operationName: string, 
+  operation: () => Promise<T> | T, 
+  options: PerformanceOptions = {}
+): Promise<PerformanceResult<T>> => {
   const startTime = Date.now();
   
   try {
@@ -344,72 +377,62 @@ async function monitorPerformance(operationName, operation, options = {}) {
     logError(`Performance error: ${operationName} failed`, {
       operation: operationName,
       duration: `${duration}ms`,
-      error: error.message
+      error: (error as Error).message
     });
     
     throw error;
   }
-}
+};
 
 // Export enhanced logging utilities with qerrors integration
-module.exports = {
-  // Core logging functions (enhanced with qerrors)
-  logFunctionEntry,    // enhanced function entry with performance monitoring
-  logFunctionExit,     // enhanced function exit with performance metrics
-  logFunctionError,    // enhanced error logging with AI analysis
-  
-  // Additional enhanced logging functions
-  logAuditEvent,       // comprehensive audit logging for compliance
-  monitorPerformance,  // automatic performance monitoring with thresholds
-  
-  // Direct access to qerrors logging capabilities
-  logger,              // qerrors enhanced logger instance
-  logDebug,            // qerrors debug logging
-  logInfo,             // qerrors info logging  
-  logWarn,             // qerrors warn logging
-  logError,            // qerrors error logging
-  logFatal,            // qerrors fatal logging
-  logAudit,            // qerrors audit logging
-  
-  // qerrors Performance Monitoring
-  createPerformanceTimer,  // qerrors performance timer
-  
-  // qerrors Data Security & Sanitization
-  sanitizeMessage,         // qerrors message sanitization
-  sanitizeContext,         // qerrors context sanitization
-  addCustomSanitizationPattern,    // qerrors custom sanitization patterns
-  sanitizeWithCustomPatterns,      // qerrors enhanced sanitization
-  clearCustomSanitizationPatterns, // qerrors pattern management
-  
-  // qerrors Utility Functions
-  generateUniqueId,    // qerrors unique ID generation
-  createTimer,        // qerrors timer utility
-  deepClone,          // qerrors deep cloning
-  safeRun,            // qerrors safe execution
-  verboseLog,         // qerrors conditional logging
-  
-  // qerrors Error Handling
-  createTypedError,    // qerrors typed error creation
-  ErrorTypes,         // qerrors error type constants
-  ErrorSeverity,      // qerrors severity levels
-  ErrorFactory,       // qerrors error factory
-  handleControllerError, // qerrors controller error handling
-  withErrorHandling,  // qerrors async operation wrapper
-  
-  // qerrors Configuration & Environment
-  getEnv,             // qerrors environment getter
-  getInt,             // qerrors integer parsing
-  getMissingEnvVars,  // qerrors environment validation
-  throwIfMissingEnvVars, // qerrors required environment validation
-  warnIfMissingEnvVars,  // qerrors optional environment validation
-  
-  // qerrors Simple Logger
-  simpleLogger,       // qerrors simple logger
-  createSimpleWinstonLogger, // qerrors logger factory
-  LOG_LEVELS,         // qerrors log level constants
-  
-  // Backward compatibility aliases
-  logEntry: logFunctionEntry,
-  logExit: logFunctionExit,
-  logError: logFunctionError
-};
+
+// Direct access to qerrors logging capabilities
+export { logger } from 'qerrors';
+export { logDebug, logInfo, logWarn, logError, logFatal, logAudit } from 'qerrors';
+
+// qerrors Performance Monitoring
+export { createPerformanceTimer } from 'qerrors';
+
+// qerrors Data Security & Sanitization
+export { 
+  sanitizeMessage, 
+  sanitizeContext, 
+  addCustomSanitizationPattern,
+  sanitizeWithCustomPatterns,
+  clearCustomSanitizationPatterns 
+} from 'qerrors';
+
+// qerrors Utility Functions
+export { 
+  generateUniqueId, 
+  createTimer, 
+  deepClone, 
+  safeRun, 
+  verboseLog 
+} from 'qerrors';
+
+// qerrors Error Handling
+export { 
+  createTypedError, 
+  ErrorTypes, 
+  ErrorSeverity, 
+  ErrorFactory,
+  handleControllerError,
+  withErrorHandling 
+} from 'qerrors';
+
+// qerrors Configuration & Environment
+export { 
+  getEnv, 
+  getInt, 
+  getMissingEnvVars, 
+  throwIfMissingEnvVars, 
+  warnIfMissingEnvVars 
+} from 'qerrors';
+
+// qerrors Simple Logger
+export { simpleLogger, createSimpleWinstonLogger, LOG_LEVELS } from 'qerrors';
+
+// Backward compatibility aliases
+export const logEntry = logFunctionEntry;
+export const logExit = logFunctionExit;

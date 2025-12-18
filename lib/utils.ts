@@ -3,7 +3,7 @@
  * Simple helper functions for common operations
  */
 
-const greet = (name) => {
+export const greet = (name: unknown): string => {
   console.log(`greet is running with ${name}`);
   const safeName = typeof name !== 'string' ? name : String(name);
   const msg = `Hello, ${safeName}!`;
@@ -11,7 +11,7 @@ const greet = (name) => {
   return msg;
 };
 
-const add = (a, b) => {
+export const add = (a: number, b: number): number => {
   console.log(`add is running with ${a}, ${b}`);
   if (typeof a !== 'number' || typeof b !== 'number') throw new TypeError('Both parameters must be numbers for arithmetic operations');
   const sum = a + b;
@@ -19,7 +19,7 @@ const add = (a, b) => {
   return sum;
 };
 
-const isEven = (num) => {
+export const isEven = (num: number): boolean => {
   console.log(`isEven is running with ${num}`);
   if (typeof num !== 'number' || !Number.isInteger(num)) throw new TypeError('Parameter must be an integer for even/odd calculation');
   const result = num % 2 === 0;
@@ -27,7 +27,7 @@ const isEven = (num) => {
   return result;
 };
 
-const dedupeByFirst = (items, keyExtractor) => {
+export const dedupeByFirst = <T, K>(items: T[], keyExtractor: (item: T) => K): T[] => {
   if (!items?.length) return [];
   const seen = new Set(), result = [];
   for (const item of items) {
@@ -37,7 +37,7 @@ const dedupeByFirst = (items, keyExtractor) => {
   return result;
 };
 
-const dedupeByLowercaseFirst = (items, keyExtractor) => {
+export const dedupeByLowercaseFirst = <T, K>(items: T[], keyExtractor: (item: T) => K): T[] => {
   if (!items?.length) return [];
   const seen = new Set(), result = [];
   for (const item of items) {
@@ -48,21 +48,11 @@ const dedupeByLowercaseFirst = (items, keyExtractor) => {
   return result;
 };
 
-const dedupeByLast = (items, keyExtractor) => {
+export const dedupeByLast = <T, K>(items: T[], keyExtractor: (item: T) => K): T[] => {
   if (!items?.length) return [];
   const map = new Map();
   for (const item of items) map.set(keyExtractor(item), item);
   return Array.from(map.values());
 };
 
-const dedupe = (items) => (!items?.length ? [] : [...new Set(items)]);
-
-module.exports = {
-  greet,
-  add,
-  isEven,
-  dedupeByFirst,
-  dedupeByLowercaseFirst,
-  dedupeByLast,
-  dedupe
-};
+export const dedupe = <T>(items: T[]): T[] => (!items?.length ? [] : [...new Set(items)]);
