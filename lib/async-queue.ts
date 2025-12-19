@@ -6,7 +6,6 @@ export interface RedisOptions {
   port?: number;
   password?: string;
   db?: number;
-  [key: string]: any;
 }
 
 export interface QueueSettings {
@@ -15,7 +14,6 @@ export interface QueueSettings {
   visibility?: number;
   processConcurrency?: number;
   activateDelayedJobs?: boolean;
-  [key: string]: any;
 }
 
 export interface QueueOptions {
@@ -39,24 +37,14 @@ export interface QueueOptions {
   settings?: QueueSettings;
 }
 
-export interface JobOptions {
-  delay?: number;
-  delayUntil?: number;
-  retries?: number;
-  backoff?: string;
-  removeOnComplete?: boolean;
-  removeOnFail?: boolean;
-  waitForResult?: boolean;
-  [key: string]: any;
-}
-
 export interface JobData {
-  [key: string]: any;
+  [key: string]: unknown;
+  status?: 'waiting' | 'active' | 'succeeded' | 'failed' | 'delayed';
 }
 
 export interface JobEvent {
   type: string;
-  result?: any;
+  result?: unknown;
   error?: Error;
   job: string;
 }
@@ -79,37 +67,40 @@ export interface QueueStats {
 export interface BeeQueueJob {
   id: string;
   data: JobData;
-  on(event: string, callback: (data?: any) => void): void;
-  save(): Promise<any>;
+  on(event: string, callback: (job: BeeQueueJob, result?: unknown, error?: Error) => void): void;
+  save(): Promise<unknown>;
 }
 
 export interface BeeQueueInstance {
-  process(processor: (job: BeeQueueJob) => Promise<any>): void;
-  on(event: string, callback: (job?: BeeQueueJob, result?: any, error?: Error) => void): void;
-  createJob(data: JobData, options?: JobOptions): BeeQueueJob;
-  getJobs(state: string, start?: number, end?: number): Promise<BeeQueueJob[]>;
+  process(processor: (job: BeeQueueJob) => Promise<unknown>): void;
+  on(event: string, callback: (job: BeeQueueJob, result?: unknown, error?: Error) => void;
+  createJob(data: JobData, options?: QueueOptions): BeeQueueJob;
+  getJobs(state?: string, start?: number, end?: number): Promise<BeeQueueJob[]>;
   getJob(jobId: string): Promise<BeeQueueJob | null>;
   close(): Promise<void>;
   paused: boolean;
   settings: QueueSettings;
-  [key: string]: any;
 }
+
+export type AsyncQueue = AsyncQueueWrapper;
 
 export class AsyncQueueWrapper extends EventEmitter {
   private queues: Map<string, BeeQueueInstance>;
-  private processors: Map<string, (job: BeeQueueJob) => Promise<any>>;
-  private beeOptions: QueueOptions;
+  private processors: Map<string, (job: BeeQueueJob) => Promise<unknown>[]>;
   private activeJobs: Set<string>;
   public concurrency: number;
 
   constructor(options: QueueOptions = {}) {
     super();
     this.concurrency = options.concurrency || 5;
+    this.queues = new Map();
+    this.processors = new Map();
+    this.activeJobs = new Set();
     
-    const beeOptions: QueueOptions = {
+    this.beeOptions = {
       redis: options.redis || {
         host: 'localhost',
-        port: 6379
+        port: 6379,
       },
       prefix: options.prefix || 'qmemory',
       stallInterval: options.stallInterval || 5000,
@@ -129,272 +120,136 @@ export class AsyncQueueWrapper extends EventEmitter {
       settings: {
         stalledInterval: options.settings?.stalledInterval || 30000,
         maxStalledCount: options.settings?.maxStalledCount || 1,
-        visibility: options.settings?.visibility || 30
+        visibility: options.settings?.visibility || 30,
+        processConcurrency: options.settings?.processConcurrency
       }
     };
-    
-    this.queues = new Map();
-    this.processors = new Map();
-    this.beeOptions = beeOptions;
-    
-    this.activeJobs = new Set();
   }
 
-  /**
-   * Register a processor for a job type
-   * 
-   * @param type - Job type
-   * @param processor - Processing function
-   */
-  processor(type: string, processor: (job: BeeQueueJob) => Promise<any>): void {
+  processor(type: string, processor: (job: BeeQueueJob) => Promise<unknown>[]): void {
     this.processors.set(type, processor);
+  }
+
+  async process(job: BeeQueueJob): Promise<unknown> {
+    this.activeJobs.add(job.id);
     
-    if (!this.queues.has(type)) {
-      const queue = new BeeQueue(type, this.beeOptions) as BeeQueueInstance;
-      
-      // Set queue settings
-      if (!queue.settings) {
-        queue.settings = {} as QueueSettings;
+    try {
+      const processor = this.processors.get(job.type);
+      if (!processor) {
+        throw new Error(`No processor registered for job type: ${job.type}`);
       }
-      queue.settings.activateDelayedJobs = true;
-      queue.settings.processConcurrency = this.concurrency;
       
-      queue.process(async (job: BeeQueueJob) => {
-        this.activeJobs.add(job.id);
-        this.emit('started', { type, job: job.id });
+      const results = await Promise.all(processor(job));
+      const result = results.length > 0 ? results[0] : null;
+      
+      if (this.beeOptions.getEvents) {
+        this.emit('processed', { job, result });
+      }
+      
+      return result;
+    } finally {
+      this.activeJobs.delete(job.id);
+    }
+  }
+
+  private getQueue(name: string): BeeQueueInstance {
+    if (!this.queues.has(name)) {
+      const queue = new BeeQueue(name, this.beeOptions);
+      
+      queue.process((jobData, done) => {
+        this.process(job).then(result => {
+          done(null, result);
+        }).catch(error => {
+          done(error);
+        });
+      });
+      
+      if (this.beeOptions.getEvents) {
+        queue.on('succeeded', (job) => {
+          if (this.beeOptions.sendEvents) {
+            this.emit('completed', { job });
+          }
+          this.activeJobs.delete(job.id);
+        });
         
-        try {
-          const result = await processor(job);
+        queue.on('failed', (job: BeeQueueJob, err: Error) => {
+          if (this.beeOptions.sendEvents) {
+            this.emit('failed', { job, error: err });
+          }
           this.activeJobs.delete(job.id);
-          this.emit('completed', { type, result, job: job.id });
-          return result;
-        } catch (error) {
-          this.activeJobs.delete(job.id);
-          this.emit('failed', { type, error: error as Error, job: job.id });
-          throw error;
-        }
-      });
+        });
+      }
       
-      queue.on('succeeded', (job?: BeeQueueJob, result?: any) => {
-        if (job) {
-          this.emit('completed', { type, result, job: job.id });
-        }
-      });
-      
-      queue.on('failed', (job?: BeeQueueJob, error?: Error) => {
-        if (job) {
-          this.emit('failed', { type, error: error as Error, job: job.id });
-        }
-      });
-      
-      queue.on('stalled', (job?: BeeQueueJob) => {
-        if (job) {
-          this.emit('stalled', { type, job: job.id });
-        }
-      });
-      
-      this.queues.set(type, queue);
+      this.queues.set(name, queue);
     }
+    
+    return this.queues.get(name);
   }
 
-  /**
-   * Add a job to queue
-   * 
-   * @param type - Job type
-   * @param data - Job data
-   * @param options - Job options
-   * @returns Job result
-   */
-  async add<T = any>(type: string, data: JobData, options: JobOptions = {}): Promise<T> {
-    const queue = this.queues.get(type);
-    if (!queue) {
-      this.processor(type, async () => {
-        throw new Error(`No processor for job type: ${type}`);
-      });
-      return this.add(type, data, options);
+  createJob(data: JobData, options?: QueueOptions): BeeQueueJob {
+    const queue = this.getQueue(data.type);
+    const job = queue.createJob(data);
+    
+    if (this.beeOptions.getEvents) {
+      this.emit('created', { job });
     }
     
-    const jobOptions: any = {
-      retries: options.retries || 3,
-      backoff: options.backoff || 'exponential',
-      removeOnComplete: options.removeOnComplete !== false,
-      removeOnFail: options.removeOnFail !== false,
-      ...options
-    };
-    
-    if (options.delay !== undefined) {
-      jobOptions.delayUntil = options.delay;
-    }
-    
-    const job = queue.createJob(data, jobOptions);
-    const result = await job.save();
-    
-    if (options.waitForResult !== false) {
-      return new Promise((resolve, reject) => {
-        job.on('succeeded', (result: T) => resolve(result));
-        job.on('failed', (err: Error) => reject(err));
-      });
-    }
-    
-    return result as T;
+    return job;
   }
 
-  /**
-   * Schedule a delayed job
-   * 
-   * @param type - Job type
-   * @param data - Job data
-   * @param delay - Delay in milliseconds
-   * @returns Job result
-   */
-  async schedule<T = any>(type: string, data: JobData, delay: number): Promise<T> {
-    return this.add(type, data, { delay, waitForResult: true });
+  getJobs(state?: string, start?: number, end?: number): Promise<BeeQueueJob[]> {
+    const queue = this.getQueue(state || 'default');
+    return queue.getJobs(start, end);
+  }
+
+  async getJob(jobId: string): Promise<BeeQueueJob | null> {
+    for (const [name, queue] of this.queues) {
+      const job = await queue.getJob(jobId);
+      if (job) {
+        return job;
+      }
+    }
+    
+    return null;
+  }
+
+  async close(): Promise<void> {
+    const promises = Array.from(this.queues.values()).map(queue => queue.close());
+    await Promise.all(promises);
+    this.queues.clear();
+    this.activeJobs.clear();
+  }
+
+  getActiveJobsCount(): number {
+    return this.activeJobs.size;
   }
 
   /**
    * Get queue statistics
-   * 
-   * @returns Queue stats
    */
-  getStats(): QueueStats {
-    const stats: QueueStats = {
-      pending: 0,
-      active: this.activeJobs.size,
-      concurrency: this.concurrency,
-      queues: {}
-    };
+  async getStats(): Promise<QueueStats> {
+    const allJobs = await this.getJobs();
     
-    for (const [type] of this.queues) {
-      const queueStats = {
-        waiting: 0,
-        active: 0,
-        completed: 0,
-        failed: 0,
-        delayed: 0
-      };
-      
-      stats.queues[type] = queueStats;
-      stats.pending += queueStats.waiting;
-    }
+    const waitingJobs = allJobs.filter(job => job.data.status === 'waiting');
+    const activeJobs = allJobs.filter(job => job.data.status === 'active');
+    const completedJobs = allJobs.filter(job => job.data.status === 'succeeded');
+    const failedJobs = allJobs.filter(job => job.data.status === 'failed');
+    const delayedJobs = allJobs.filter(job => job.data.status === 'delayed');
+    
+    const stats: QueueStats = {
+      pending: waitingJobs.length,
+      active: activeJobs.length,
+      concurrency: this.concurrency,
+      queues: {} as Record<string, any>
+    };
     
     return stats;
   }
 
   /**
-   * Pause job processing
-   * 
-   * @param type - Job type to pause (optional)
+   * Static factory method
    */
-  async pause(type?: string): Promise<void> {
-    if (type) {
-      const queue = this.queues.get(type);
-      if (queue) {
-        // Note: bee-queue uses a different API for pausing
-        // This would need to be implemented based on the actual bee-queue API
-        console.log(`Pausing queue for type: ${type}`);
-      }
-    } else {
-      for (const [type] of this.queues) {
-        console.log(`Pausing queue for type: ${type}`);
-      }
-    }
-  }
-
-  /**
-   * Resume job processing
-   * 
-   * @param type - Job type to resume (optional)
-   */
-  async resume(type?: string): Promise<void> {
-    if (type) {
-      const queue = this.queues.get(type);
-      if (queue) {
-        // Note: bee-queue uses a different API for resuming
-        console.log(`Resuming queue for type: ${type}`);
-      }
-    } else {
-      for (const [type] of this.queues) {
-        console.log(`Resuming queue for type: ${type}`);
-      }
-    }
-  }
-
-  /**
-   * Close all queues
-   */
-  async close(): Promise<void> {
-    for (const queue of this.queues.values()) {
-      await queue.close();
-    }
-    this.queues.clear();
-    this.activeJobs.clear();
-  }
-
-  /**
-   * Get jobs by status
-   * 
-   * @param type - Job type
-   * @param state - Job state ('waiting', 'active', 'completed', 'failed', 'delayed')
-   * @param start - Start index
-   * @param end - End index
-   * @returns Array of jobs
-   */
-  async getJobs(type: string, state: string = 'waiting', start: number = 0, end: number = 50): Promise<BeeQueueJob[]> {
-    const queue = this.queues.get(type);
-    if (!queue) {
-      return [];
-    }
-    
-    return queue.getJobs(state, start, end);
-  }
-
-  /**
-   * Get a specific job
-   * 
-   * @param type - Job type
-   * @param jobId - Job ID
-   * @returns Job object or null
-   */
-  async getJob(type: string, jobId: string): Promise<BeeQueueJob | null> {
-    const queue = this.queues.get(type);
-    if (!queue) {
-      return null;
-    }
-    
-    return queue.getJob(jobId);
-  }
-
-  /**
-   * Get the underlying bee-queue for advanced usage
-   * 
-   * @param type - Job type
-   * @returns The bee-queue instance
-   */
-  getBeeQueue(type: string): BeeQueueInstance | undefined {
-    return this.queues.get(type);
-  }
-
-  /**
-   * Set queue concurrency
-   * 
-   * @param concurrency - New concurrency value
-   */
-  setConcurrency(concurrency: number): void {
-    this.concurrency = concurrency;
-    for (const queue of this.queues.values()) {
-      queue.settings.processConcurrency = concurrency;
-    }
+  public static createQueue(options: QueueOptions = {}): AsyncQueue {
+    return new AsyncQueueWrapper(options);
   }
 }
-
-/**
- * Create a new queue instance
- * 
- * @param options - Queue options
- * @returns Queue wrapper instance
- */
-export function createQueue(options: QueueOptions = {}): AsyncQueueWrapper {
-  return new AsyncQueueWrapper(options);
-}
-
-export type AsyncQueue = AsyncQueueWrapper;

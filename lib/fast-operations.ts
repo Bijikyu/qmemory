@@ -12,20 +12,22 @@
  * Performance gains: 20-40% speedup over built-in methods
  */
 
+import { Buffer } from 'buffer';
+
 /**
  * Fast math operations without bounds checking
  */
-class FastMath {
+export class FastMath {
   /**
    * Ultra-fast array sum
    * 
-   * @param {number[]} array - Array of numbers
-   * @returns {number} Sum of all elements
+   * @param array - Array of numbers
+   * @returns Sum of all elements
    */
-  static sum(array) {
+  static sum(array: number[]): number {
     let result = 0;
     for (let i = 0; i < array.length; i++) {
-      result += array[i];
+      result += array[i]!;
     }
     return result;
   }
@@ -33,14 +35,14 @@ class FastMath {
   /**
    * Ultra-fast array max
    * 
-   * @param {number[]} array - Array of numbers
-   * @returns {number} Maximum value
+   * @param array - Array of numbers
+   * @returns Maximum value
    */
-  static max(array) {
+  static max(array: number[]): number {
     if (array.length === 0) return -Infinity;
-    let result = array[0];
+    let result = array[0]!;
     for (let i = 1; i < array.length; i++) {
-      if (array[i] > result) result = array[i];
+      if (array[i]! > result) result = array[i]!;
     }
     return result;
   }
@@ -48,14 +50,14 @@ class FastMath {
   /**
    * Ultra-fast array min
    * 
-   * @param {number[]} array - Array of numbers
-   * @returns {number} Minimum value
+   * @param array - Array of numbers
+   * @returns Minimum value
    */
-  static min(array) {
+  static min(array: number[]): number {
     if (array.length === 0) return Infinity;
-    let result = array[0];
+    let result = array[0]!;
     for (let i = 1; i < array.length; i++) {
-      if (array[i] < result) result = array[i];
+      if (array[i]! < result) result = array[i]!;
     }
     return result;
   }
@@ -63,10 +65,10 @@ class FastMath {
   /**
    * Fast average calculation
    * 
-   * @param {number[]} array - Array of numbers
-   * @returns {number} Average value
+   * @param array - Array of numbers
+   * @returns Average value
    */
-  static average(array) {
+  static average(array: number[]): number {
     if (array.length === 0) return 0;
     return FastMath.sum(array) / array.length;
   }
@@ -74,17 +76,17 @@ class FastMath {
   /**
    * Fast percentile calculation using quickselect
    * 
-   * @param {number[]} array - Array of numbers (will be modified)
-   * @param {number} p - Percentile (0-1)
-   * @returns {number} Percentile value
+   * @param array - Array of numbers (will be modified)
+   * @param p - Percentile (0-1)
+   * @returns Percentile value
    */
-  static percentile(array, p) {
+  static percentile(array: number[], p: number): number {
     if (array.length === 0) return 0;
     const k = Math.floor(array.length * p);
-    return FastMath.quickSelect(array, Math.min(k, array.length - 1));
+    return FastMath.quickSelect(array, Math.min(k, array.length - 1))!;
   }
 
-  static quickSelect(array, k) {
+  static quickSelect(array: number[], k: number): number {
     let left = 0;
     let right = array.length - 1;
 
@@ -93,7 +95,7 @@ class FastMath {
       const pivotIndexNew = FastMath.partition(array, left, right, pivotIndex);
 
       if (k === pivotIndexNew) {
-        return array[k];
+        return array[k]!;
       } else if (k < pivotIndexNew) {
         right = pivotIndexNew - 1;
       } else {
@@ -101,16 +103,16 @@ class FastMath {
       }
     }
 
-    return array[Math.max(0, Math.min(k, array.length - 1))];
+    return array[Math.max(0, Math.min(k, array.length - 1))]!;
   }
 
-  static partition(array, left, right, pivotIndex) {
-    const pivotValue = array[pivotIndex];
+  static partition(array: number[], left: number, right: number, pivotIndex: number): number {
+    const pivotValue = array[pivotIndex]!;
     FastMath.swap(array, pivotIndex, right);
 
     let storeIndex = left;
     for (let i = left; i < right; i++) {
-      if (array[i] < pivotValue) {
+      if (array[i]! < pivotValue) {
         FastMath.swap(array, i, storeIndex);
         storeIndex++;
       }
@@ -120,7 +122,7 @@ class FastMath {
     return storeIndex;
   }
 
-  static swap(array, i, j) {
+  static swap(array: any[], i: number, j: number): void {
     const temp = array[i];
     array[i] = array[j];
     array[j] = temp;
@@ -129,25 +131,25 @@ class FastMath {
   /**
    * Fast median calculation
    * 
-   * @param {number[]} array - Array of numbers (will be modified)
-   * @returns {number} Median value
+   * @param array - Array of numbers (will be modified)
+   * @returns Median value
    */
-  static median(array) {
+  static median(array: number[]): number {
     return FastMath.percentile(array, 0.5);
   }
 
   /**
    * Fast variance calculation
    * 
-   * @param {number[]} array - Array of numbers
-   * @returns {number} Variance
+   * @param array - Array of numbers
+   * @returns Variance
    */
-  static variance(array) {
+  static variance(array: number[]): number {
     if (array.length === 0) return 0;
     const avg = FastMath.average(array);
     let sumSq = 0;
     for (let i = 0; i < array.length; i++) {
-      const diff = array[i] - avg;
+      const diff = array[i]! - avg;
       sumSq += diff * diff;
     }
     return sumSq / array.length;
@@ -156,10 +158,10 @@ class FastMath {
   /**
    * Fast standard deviation
    * 
-   * @param {number[]} array - Array of numbers
-   * @returns {number} Standard deviation
+   * @param array - Array of numbers
+   * @returns Standard deviation
    */
-  static stddev(array) {
+  static stddev(array: number[]): number {
     return Math.sqrt(FastMath.variance(array));
   }
 }
@@ -168,15 +170,15 @@ class FastMath {
  * Fast string operations using Node.js built-in methods
  * Only includes operations that provide meaningful performance benefits over native methods
  */
-class FastString {
+export class FastString {
   /**
    * Fast string concatenation using Node.js built-in Buffer.concat
    * Provides performance benefit for large numbers of strings
    * 
-   * @param {string[]} strings - Array of strings
-   * @returns {string} Concatenated string
+   * @param strings - Array of strings
+   * @returns Concatenated string
    */
-  static fastConcat(strings) {
+  static fastConcat(strings: string[]): string {
     const buffers = strings.map(str => Buffer.from(str, 'utf8'));
     const concatenated = Buffer.concat(buffers);
     return concatenated.toString('utf8');
@@ -186,12 +188,12 @@ class FastString {
    * Fast split without regex overhead
    * Provides performance benefit for simple string splitting
    * 
-   * @param {string} str - String to split
-   * @param {string} delimiter - Delimiter
-   * @returns {string[]} Split parts
+   * @param str - String to split
+   * @param delimiter - Delimiter
+   * @returns Split parts
    */
-  static fastSplit(str, delimiter) {
-    const result = [];
+  static fastSplit(str: string, delimiter: string): string[] {
+    const result: string[] = [];
     let start = 0;
     let index = str.indexOf(delimiter);
 
@@ -209,8 +211,13 @@ class FastString {
 /**
  * Lock-free circular buffer queue
  */
-class LockFreeQueue {
-  constructor(size = 1024) {
+export class LockFreeQueue<T = any> {
+  private buffer: (T | undefined)[];
+  private head: number;
+  private tail: number;
+  private mask: number;
+
+  constructor(size: number = 1024) {
     const powerOf2Size = Math.pow(2, Math.ceil(Math.log2(size)));
     this.buffer = new Array(powerOf2Size);
     this.head = 0;
@@ -221,10 +228,10 @@ class LockFreeQueue {
   /**
    * Add item to queue
    * 
-   * @param {*} item - Item to enqueue
-   * @returns {boolean} True if successful
+   * @param item - Item to enqueue
+   * @returns True if successful
    */
-  enqueue(item) {
+  enqueue(item: T): boolean {
     const nextTail = (this.tail + 1) & this.mask;
     if (nextTail === this.head) {
       return false;
@@ -237,9 +244,9 @@ class LockFreeQueue {
   /**
    * Remove and return item from queue
    * 
-   * @returns {*} Item or undefined if empty
+   * @returns Item or undefined if empty
    */
-  dequeue() {
+  dequeue(): T | undefined {
     if (this.head === this.tail) {
       return undefined;
     }
@@ -252,28 +259,28 @@ class LockFreeQueue {
   /**
    * Peek at front item without removing
    * 
-   * @returns {*} Item or undefined if empty
+   * @returns Item or undefined if empty
    */
-  peek() {
+  peek(): T | undefined {
     if (this.head === this.tail) {
       return undefined;
     }
     return this.buffer[this.head];
   }
 
-  get size() {
+  get size(): number {
     return (this.tail - this.head) & this.mask;
   }
 
-  get isEmpty() {
+  get isEmpty(): boolean {
     return this.head === this.tail;
   }
 
-  get isFull() {
+  get isFull(): boolean {
     return ((this.tail + 1) & this.mask) === this.head;
   }
 
-  clear() {
+  clear(): void {
     this.head = 0;
     this.tail = 0;
   }
@@ -282,10 +289,15 @@ class LockFreeQueue {
 /**
  * Ultra-fast object pooling for reduced GC pressure
  */
-class ObjectPool {
-  constructor(factory, resetFn = null, initialSize = 100) {
+export class ObjectPool<T = any> {
+  private factory: () => T;
+  private resetFn: ((obj: T) => void) | undefined;
+  private pool: T[];
+  private index: number;
+
+  constructor(factory: () => T, resetFn?: (obj: T) => void, initialSize: number = 100) {
     this.factory = factory;
-    this.resetFn = resetFn;
+    this.resetFn = resetFn || undefined;
     this.pool = new Array(initialSize);
     this.index = 0;
 
@@ -297,11 +309,11 @@ class ObjectPool {
   /**
    * Acquire object from pool
    * 
-   * @returns {*} Object from pool or new instance
+   * @returns Object from pool or new instance
    */
-  acquire() {
+  acquire(): T {
     if (this.index < this.pool.length) {
-      const obj = this.pool[this.index++];
+      const obj = this.pool[this.index++]!;
       if (this.resetFn) {
         this.resetFn(obj);
       }
@@ -313,9 +325,9 @@ class ObjectPool {
   /**
    * Release object back to pool
    * 
-   * @param {*} obj - Object to return
+   * @param obj - Object to return
    */
-  release(obj) {
+  release(obj: T): void {
     if (this.index > 0) {
       this.pool[--this.index] = obj;
     }
@@ -324,9 +336,9 @@ class ObjectPool {
   /**
    * Expand pool with more objects
    * 
-   * @param {number} count - Number of objects to add
+   * @param count - Number of objects to add
    */
-  expand(count) {
+  expand(count: number): void {
     const start = this.pool.length;
     this.pool.length += count;
     for (let i = 0; i < count; i++) {
@@ -334,11 +346,11 @@ class ObjectPool {
     }
   }
 
-  get available() {
+  get available(): number {
     return this.pool.length - this.index;
   }
 
-  get totalSize() {
+  get totalSize(): number {
     return this.pool.length;
   }
 }
@@ -346,36 +358,34 @@ class ObjectPool {
 /**
  * High-performance timer
  */
-class FastTimer {
-  constructor() {
-    this.startTime = 0;
-    this.laps = [];
-  }
+export class FastTimer {
+  private startTime: bigint = 0n;
+  private laps: number[] = [];
 
-  start() {
+  start(): FastTimer {
     this.startTime = process.hrtime.bigint();
     this.laps = [];
     return this;
   }
 
-  lap() {
+  lap(): number {
     const now = process.hrtime.bigint();
     const elapsed = Number(now - this.startTime) / 1e6;
     this.laps.push(elapsed);
     return elapsed;
   }
 
-  end() {
+  end(): number {
     return Number(process.hrtime.bigint() - this.startTime) / 1e6;
   }
 
   /**
    * Time a function execution
    * 
-   * @param {Function} fn - Function to time
-   * @returns {{ result: *, duration: number }} Result and duration in ms
+   * @param fn - Function to time
+   * @returns Result and duration in ms
    */
-  static time(fn) {
+  static time<T>(fn: () => T): { result: T; duration: number } {
     const start = process.hrtime.bigint();
     const result = fn();
     const duration = Number(process.hrtime.bigint() - start) / 1e6;
@@ -385,10 +395,10 @@ class FastTimer {
   /**
    * Time an async function execution
    * 
-   * @param {Function} fn - Async function to time
-   * @returns {Promise<{ result: *, duration: number }>} Result and duration
+   * @param fn - Async function to time
+   * @returns Result and duration
    */
-  static async timeAsync(fn) {
+  static async timeAsync<T>(fn: () => Promise<T>): Promise<{ result: T; duration: number }> {
     const start = process.hrtime.bigint();
     const result = await fn();
     const duration = Number(process.hrtime.bigint() - start) / 1e6;
@@ -399,38 +409,38 @@ class FastTimer {
 /**
  * Fast memory operations using Node.js built-in Buffer methods
  */
-class FastMemory {
+export class FastMemory {
   /**
    * Fast buffer copy using Node.js built-in Buffer.copy
    * 
-   * @param {Buffer} dest - Destination buffer
-   * @param {Buffer} src - Source buffer
-   * @param {number} length - Bytes to copy
+   * @param dest - Destination buffer
+   * @param src - Source buffer
+   * @param length - Bytes to copy
    */
-  static memcopy(dest, src, length) {
+  static memcopy(dest: Buffer, src: Buffer, length: number): number {
     return src.copy(dest, 0, 0, length);
   }
 
   /**
    * Fast buffer fill using Node.js built-in Buffer.fill
    * 
-   * @param {Buffer} buffer - Buffer to fill
-   * @param {number} value - Value to set
-   * @param {number} length - Bytes to set
+   * @param buffer - Buffer to fill
+   * @param value - Value to set
+   * @param length - Bytes to set
    */
-  static memset(buffer, value, length) {
+  static memset(buffer: Buffer, value: number, length: number): Buffer {
     return buffer.fill(value, 0, length);
   }
 
   /**
    * Fast buffer compare using Node.js built-in Buffer.compare
    * 
-   * @param {Buffer} buf1 - First buffer
-   * @param {Buffer} buf2 - Second buffer
-   * @param {number} length - Bytes to compare
-   * @returns {number} 0 if equal, negative if buf1 < buf2, positive if buf1 > buf2
+   * @param buf1 - First buffer
+   * @param buf2 - Second buffer
+   * @param length - Bytes to compare
+   * @returns 0 if equal, negative if buf1 < buf2, positive if buf1 > buf2
    */
-  static memcmp(buf1, buf2, length) {
+  static memcmp(buf1: Buffer, buf2: Buffer, length: number): number {
     const slice1 = buf1.slice(0, length);
     const slice2 = buf2.slice(0, length);
     return slice1.compare(slice2);
@@ -440,14 +450,14 @@ class FastMemory {
 /**
  * Fast hashing algorithms
  */
-class FastHash {
+export class FastHash {
   /**
    * FNV-1a hash - very fast for general use
    * 
-   * @param {string} data - String to hash
-   * @returns {number} 32-bit hash
+   * @param data - String to hash
+   * @returns 32-bit hash
    */
-  static fnv1a(data) {
+  static fnv1a(data: string): number {
     let hash = 2166136261;
     for (let i = 0; i < data.length; i++) {
       hash ^= data.charCodeAt(i);
@@ -459,10 +469,10 @@ class FastHash {
   /**
    * DJB2 hash - good for short strings
    * 
-   * @param {string} data - String to hash
-   * @returns {number} 32-bit hash
+   * @param data - String to hash
+   * @returns 32-bit hash
    */
-  static djb2(data) {
+  static djb2(data: string): number {
     let hash = 5381;
     for (let i = 0; i < data.length; i++) {
       hash = ((hash << 5) + hash) + data.charCodeAt(i);
@@ -473,10 +483,10 @@ class FastHash {
   /**
    * CRC32 hash - good distribution
    * 
-   * @param {string} data - String to hash
-   * @returns {number} 32-bit hash
+   * @param data - String to hash
+   * @returns 32-bit hash
    */
-  static crc32(data) {
+  static crc32(data: string): number {
     let crc = 0xFFFFFFFF;
     for (let i = 0; i < data.length; i++) {
       crc ^= data.charCodeAt(i);
@@ -490,11 +500,11 @@ class FastHash {
   /**
    * Murmur3-like hash - fast and good distribution
    * 
-   * @param {string} data - String to hash
-   * @param {number} seed - Optional seed
-   * @returns {number} 32-bit hash
+   * @param data - String to hash
+   * @param seed - Optional seed
+   * @returns 32-bit hash
    */
-  static murmur(data, seed = 0) {
+  static murmur(data: string, seed: number = 0): number {
     let h = seed;
     for (let i = 0; i < data.length; i++) {
       let k = data.charCodeAt(i);
@@ -518,51 +528,67 @@ class FastHash {
 /**
  * Performance-critical type casts
  */
-const Cast = {
-  toInt32: (value) => value | 0,
-  toUint32: (value) => value >>> 0,
-  toFloat64: (value) => +value,
-  toString: (value) => value + '',
-  toBoolean: (value) => !!value
+export const Cast = {
+  toInt32: (value: any): number => value | 0,
+  toUint32: (value: any): number => value >>> 0,
+  toFloat64: (value: any): number => +value,
+  toString: (value: any): string => value + '',
+  toBoolean: (value: any): boolean => !!value
 };
 
 /**
  * Direct property access utilities
  */
-const Prop = {
-  get(obj, path) {
+export const Prop = {
+  get(obj: any, path: string): any {
     let result = obj;
     const parts = path.split('.');
     for (let i = 0; i < parts.length && result != null; i++) {
-      result = result[parts[i]];
+      const part = parts[i];
+      if (part !== undefined) {
+        result = result[part];
+      }
     }
     return result;
   },
 
-  set(obj, path, value) {
+  set(obj: any, path: string, value: any): void {
     const parts = path.split('.');
     let current = obj;
     for (let i = 0; i < parts.length - 1; i++) {
-      if (current[parts[i]] == null) {
-        current[parts[i]] = {};
+      const part = parts[i];
+      if (part !== undefined && current[part] == null) {
+        current[part] = {};
       }
-      current = current[parts[i]];
+      if (part !== undefined) {
+        current = current[part];
+      }
     }
-    current[parts[parts.length - 1]] = value;
+    const lastPart = parts[parts.length - 1];
+    if (lastPart !== undefined) {
+      current[lastPart] = value;
+    }
   },
 
-  has(obj, path) {
+  has(obj: any, path: string): boolean {
     return Prop.get(obj, path) !== undefined;
   },
 
-  delete(obj, path) {
+  delete(obj: any, path: string): boolean {
     const parts = path.split('.');
     let current = obj;
     for (let i = 0; i < parts.length - 1; i++) {
-      if (current[parts[i]] == null) return false;
-      current = current[parts[i]];
+      const part = parts[i];
+      if (part !== undefined && current[part] == null) return false;
+      if (part !== undefined) {
+        current = current[part];
+      }
     }
-    return delete current[parts[parts.length - 1]];
+    const lastPart = parts[parts.length - 1];
+    if (lastPart !== undefined) {
+      return delete current[lastPart];
+    }
+    return false;
   }
 };
 
@@ -570,7 +596,7 @@ const Prop = {
  * Consolidated fast operations export
  * Only includes operations that provide meaningful performance benefits
  */
-const FastOps = {
+export const FastOps = {
   sum: FastMath.sum,
   max: FastMath.max,
   min: FastMath.min,
@@ -588,17 +614,4 @@ const FastOps = {
   copy: FastMemory.memcopy,
   set: FastMemory.memset,
   compare: FastMemory.memcmp
-};
-
-module.exports = {
-  FastMath,
-  FastString,
-  LockFreeQueue,
-  ObjectPool,
-  FastTimer,
-  FastMemory,
-  FastHash,
-  FastOps,
-  Cast,
-  Prop
 };

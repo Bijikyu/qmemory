@@ -2,7 +2,7 @@
  * Unit tests for basic utility functions
  */
 
-const { greet, add, isEven } = require('../../lib/utils');
+import { greet, add, isEven } from '../../lib/utils.js';
 
 describe('Utils module', () => {
   describe('greet function', () => {
@@ -51,10 +51,10 @@ describe('Utils module', () => {
     });
 
     test('should throw error for non-numeric inputs', () => {
-      expect(() => add('2', 3)).toThrow('Both parameters must be numbers for arithmetic operations');
-      expect(() => add(2, '3')).toThrow('Both parameters must be numbers for arithmetic operations');
-      expect(() => add(null, 3)).toThrow('Both parameters must be numbers for arithmetic operations');
-      expect(() => add(undefined, 3)).toThrow('Both parameters must be numbers for arithmetic operations');
+      expect(() => add('2' as any, 3)).toThrow('Both parameters must be numbers for arithmetic operations');
+      expect(() => add(2, '3' as any)).toThrow('Both parameters must be numbers for arithmetic operations');
+      expect(() => add(null as any, 3)).toThrow('Both parameters must be numbers for arithmetic operations');
+      expect(() => add(undefined as any, 3)).toThrow('Both parameters must be numbers for arithmetic operations');
     });
 
     test('should handle infinity', () => {
@@ -92,10 +92,10 @@ describe('Utils module', () => {
     });
 
     test('should throw error for non-integer inputs', () => {
-      expect(() => isEven(2.5)).toThrow('Parameter must be an integer for even/odd calculation');
-      expect(() => isEven('2')).toThrow('Parameter must be an integer for even/odd calculation');
-      expect(() => isEven(null)).toThrow('Parameter must be an integer for even/odd calculation');
-      expect(() => isEven(undefined)).toThrow('Parameter must be an integer for even/odd calculation');
+      expect(() => isEven(2.5 as any)).toThrow('Parameter must be an integer for even/odd calculation');
+      expect(() => isEven('2' as any)).toThrow('Parameter must be an integer for even/odd calculation');
+      expect(() => isEven(null as any)).toThrow('Parameter must be an integer for even/odd calculation');
+      expect(() => isEven(undefined as any)).toThrow('Parameter must be an integer for even/odd calculation');
     });
   });
 });

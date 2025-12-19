@@ -21,15 +21,133 @@
  * - Any application needing standardized data access
  */
 
+import { Model, Document } from 'mongoose';
+
+/**
+ * Mongoose model type
+ */
+export type MongooseModel = Model<Document>;
+
+/**
+ * Validation rule interface
+ */
+export interface ValidationRule {
+  required?: boolean;
+  type?: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  enum?: any[];
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  pattern?: RegExp;
+}
+
+/**
+ * Validation rules interface
+ */
+export interface ValidationRules {
+  [field: string]: ValidationRule;
+}
+
+/**
+ * Pagination options interface
+ */
+export interface PaginationOptions {
+  page?: number;
+  limit?: number;
+  sort?: any;
+}
+
+/**
+ * Pagination response interface
+ */
+export interface PaginationResponse {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  hasMore: boolean;
+}
+
+/**
+ * CRUD service options interface
+ */
+export interface CrudServiceOptions {
+  uniqueField?: string;
+  searchableFields?: string[];
+  beforeCreate?: (data: any) => Promise<any>;
+  afterCreate?: (created: any) => Promise<void>;
+  beforeUpdate?: (data: any, existing: any) => Promise<any>;
+  afterUpdate?: (updated: any) => Promise<void>;
+  beforeDelete?: (existing: any) => Promise<void>;
+  afterDelete?: (deleted: any) => Promise<void>;
+  defaultSort?: any;
+  defaultLimit?: number;
+}
+
+/**
+ * Paginated service options interface
+ */
+export interface PaginatedServiceOptions {
+  defaultSort?: any;
+  defaultLimit?: number;
+  queryEnhancer?: (query: any, filters: any) => any;
+  resultEnhancer?: (resources: any[], filters: any) => Promise<any[]>;
+  additionalData?: (filters: any, resources: any[]) => any | Promise<any>;
+}
+
+/**
+ * CRUD service interface
+ */
+export interface CrudService {
+  create: (data: any) => Promise<any>;
+  getById: (id: string) => Promise<any>;
+  getAll: (filters?: any, pagination?: PaginationOptions, sort?: any) => Promise<{
+    data: any[];
+    pagination: PaginationResponse;
+  }>;
+  update: (id: string, updateData: any) => Promise<any>;
+  deleteById: (id: string) => Promise<any>;
+  search: (query: string, pagination?: PaginationOptions) => Promise<{
+    data: any[];
+    pagination: PaginationResponse;
+    query: string;
+  }>;
+  getByField: (field: string, value: any) => Promise<any[]>;
+  count: (filters?: any) => Promise<number>;
+  exists: (id: string) => Promise<boolean>;
+  bulkCreate: (items: any[]) => Promise<Array<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>>;
+  upsert: (query: any, data: any) => Promise<any>;
+}
+
+/**
+ * Duplicate error interface
+ */
+export interface DuplicateError extends Error {
+  code: 'DUPLICATE';
+  field: string;
+  value: any;
+}
+
+/**
+ * Not found error interface
+ */
+export interface NotFoundError extends Error {
+  code: 'NOT_FOUND';
+}
+
 /**
  * Find document by field value (case-insensitive)
- * 
- * @param {Object} Model - Mongoose model
- * @param {string} field - Field name
- * @param {string} value - Field value
- * @returns {Promise<Object|null>} Found document or null
  */
-async function findByFieldIgnoreCase(Model, field, value) {
+export async function findByFieldIgnoreCase(
+  Model: MongooseModel,
+  field: string,
+  value: any
+): Promise<any | null> {
   if (!value || typeof value !== 'string') {
     return await Model.findOne({ [field]: value });
   }
@@ -41,15 +159,19 @@ async function findByFieldIgnoreCase(Model, field, value) {
 /**
  * Escape special regex characters
  */
-function escapeRegex(str) {
+export function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
  * Create a duplicate error
  */
-function createDuplicateError(resourceType, field, value) {
-  const error = new Error(`${resourceType} with ${field} "${value}" already exists`);
+export function createDuplicateError(
+  resourceType: string,
+  field: string,
+  value: any
+): DuplicateError {
+  const error = new Error(`${resourceType} with ${field} "${value}" already exists`) as DuplicateError;
   error.code = 'DUPLICATE';
   error.field = field;
   error.value = value;
@@ -58,23 +180,12 @@ function createDuplicateError(resourceType, field, value) {
 
 /**
  * Creates a CRUD service factory for a given Mongoose model
- * 
- * @param {Object} Model - Mongoose model to create service for
- * @param {string} resourceType - Type of resource for logging and error messages
- * @param {Object} options - Configuration options
- * @param {string} options.uniqueField - Field to check for duplicates (default: 'name')
- * @param {Array} options.searchableFields - Fields that can be searched (default: ['name'])
- * @param {Function} options.beforeCreate - Hook to run before create
- * @param {Function} options.afterCreate - Hook to run after create
- * @param {Function} options.beforeUpdate - Hook to run before update
- * @param {Function} options.afterUpdate - Hook to run after update
- * @param {Function} options.beforeDelete - Hook to run before delete
- * @param {Function} options.afterDelete - Hook to run after delete
- * @param {Object} options.defaultSort - Default sort order (default: { createdAt: -1 })
- * @param {number} options.defaultLimit - Default page limit (default: 50)
- * @returns {Object} CRUD service object with standard methods
  */
-function createCrudService(Model, resourceType, options = {}) {
+export function createCrudService(
+  Model: MongooseModel,
+  resourceType: string,
+  options: CrudServiceOptions = {}
+): CrudService {
   const {
     uniqueField = 'name',
     searchableFields = ['name'],
@@ -90,11 +201,8 @@ function createCrudService(Model, resourceType, options = {}) {
 
   /**
    * Creates a new resource
-   * 
-   * @param {Object} data - Resource data to create
-   * @returns {Promise<Object>} Created resource
    */
-  async function create(data) {
+  async function create(data: any): Promise<any> {
     if (data[uniqueField]) {
       const existing = await findByFieldIgnoreCase(Model, uniqueField, data[uniqueField]);
       if (existing) {
@@ -120,14 +228,11 @@ function createCrudService(Model, resourceType, options = {}) {
 
   /**
    * Gets a resource by ID
-   * 
-   * @param {string} id - Resource ID
-   * @returns {Promise<Object>} Resource
    */
-  async function getById(id) {
+  async function getById(id: string): Promise<any> {
     const item = await Model.findById(id);
     if (!item) {
-      const error = new Error(`${resourceType} not found`);
+      const error = new Error(`${resourceType} not found`) as NotFoundError;
       error.code = 'NOT_FOUND';
       throw error;
     }
@@ -136,13 +241,12 @@ function createCrudService(Model, resourceType, options = {}) {
 
   /**
    * Gets all resources with optional filtering and pagination
-   * 
-   * @param {Object} filters - Filter criteria
-   * @param {Object} pagination - Pagination options
-   * @param {Object} sort - Sort options
-   * @returns {Promise<Object>} Paginated results
    */
-  async function getAll(filters = {}, pagination = {}, sort = defaultSort) {
+  async function getAll(
+    filters: any = {},
+    pagination: PaginationOptions = {},
+    sort: any = defaultSort
+  ): Promise<{ data: any[]; pagination: PaginationResponse }> {
     const { page = 1, limit = defaultLimit } = pagination;
     const skip = (page - 1) * limit;
 
@@ -168,20 +272,16 @@ function createCrudService(Model, resourceType, options = {}) {
 
   /**
    * Updates a resource by ID
-   * 
-   * @param {string} id - Resource ID
-   * @param {Object} updateData - Data to update
-   * @returns {Promise<Object>} Updated resource
    */
-  async function update(id, updateData) {
+  async function update(id: string, updateData: any): Promise<any> {
     const existing = await Model.findById(id);
     if (!existing) {
-      const error = new Error(`${resourceType} not found`);
+      const error = new Error(`${resourceType} not found`) as NotFoundError;
       error.code = 'NOT_FOUND';
       throw error;
     }
 
-    if (updateData[uniqueField] && updateData[uniqueField] !== existing[uniqueField]) {
+    if (updateData[uniqueField] && updateData[uniqueField] !== (existing as any)[uniqueField]) {
       const duplicate = await findByFieldIgnoreCase(Model, uniqueField, updateData[uniqueField]);
       if (duplicate && duplicate._id.toString() !== id) {
         throw createDuplicateError(resourceType, uniqueField, updateData[uniqueField]);
@@ -199,23 +299,20 @@ function createCrudService(Model, resourceType, options = {}) {
     });
 
     if (afterUpdate) {
-      await afterUpdate(updated);
+      await afterUpdate(updated!);
     }
 
-    console.log(`[crud] ${resourceType} updated: ${updated._id}`);
+    console.log(`[crud] ${resourceType} updated: ${updated!._id}`);
     return updated;
   }
 
   /**
    * Deletes a resource by ID
-   * 
-   * @param {string} id - Resource ID
-   * @returns {Promise<Object>} Deleted resource
    */
-  async function deleteById(id) {
+  async function deleteById(id: string): Promise<any> {
     const existing = await Model.findById(id);
     if (!existing) {
-      const error = new Error(`${resourceType} not found`);
+      const error = new Error(`${resourceType} not found`) as NotFoundError;
       error.code = 'NOT_FOUND';
       throw error;
     }
@@ -227,21 +324,20 @@ function createCrudService(Model, resourceType, options = {}) {
     const deleted = await Model.findByIdAndDelete(id);
 
     if (afterDelete) {
-      await afterDelete(deleted);
+      await afterDelete(deleted!);
     }
 
-    console.log(`[crud] ${resourceType} deleted: ${deleted._id}`);
+    console.log(`[crud] ${resourceType} deleted: ${deleted!._id}`);
     return deleted;
   }
 
   /**
    * Searches resources by text query
-   * 
-   * @param {string} query - Search query
-   * @param {Object} pagination - Pagination options
-   * @returns {Promise<Object>} Search results
    */
-  async function search(query, pagination = {}) {
+  async function search(
+    query: string,
+    pagination: PaginationOptions = {}
+  ): Promise<{ data: any[]; pagination: PaginationResponse; query: string }> {
     const { page = 1, limit = defaultLimit } = pagination;
     const skip = (page - 1) * limit;
 
@@ -271,49 +367,40 @@ function createCrudService(Model, resourceType, options = {}) {
 
   /**
    * Gets resources by field value
-   * 
-   * @param {string} field - Field name
-   * @param {*} value - Field value
-   * @returns {Promise<Array>} Array of resources
    */
-  async function getByField(field, value) {
+  async function getByField(field: string, value: any): Promise<any[]> {
     return await Model.find({ [field]: value });
   }
 
   /**
    * Counts resources matching criteria
-   * 
-   * @param {Object} filters - Filter criteria
-   * @returns {Promise<number>} Count of resources
    */
-  async function count(filters = {}) {
+  async function count(filters: any = {}): Promise<number> {
     return await Model.countDocuments(filters);
   }
 
   /**
    * Check if resource exists by ID
-   * 
-   * @param {string} id - Resource ID
-   * @returns {Promise<boolean>} True if exists
    */
-  async function exists(id) {
+  async function exists(id: string): Promise<boolean> {
     const doc = await Model.findById(id).select('_id').lean();
     return !!doc;
   }
 
   /**
    * Bulk create resources
-   * 
-   * @param {Array} items - Array of resource data
-   * @returns {Promise<Array>} Created resources
    */
-  async function bulkCreate(items) {
+  async function bulkCreate(items: any[]): Promise<Array<{
+    success: boolean;
+    data?: any;
+    error?: string;
+  }>> {
     const results = [];
     for (const data of items) {
       try {
         const created = await create(data);
         results.push({ success: true, data: created });
-      } catch (error) {
+      } catch (error: any) {
         results.push({ success: false, error: error.message, data });
       }
     }
@@ -322,16 +409,12 @@ function createCrudService(Model, resourceType, options = {}) {
 
   /**
    * Upsert a resource (create or update)
-   * 
-   * @param {Object} query - Query to find existing
-   * @param {Object} data - Data to create or update
-   * @returns {Promise<Object>} Created or updated resource
    */
-  async function upsert(query, data) {
+  async function upsert(query: any, data: any): Promise<any> {
     const existing = await Model.findOne(query);
     
     if (existing) {
-      return await update(existing._id.toString(), data);
+      return await update((existing as any)._id.toString(), data);
     }
     
     return await create({ ...query, ...data });
@@ -354,13 +437,12 @@ function createCrudService(Model, resourceType, options = {}) {
 
 /**
  * Creates a paginated service function with standardized response format
- * 
- * @param {Object} Model - Mongoose model to query
- * @param {string} resourceType - Type of resource for response naming
- * @param {Object} options - Configuration options
- * @returns {Function} Paginated service function
  */
-function createPaginatedService(Model, resourceType, options = {}) {
+export function createPaginatedService(
+  Model: MongooseModel,
+  resourceType: string,
+  options: PaginatedServiceOptions = {}
+) {
   const {
     defaultSort = { createdAt: -1 },
     defaultLimit = 50,
@@ -369,7 +451,10 @@ function createPaginatedService(Model, resourceType, options = {}) {
     additionalData = null
   } = options;
 
-  return async function getPaginatedResources(filters = {}, serviceOptions = {}) {
+  return async function getPaginatedResources(
+    filters: any = {},
+    serviceOptions: PaginationOptions = {}
+  ): Promise<any> {
     const {
       page = 1,
       limit = defaultLimit,
@@ -397,7 +482,7 @@ function createPaginatedService(Model, resourceType, options = {}) {
     const totalPages = Math.ceil(totalCount / limit);
     const hasMore = page < totalPages;
 
-    const response = {
+    const response: any = {
       [resourceType]: enhancedResources,
       totalCount,
       currentPage: page,
@@ -419,13 +504,12 @@ function createPaginatedService(Model, resourceType, options = {}) {
 
 /**
  * Create service with validation for a specific domain
- * 
- * @param {Object} Model - Mongoose model
- * @param {string} resourceType - Resource type name
- * @param {Object} validationRules - Field validation rules
- * @returns {Object} Service with validation
  */
-function createValidatedService(Model, resourceType, validationRules = {}) {
+export function createValidatedService(
+  Model: MongooseModel,
+  resourceType: string,
+  validationRules: ValidationRules = {}
+): CrudService {
   const baseService = createCrudService(Model, resourceType, {
     beforeCreate: async (data) => {
       validateData(data, validationRules);
@@ -443,7 +527,11 @@ function createValidatedService(Model, resourceType, validationRules = {}) {
 /**
  * Validate data against rules
  */
-function validateData(data, rules, isUpdate = false) {
+export function validateData(
+  data: any,
+  rules: ValidationRules,
+  isUpdate: boolean = false
+): void {
   for (const [field, rule] of Object.entries(rules)) {
     const value = data[field];
     
@@ -486,13 +574,3 @@ function validateData(data, rules, isUpdate = false) {
     }
   }
 }
-
-module.exports = {
-  createCrudService,
-  createPaginatedService,
-  createValidatedService,
-  findByFieldIgnoreCase,
-  createDuplicateError,
-  escapeRegex,
-  validateData
-};

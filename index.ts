@@ -128,10 +128,10 @@ import {
 } from './lib/test-memory-manager.js';
 
 // Async queue
-import { 
-  AsyncQueue, 
-  createQueue 
-} from './lib/async-queue.js';
+import {
+  AsyncQueueWrapper as AsyncQueue,
+  createQueue
+} from './lib/async-queue';
 
 // Database pool
 import { 

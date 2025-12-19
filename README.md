@@ -1,18 +1,35 @@
 
 # qmemory
 
-A comprehensive Node.js utility library providing MongoDB document operations, HTTP utilities, and in-memory storage for development and testing.
+A comprehensive Node.js utility library with full TypeScript support providing MongoDB document operations, HTTP utilities, and in-memory storage for development and testing.
 
 ## Requirements
 
 - Node.js 18+
 - MongoDB 4.4+ (for production mode)
 - Mongoose 8+ (peer dependency)
+- TypeScript 4.5+ (for TypeScript projects)
 
 ## Installation
 
 ```bash
 npm install qmemory
+```
+
+### TypeScript Setup
+
+Ensure your `tsconfig.json` includes the following for proper ESM support:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
+  }
+}
 ```
 
 ## Features
@@ -26,10 +43,10 @@ npm install qmemory
 
 ## Usage
 
-### Basic Import
+### TypeScript Import (Recommended)
 
-```javascript
-const {
+```typescript
+import {
   // HTTP utilities
   sendNotFound,
   sendConflict,
@@ -66,7 +83,128 @@ const {
   logFunctionEntry,
   logFunctionExit,
   logFunctionError
+} from 'qmemory';
+```
+
+### JavaScript Import (CommonJS)
+
+```javascript
+const {
+  // Same imports as above
+  sendNotFound,
+  sendConflict,
+  // ... other imports
 } = require('qmemory');
+```
+
+## TypeScript Examples
+
+### Express.js Route with TypeScript
+
+```typescript
+import express, { Request, Response } from 'express';
+import { 
+  ensureMongoDB, 
+  fetchUserDocOr404, 
+  createUniqueDoc,
+  sendInternalServerError,
+  logFunctionEntry,
+  logFunctionExit,
+  logFunctionError
+} from 'qmemory';
+
+interface UserRequest extends Request {
+  user?: { username: string };
+}
+
+const app = express();
+
+// Get user's blog post with comprehensive error handling
+app.get('/posts/:id', async (req: Request, res: Response) => {
+  logFunctionEntry('getPost', { id: req.params.id, user: (req as UserRequest).user?.username });
+  
+  try {
+    if (!ensureMongoDB(res)) return;
+    
+    const post = await fetchUserDocOr404(
+      BlogPost, 
+      req.params.id, 
+      (req as UserRequest).user!.username, 
+      res, 
+      'Blog post not found'
+    );
+    
+    if (post) {
+      logFunctionExit('getPost', 'success');
+      res.json(post);
+    }
+  } catch (error) {
+    logFunctionError('getPost', error as Error);
+    sendInternalServerError(res, 'Failed to retrieve blog post');
+  }
+});
+```
+
+### TypeScript with Storage
+
+```typescript
+import { MemStorage, storage } from 'qmemory';
+
+interface User {
+  id: number;
+  username: string;
+  displayName?: string;
+}
+
+// Create a typed storage instance
+const userStorage = new MemStorage<User>();
+
+// Use the singleton with type safety
+const createUser = async (userData: Omit<User, 'id'>): Promise<User> => {
+  return await storage.createUser(userData);
+};
+
+// Typed user retrieval
+const getUser = async (id: number): Promise<User | undefined> => {
+  return await storage.getUser(id);
+};
+```
+
+### Database Operations with TypeScript
+
+```typescript
+import { 
+  createCrudService, 
+  CrudServiceOptions,
+  validateUniqueField 
+} from 'qmemory';
+import { Model } from 'mongoose';
+
+interface BlogPost {
+  title: string;
+  content: string;
+  author: string;
+  createdAt: Date;
+}
+
+// Create a typed CRUD service
+const options: CrudServiceOptions = {
+  uniqueField: 'title',
+  searchableFields: ['title', 'content'],
+  defaultSort: { createdAt: -1 }
+};
+
+const blogService = createCrudService<BlogPost>(
+  BlogPostModel,
+  'blog post',
+  options
+);
+
+// Use with full type safety
+const createPost = async (postData: Omit<BlogPost, 'id' | 'createdAt'>) => {
+  // TypeScript will validate the postData structure
+  return await blogService.create(postData);
+};
 ```
 
 ## API Reference
