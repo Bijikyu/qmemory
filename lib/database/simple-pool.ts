@@ -1,7 +1,7 @@
 /**
  * Simple Database Connection Pool Manager
  * Scalable database connection management with pooling and health monitoring
- * 
+ *
  * Features:
  * - Multi-database support (Redis, PostgreSQL, MySQL, MongoDB)
  * - Dynamic connection sizing (min/max)
@@ -10,7 +10,7 @@
  * - Waiting queue for connection acquisition
  * - Comprehensive statistics
  * - Graceful shutdown
- * 
+ *
  * Use cases:
  * - High-throughput applications
  * - Microservices with database dependencies
@@ -18,11 +18,79 @@
  * - Preventing connection exhaustion
  */
 
+/// <reference path="./types.d.ts" />
+import { createClient as createRedisClient, RedisClientType } from 'redis';
+import { MongoClient } from 'mongodb';
+
+// Dynamic imports for optional dependencies
+type PgPool = any;
+type MySqlConnection = any;
+
+interface DatabaseConfig {
+  maxConnections?: number;
+  minConnections?: number;
+  acquireTimeout?: number;
+  idleTimeout?: number;
+  healthCheckInterval?: number;
+  maxQueryTime?: number;
+  retryAttempts?: number;
+  retryDelay?: number;
+}
+
+interface Connection {
+  client: RedisClientType | PgPool | MySqlConnection | MongoClient;
+  createdAt: number;
+  lastUsed: number;
+  isHealthy: boolean;
+  queryCount: number;
+  isInUse: boolean;
+}
+
+interface WaitingQueueItem {
+  resolve: (connection: Connection) => void;
+  reject: (error: Error) => void;
+  timestamp: number;
+  timeoutHandle: NodeJS.Timeout;
+}
+
+interface PoolStats {
+  active: number;
+  idle: number;
+  healthy: number;
+  total: number;
+  waiting: number;
+  max: number;
+  min: number;
+  dbType: string;
+}
+
+interface HealthStatus {
+  status: 'healthy' | 'warning' | 'critical';
+  stats: PoolStats;
+  issues: string[];
+}
+
+type DatabaseType = 'redis' | 'postgresql' | 'mysql' | 'mongodb' | 'generic';
+
+type QueryResult = any;
+
+interface RedisQuery {
+  method: string;
+}
+
 class SimpleDatabasePool {
-  constructor(databaseUrl, config = {}) {
+  private databaseUrl: string;
+  private dbType: DatabaseType;
+  private config: Required<DatabaseConfig>;
+  private connections: Connection[] = [];
+  private waitingQueue: WaitingQueueItem[] = [];
+  private healthCheckIntervalHandle: NodeJS.Timeout | null = null;
+  private isInitialized = false;
+
+  constructor(databaseUrl: string, config: DatabaseConfig = {}) {
     this.databaseUrl = databaseUrl;
     this.dbType = this.getDatabaseType(databaseUrl);
-    
+
     this.config = {
       maxConnections: config.maxConnections ?? 20,
       minConnections: config.minConnections ?? 5,
@@ -31,116 +99,106 @@ class SimpleDatabasePool {
       healthCheckInterval: config.healthCheckInterval ?? 60000,
       maxQueryTime: config.maxQueryTime ?? 30000,
       retryAttempts: config.retryAttempts ?? 3,
-      retryDelay: config.retryDelay ?? 1000
+      retryDelay: config.retryDelay ?? 1000,
     };
-    
-    this.connections = [];
-    this.waitingQueue = [];
-    this.healthCheckIntervalHandle = null;
-    this.isInitialized = false;
   }
 
-  /**
-   * Initialize the pool with minimum connections
-   */
-  async initialize() {
+  async initialize(): Promise<void> {
     if (this.isInitialized) return;
-    
-    const initPromises = [];
+
+    const initPromises: Promise<Connection>[] = [];
     for (let i = 0; i < this.config.minConnections; i++) {
       initPromises.push(this.createConnection());
     }
-    
+
     await Promise.allSettled(initPromises);
     this.startHealthMonitoring();
     this.isInitialized = true;
-    
-    console.log(`[dbPool] Initialized ${this.dbType} pool with ${this.connections.length} connections`);
+
+    console.log(
+      `[dbPool] Initialized ${this.dbType} pool with ${this.connections.length} connections`
+    );
   }
 
-  /**
-   * Create a new database connection
-   */
-  async createConnection() {
+  async createConnection(): Promise<Connection> {
     try {
       const client = await this.createDatabaseClient();
-      
-      const connection = {
+
+      const connection: Connection = {
         client,
         createdAt: Date.now(),
         lastUsed: Date.now(),
         isHealthy: true,
         queryCount: 0,
-        isInUse: false
+        isInUse: false,
       };
-      
+
       this.connections.push(connection);
       return connection;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[dbPool] Failed to create connection:`, error.message);
       throw error;
     }
   }
 
-  /**
-   * Create database client based on URL type
-   */
-  async createDatabaseClient() {
+  async createDatabaseClient(): Promise<RedisClientType | PgPool | MySqlConnection | MongoClient> {
     switch (this.dbType) {
       case 'redis': {
-        const Redis = require('redis');
-        const client = Redis.createClient({
+        const client = createRedisClient({
           url: this.databaseUrl,
           socket: {
             connectTimeout: 10000,
-            lazyConnect: true
-          }
+          },
         });
         await client.connect();
         return client;
       }
-      
+
       case 'postgresql': {
-        const { Pool: PgPool } = require('pg');
-        const pool = new PgPool({
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const pg = require('pg');
+        const pool = new pg.Pool({
           connectionString: this.databaseUrl,
           max: 1,
           idleTimeoutMillis: 300000,
-          connectionTimeoutMillis: 10000
+          connectionTimeoutMillis: 10000,
         });
         return pool;
       }
-      
+
       case 'mysql': {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const mysql = require('mysql2/promise');
-        return await mysql.createConnection({
+        return (await mysql.createConnection({
           uri: this.databaseUrl,
-          connectTimeout: 10000
-        });
+          connectTimeout: 10000,
+        })) as MySqlConnection;
       }
-      
+
+      case 'mysql': {
+        const mysql = (await import('mysql2/promise')) as any;
+        return (await mysql.createConnection({
+          uri: this.databaseUrl,
+          connectTimeout: 10000,
+        })) as MySqlConnection;
+      }
+
       case 'mongodb': {
-        const { MongoClient } = require('mongodb');
         return await MongoClient.connect(this.databaseUrl, {
           maxPoolSize: 1,
           serverSelectionTimeoutMS: 10000,
-          socketTimeoutMS: 30000
+          socketTimeoutMS: 30000,
         });
       }
-      
+
       default:
         throw new Error(`Unsupported database type: ${this.dbType}`);
     }
   }
 
-  /**
-   * Acquire a connection from the pool
-   * 
-   * @returns {Promise<Object>} Database connection
-   */
-  async acquireConnection() {
+  async acquireConnection(): Promise<Connection> {
     const now = Date.now();
-    
+
     for (const conn of this.connections) {
       if (!conn.isInUse && conn.isHealthy) {
         conn.isInUse = true;
@@ -149,7 +207,7 @@ class SimpleDatabasePool {
         return conn;
       }
     }
-    
+
     if (this.connections.length < this.config.maxConnections) {
       try {
         const connection = await this.createConnection();
@@ -160,7 +218,7 @@ class SimpleDatabasePool {
         // Fall through to waiting queue
       }
     }
-    
+
     return new Promise((resolve, reject) => {
       const timeoutHandle = setTimeout(() => {
         const index = this.waitingQueue.findIndex(item => item.resolve === resolve);
@@ -169,25 +227,20 @@ class SimpleDatabasePool {
         }
         reject(new Error('Connection acquire timeout'));
       }, this.config.acquireTimeout);
-      
+
       this.waitingQueue.push({
         resolve,
         reject,
         timestamp: now,
-        timeoutHandle
+        timeoutHandle,
       });
     });
   }
 
-  /**
-   * Release a connection back to the pool
-   * 
-   * @param {Object} connection - Connection to release
-   */
-  async releaseConnection(connection) {
+  async releaseConnection(connection: Connection): Promise<void> {
     connection.isInUse = false;
     connection.lastUsed = Date.now();
-    
+
     const waiter = this.waitingQueue.shift();
     if (waiter) {
       if (waiter.timeoutHandle) {
@@ -199,94 +252,111 @@ class SimpleDatabasePool {
     }
   }
 
-  /**
-   * Execute a query with automatic connection management
-   * 
-   * @param {string|Object} query - Query to execute
-   * @param {Array} params - Query parameters
-   * @returns {Promise<*>} Query result
-   */
-  async executeQuery(query, params) {
+  async executeQuery(query: string | RedisQuery | Function, params?: any[]): Promise<QueryResult> {
     let attempt = 0;
-    
+    let connection: Connection | null = null;
+
     while (attempt < this.config.retryAttempts) {
-      let connection = null;
-      
       try {
-        connection = await this.acquireConnection();
+        if (!connection) {
+          connection = await this.acquireConnection();
+        }
         const startTime = Date.now();
-        let result;
-        
+        let result: QueryResult;
+
         switch (this.dbType) {
-          case 'redis':
-            if (query && typeof query === 'object' && query.method && params) {
-              result = await connection.client[query.method](...params);
+          case 'redis': {
+            const redisClient = connection.client as RedisClientType;
+            if (query && typeof query === 'object' && (query as RedisQuery).method && params) {
+              const redisQuery = query as RedisQuery;
+              const method = redisClient[redisQuery.method as keyof RedisClientType];
+              if (typeof method === 'function') {
+                result = await (method as any)(...params);
+              } else {
+                throw new Error(`Invalid Redis method: ${redisQuery.method}`);
+              }
+            } else if (typeof query === 'string') {
+              const method = redisClient[query as keyof RedisClientType];
+              if (typeof method === 'function') {
+                result = await (method as any)(...(params || []));
+              } else {
+                throw new Error(`Invalid Redis method: ${query}`);
+              }
             } else {
-              result = await connection.client[query](...(params || []));
+              throw new Error('Invalid Redis query format');
             }
             break;
-            
-          case 'postgresql':
-            result = await connection.client.query(query, params);
+          }
+
+          case 'postgresql': {
+            const pgPool = connection.client as PgPool;
+            result = await pgPool.query(query as string, params);
             break;
-            
-          case 'mysql':
-            result = await connection.client.execute(query, params);
+          }
+
+          case 'mysql': {
+            const mysqlConn = connection.client as MySqlConnection;
+            result = await mysqlConn.execute(query as string, params);
             break;
-            
+          }
+
           case 'mongodb':
-            result = await query;
+            result = await (query as Function)();
             break;
-            
+
           default:
             throw new Error(`Unsupported database type: ${this.dbType}`);
         }
-        
+
         const queryTime = Date.now() - startTime;
         if (queryTime > this.config.maxQueryTime) {
           console.warn(`[dbPool] Slow query detected: ${queryTime}ms`);
         }
-        
+
         return result;
-      } catch (error) {
+      } catch (error: any) {
         attempt++;
         if (attempt >= this.config.retryAttempts) {
           throw error;
         }
-        
+
         await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * attempt));
       } finally {
         if (connection) {
           await this.releaseConnection(connection);
+          connection = null; // Reset for next retry attempt
         }
       }
     }
-    
+
     throw new Error(`Query failed after ${this.config.retryAttempts} attempts`);
   }
 
-  /**
-   * Validate a connection's health
-   */
-  async validateConnection(connection) {
+  async validateConnection(connection: Connection): Promise<boolean> {
     try {
       switch (this.dbType) {
         case 'redis':
-          await connection.client.ping();
+          await (connection.client as RedisClientType).ping();
           break;
-        case 'postgresql':
-          await connection.client.query('SELECT 1');
+        case 'postgresql': {
+          const pgPool = connection.client as PgPool;
+          await pgPool.query('SELECT 1');
           break;
-        case 'mysql':
-          await connection.client.execute('SELECT 1');
+        }
+        case 'mysql': {
+          const mysqlConn = connection.client as MySqlConnection;
+          await mysqlConn.execute('SELECT 1');
           break;
-        case 'mongodb':
-          await connection.client.db('admin').command({ ping: 1 });
+        }
+        case 'mongodb': {
+          const mongoClient = connection.client as MongoClient;
+          await mongoClient.db('admin').command({ ping: 1 });
           break;
+        }
         default:
           return false;
       }
-      
+
       connection.isHealthy = true;
       connection.lastUsed = Date.now();
       return true;
@@ -296,31 +366,25 @@ class SimpleDatabasePool {
     }
   }
 
-  /**
-   * Start health monitoring interval
-   */
-  startHealthMonitoring() {
+  startHealthMonitoring(): void {
     this.healthCheckIntervalHandle = setInterval(async () => {
       await this.performHealthCheck();
     }, this.config.healthCheckInterval);
   }
 
-  /**
-   * Perform health check on all connections
-   */
-  async performHealthCheck() {
+  async performHealthCheck(): Promise<void> {
     const now = Date.now();
-    const unhealthyConnections = [];
-    
+    const unhealthyConnections: Connection[] = [];
+
     for (const connection of this.connections) {
       const isIdle = !connection.isInUse;
-      const isOld = (now - connection.lastUsed) > this.config.idleTimeout;
-      
+      const isOld = now - connection.lastUsed > this.config.idleTimeout;
+
       if (isIdle && isOld) {
         unhealthyConnections.push(connection);
         continue;
       }
-      
+
       if (isIdle) {
         const isHealthy = await this.validateConnection(connection);
         if (!isHealthy) {
@@ -328,7 +392,7 @@ class SimpleDatabasePool {
         }
       }
     }
-    
+
     for (const connection of unhealthyConnections) {
       if (!connection.isInUse) {
         await this.removeConnection(connection);
@@ -336,7 +400,7 @@ class SimpleDatabasePool {
         connection.isHealthy = false;
       }
     }
-    
+
     const healthyConnections = this.connections.filter(conn => conn.isHealthy);
     if (healthyConnections.length < this.config.minConnections) {
       const needed = this.config.minConnections - healthyConnections.length;
@@ -350,39 +414,39 @@ class SimpleDatabasePool {
     }
   }
 
-  /**
-   * Remove a connection from the pool
-   */
-  async removeConnection(connection) {
+  async removeConnection(connection: Connection): Promise<void> {
     try {
       switch (this.dbType) {
         case 'redis':
-          await connection.client.quit();
+          await (connection.client as RedisClientType).quit();
           break;
-        case 'postgresql':
-          await connection.client.end();
+        case 'postgresql': {
+          const pgPool = connection.client as PgPool;
+          await pgPool.end();
           break;
-        case 'mysql':
-          await connection.client.end();
+        }
+        case 'mysql': {
+          const mysqlConn = connection.client as MySqlConnection;
+          await mysqlConn.end();
           break;
-        case 'mongodb':
-          await connection.client.close();
+        }
+        case 'mongodb': {
+          const mongoClient = connection.client as MongoClient;
+          await mongoClient.close();
           break;
+        }
       }
     } catch (error) {
       // Ignore cleanup errors
     }
-    
+
     const index = this.connections.indexOf(connection);
     if (index !== -1) {
       this.connections.splice(index, 1);
     }
   }
 
-  /**
-   * Determine database type from URL
-   */
-  getDatabaseType(databaseUrl) {
+  getDatabaseType(databaseUrl: string): DatabaseType {
     const url = databaseUrl.toLowerCase();
     if (url.startsWith('redis://') || url.startsWith('rediss://')) return 'redis';
     if (url.startsWith('postgresql://') || url.startsWith('postgres://')) return 'postgresql';
@@ -391,16 +455,11 @@ class SimpleDatabasePool {
     return 'generic';
   }
 
-  /**
-   * Get pool statistics
-   * 
-   * @returns {Object} Pool stats
-   */
-  getStats() {
+  getStats(): PoolStats {
     const active = this.connections.filter(conn => conn.isInUse).length;
     const idle = this.connections.filter(conn => !conn.isInUse).length;
     const healthy = this.connections.filter(conn => conn.isHealthy).length;
-    
+
     return {
       active,
       idle,
@@ -409,20 +468,15 @@ class SimpleDatabasePool {
       waiting: this.waitingQueue.length,
       max: this.config.maxConnections,
       min: this.config.minConnections,
-      dbType: this.dbType
+      dbType: this.dbType,
     };
   }
 
-  /**
-   * Get health status
-   * 
-   * @returns {Object} Health status
-   */
-  getHealthStatus() {
+  getHealthStatus(): HealthStatus {
     const stats = this.getStats();
-    const issues = [];
-    let status = 'healthy';
-    
+    const issues: string[] = [];
+    let status: 'healthy' | 'warning' | 'critical' = 'healthy';
+
     const utilizationPercent = (stats.active / stats.max) * 100;
     if (utilizationPercent > 90) {
       status = 'critical';
@@ -431,29 +485,26 @@ class SimpleDatabasePool {
       status = 'warning';
       issues.push(`Elevated connection utilization: ${utilizationPercent.toFixed(1)}%`);
     }
-    
+
     if (stats.waiting > 0) {
       status = 'warning';
       issues.push(`${stats.waiting} requests waiting for connections`);
     }
-    
+
     if (stats.healthy < stats.min) {
       status = 'critical';
       issues.push(`Below minimum healthy connections: ${stats.healthy}/${stats.min}`);
     }
-    
+
     return { status, stats, issues };
   }
 
-  /**
-   * Graceful shutdown
-   */
-  async shutdown() {
+  async shutdown(): Promise<void> {
     if (this.healthCheckIntervalHandle) {
       clearInterval(this.healthCheckIntervalHandle);
       this.healthCheckIntervalHandle = null;
     }
-    
+
     for (const waiter of this.waitingQueue) {
       if (waiter.timeoutHandle) {
         clearTimeout(waiter.timeoutHandle);
@@ -461,15 +512,15 @@ class SimpleDatabasePool {
       waiter.reject(new Error('Database pool shutting down'));
     }
     this.waitingQueue = [];
-    
+
     const closePromises = this.connections.map(conn => this.removeConnection(conn));
     await Promise.allSettled(closePromises);
-    
+
     this.connections = [];
     this.isInitialized = false;
-    
+
     console.log(`[dbPool] ${this.dbType} pool shut down`);
   }
 }
 
-module.exports = SimpleDatabasePool;
+export default SimpleDatabasePool;

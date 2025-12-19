@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
+    "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "allowJs": true,
@@ -35,10 +36,7 @@
       "lib/*": ["./lib/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.js"
-  ],
+  "include": ["**/*.ts", "**/*.js"],
   "exclude": [
     "node_modules",
     "dist",
