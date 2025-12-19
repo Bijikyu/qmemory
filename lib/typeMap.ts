@@ -1,7 +1,7 @@
-const getMongoType = (paramType) => {
+const getMongoType = (paramType: string): string => {
   if (typeof paramType !== 'string' || !paramType.trim()) return 'Mixed';
   
-  const aliases = {
+  const aliases: Record<string, string> = {
     'str': 'string', 'text': 'string', 'num': 'number', 'int': 'number', 'integer': 'number',
     'float': 'number', 'double': 'number', 'bool': 'boolean', 'datetime': 'date',
     'timestamp': 'date', 'id': 'objectid', 'oid': 'objectid', 'uuid': 'objectid'
@@ -19,13 +19,15 @@ const getMongoType = (paramType) => {
     case 'objectid': return 'ObjectId';
     case 'mixed': return 'Mixed';
     case 'buffer': return 'Buffer';
-    case 'decimal': case 'decimal128': return 'Decimal128';
+    case 'decimal': 
+    case 'decimal128': 
+      return 'Decimal128';
     case 'map': return 'Map';
     default: return 'Mixed';
   }
 };
 
-const getSupportedTypes = () => ({
+const getSupportedTypes = (): Record<string, string> => ({
   'string': 'String', 'number': 'Number', 'boolean': 'Boolean', 'object': 'Object', 'array': 'Array', 'date': 'Date',
   'objectid': 'ObjectId', 'mixed': 'Mixed', 'buffer': 'Buffer', 'decimal': 'Decimal128',
   'decimal128': 'Decimal128', 'map': 'Map', 'str': 'String', 'text': 'String', 'num': 'Number',
@@ -33,10 +35,14 @@ const getSupportedTypes = () => ({
   'datetime': 'Date', 'timestamp': 'Date', 'id': 'ObjectId', 'oid': 'ObjectId', 'uuid': 'ObjectId'
 });
 
-const isSupportedType = (type) => {
+const isSupportedType = (type: string): boolean => {
   if (typeof type !== 'string' || !type.trim()) return false;
   const supportedTypes = getSupportedTypes();
   return Object.prototype.hasOwnProperty.call(supportedTypes, type.toLowerCase());
 };
 
-module.exports = { getMongoType, getSupportedTypes, isSupportedType };
+export {
+  getMongoType,
+  getSupportedTypes,
+  isSupportedType
+};

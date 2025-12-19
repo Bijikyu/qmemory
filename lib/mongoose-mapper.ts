@@ -13,10 +13,14 @@
  * - Collection schemas: schema/collection-schema-generator.js
  */
 
-const { mapParameterToMongoType, mapParametersToSchema, generateMongooseSchema } = require('./schema/schema-generator');
-const { generateMongoSchema } = require('./schema/collection-schema-generator');
+import { 
+  mapParameterToMongoType, 
+  mapParametersToSchema, 
+  generateMongooseSchema 
+} from './schema/schema-generator.js';
+import { generateMongoSchema } from './schema/collection-schema-generator.js';
 
-module.exports = {
+export {
   mapParameterToMongoType,
   mapParametersToSchema,
   generateMongooseSchema,

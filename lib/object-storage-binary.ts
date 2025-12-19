@@ -12,9 +12,32 @@
  * - Automatic error handling and retry logic
  */
 
-const { IStorage } = require('./binary-storage');
-const { ObjectStorageService, ObjectNotFoundError } = require('../server/objectStorage');
-const crypto = require('crypto');
+import { IStorage } from './binary-storage.js';
+import { ObjectStorageService, ObjectNotFoundError } from '../server/objectStorage.js';
+import { createHash } from 'crypto';
+
+interface StorageStats {
+  type: string;
+  itemCount: number;
+  totalSize: number;
+  bucketName?: string;
+  storagePrefix?: string;
+  keys?: string[];
+  error?: string;
+}
+
+interface ObjectMetadata {
+  originalKey: string;
+  size: number;
+  contentType: string;
+  created: string;
+  objectPath: string;
+}
+
+interface ObjectPath {
+  bucketName: string;
+  objectName: string;
+}
 
 /**
  * Object Storage Binary Implementation
@@ -23,6 +46,9 @@ const crypto = require('crypto');
  * Perfect for production environments requiring reliable, cloud-based storage.
  */
 class ObjectStorageBinaryStorage extends IStorage {
+  private objectStorageService: ObjectStorageService;
+  private storagePrefix: string;
+
   constructor() {
     super();
     this.objectStorageService = new ObjectStorageService();
@@ -33,7 +59,7 @@ class ObjectStorageBinaryStorage extends IStorage {
   /**
    * Validate key format for object storage compatibility
    */
-  _validateKey(key) {
+  private _validateKey(key: string): void {
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('Key must be a non-empty string');
     }
@@ -49,21 +75,21 @@ class ObjectStorageBinaryStorage extends IStorage {
   /**
    * Generate object storage path for a given key
    */
-  _getObjectPath(key) {
+  private _getObjectPath(key: string): string {
     // Create a deterministic but safe object path
-    const hash = crypto.createHash('sha256').update(key).digest('hex');
+    const hash = createHash('sha256').update(key).digest('hex');
     return `${this.storagePrefix}${hash.substring(0, 2)}/${hash}`;
   }
 
   /**
    * Store metadata alongside binary data for reverse lookup
    */
-  _getMetadataPath(key) {
+  private _getMetadataPath(key: string): string {
     const objectPath = this._getObjectPath(key);
     return `${objectPath}.meta`;
   }
 
-  async save(key, data) {
+  override async save(key: string, data: Buffer): Promise<void> {
     this._validateKey(key);
     if (!Buffer.isBuffer(data)) {
       throw new Error('Data must be a Buffer object');
@@ -94,7 +120,7 @@ class ObjectStorageBinaryStorage extends IStorage {
       }
 
       // Store metadata for reverse lookup
-      const metadata = {
+      const metadata: ObjectMetadata = {
         originalKey: key,
         size: data.length,
         contentType: 'application/octet-stream',
@@ -120,11 +146,11 @@ class ObjectStorageBinaryStorage extends IStorage {
 
       console.log(`Stored ${data.length} bytes at key '${key}' in object storage`);
     } catch (error) {
-      throw new Error(`Failed to save to object storage: ${error.message}`);
+      throw new Error(`Failed to save to object storage: ${(error as Error).message}`);
     }
   }
 
-  async get(key) {
+  override async get(key: string): Promise<Buffer | null> {
     this._validateKey(key);
 
     try {
@@ -145,16 +171,16 @@ class ObjectStorageBinaryStorage extends IStorage {
 
       // Download the file data
       const [data] = await file.download();
-      return data;
+      return data as Buffer;
     } catch (error) {
       if (error instanceof ObjectNotFoundError) {
         return null;
       }
-      throw new Error(`Failed to retrieve from object storage: ${error.message}`);
+      throw new Error(`Failed to retrieve from object storage: ${(error as Error).message}`);
     }
   }
 
-  async delete(key) {
+  override async delete(key: string): Promise<void> {
     this._validateKey(key);
 
     try {
@@ -174,13 +200,13 @@ class ObjectStorageBinaryStorage extends IStorage {
       console.log(`Deleted data at key '${key}' from object storage`);
     } catch (error) {
       // If object doesn't exist, that's fine for delete operation
-      if (!error.message.includes('not found') && !error.message.includes('404')) {
-        throw new Error(`Failed to delete from object storage: ${error.message}`);
+      if (!(error as Error).message.includes('not found') && !(error as Error).message.includes('404')) {
+        throw new Error(`Failed to delete from object storage: ${(error as Error).message}`);
       }
     }
   }
 
-  async exists(key) {
+  override async exists(key: string): Promise<boolean> {
     this._validateKey(key);
 
     try {
@@ -199,7 +225,7 @@ class ObjectStorageBinaryStorage extends IStorage {
     }
   }
 
-  async getStats() {
+  override async getStats(): Promise<StorageStats> {
     try {
       const privateDir = this.objectStorageService.getPrivateObjectDir();
       const { bucketName } = this._parseObjectPath(privateDir);
@@ -213,13 +239,13 @@ class ObjectStorageBinaryStorage extends IStorage {
 
       let totalSize = 0;
       let itemCount = 0;
-      const keys = [];
+      const keys: string[] = [];
 
       for (const file of files) {
         // Skip metadata files and only count actual data files
         if (!file.name.endsWith('.meta')) {
           const [metadata] = await file.getMetadata();
-          totalSize += parseInt(metadata.size || 0);
+          totalSize += parseInt((metadata as any).size || 0);
           itemCount++;
           
           // Try to get original key from metadata
@@ -229,7 +255,7 @@ class ObjectStorageBinaryStorage extends IStorage {
             if (metadataExists) {
               const [metadataContent] = await metadataFile.download();
               const meta = JSON.parse(metadataContent.toString());
-              keys.push(meta.originalKey);
+              keys.push((meta as ObjectMetadata).originalKey);
             } else {
               keys.push(file.name);
             }
@@ -252,7 +278,7 @@ class ObjectStorageBinaryStorage extends IStorage {
         type: 'object-storage',
         itemCount: 0,
         totalSize: 0,
-        error: error.message
+        error: (error as Error).message
       };
     }
   }
@@ -260,15 +286,19 @@ class ObjectStorageBinaryStorage extends IStorage {
   /**
    * Helper method to get upload URL for object storage
    */
-  async _getUploadUrl(objectPath) {
+  private async _getUploadUrl(objectPath: string): Promise<string> {
     // Use the object storage service to get a presigned upload URL
-    return await this.objectStorageService.getObjectEntityUploadURL();
+    const url = await this.objectStorageService.getObjectEntityUploadURL();
+    if (!url) {
+      throw new Error('Failed to get upload URL');
+    }
+    return url;
   }
 
   /**
    * Helper method to delete an object
    */
-  async _deleteObject(objectPath) {
+  private async _deleteObject(objectPath: string): Promise<void> {
     try {
       const { bucketName, objectName } = this._parseObjectPath(objectPath);
       const bucket = this.objectStorageService.objectStorageClient.bucket(bucketName);
@@ -276,7 +306,7 @@ class ObjectStorageBinaryStorage extends IStorage {
       
       await file.delete();
     } catch (error) {
-      if (error.code !== 404) {
+      if ((error as any).code !== 404) {
         throw error;
       }
       // File doesn't exist, which is fine for delete
@@ -286,7 +316,7 @@ class ObjectStorageBinaryStorage extends IStorage {
   /**
    * Parse object path into bucket name and object name
    */
-  _parseObjectPath(path) {
+  private _parseObjectPath(path: string): ObjectPath {
     if (!path.startsWith('/')) {
       path = `/${path}`;
     }
@@ -295,13 +325,13 @@ class ObjectStorageBinaryStorage extends IStorage {
       throw new Error('Invalid object path: must contain at least a bucket name');
     }
 
-    const bucketName = pathParts[1];
+    const bucketName = pathParts[1] || '';
     const objectName = pathParts.slice(2).join('/');
 
     return { bucketName, objectName };
   }
 }
 
-module.exports = {
+export {
   ObjectStorageBinaryStorage
 };

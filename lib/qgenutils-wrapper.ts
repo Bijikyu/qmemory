@@ -40,4 +40,4 @@ export const ErrorFactory = qerrors.ErrorFactory;
   export const sanitizeContext = qerrors.sanitizeContext;
   
   // Export generateUniqueId from qerrors to avoid conflicts
-  export { generateUniqueId } from 'qerrors';
+  export const generateUniqueId = qerrors.generateUniqueId;

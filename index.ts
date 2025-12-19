@@ -82,7 +82,7 @@ import {
 
 // Circuit breaker
 import { 
-  CircuitBreaker, 
+  CircuitBreakerWrapper as CircuitBreaker, 
   createCircuitBreaker, 
   STATES as CIRCUIT_BREAKER_STATES 
 } from './lib/circuit-breaker.js';
@@ -176,7 +176,7 @@ import {
 import { 
   safeJsonStringify, 
   safeJsonParse, 
-  JSON as SafeJSON 
+  SafeJSON 
 } from './lib/streaming-json.js';
 
 // Fast operations

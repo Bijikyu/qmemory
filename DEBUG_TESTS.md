@@ -13,7 +13,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -35,7 +35,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -57,7 +57,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -79,7 +79,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -101,7 +101,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -123,7 +123,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -145,7 +145,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -167,7 +167,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -189,7 +189,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -211,7 +211,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -233,7 +233,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -255,7 +255,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -277,7 +277,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -299,7 +299,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -321,7 +321,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -343,7 +343,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -365,7 +365,7 @@ Analyze and address the following test failures:
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
       * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-haste-map/build/ModuleMap.js:189:11)
       at _expect (node_modules/@jest/expect/build/index.js:8:16)
       at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
       at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
@@ -380,4 +380,4 @@ Analyze and address the following test failures:
 
 - Total failed tests: 17
 - Failed test files: /home/runner/workspace/index.GeneratedTest.test.ts, /home/runner/workspace/lib/document-ops.GeneratedTest.test.ts, /home/runner/workspace/lib/pagination-utils.GeneratedTest.test.ts, /home/runner/workspace/test/unit/http-utils.test.ts, /home/runner/workspace/lib/http-utils.GeneratedTest.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__delete.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__post.test.ts, /home/runner/workspace/server/objectStorage.GeneratedTest.test.ts, /home/runner/workspace/lib/performance-utils.GeneratedTest.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__get.test.ts, /home/runner/workspace/lib/field-utils.GeneratedTest.test.ts, /home/runner/workspace/lib/perf.GeneratedTest.test.ts, /home/runner/workspace/lib/mongoose-mapper.GeneratedTest.test.ts, /home/runner/workspace/lib/logging-utils.GeneratedTest.test.ts, /home/runner/workspace/lib/typeMap.GeneratedTest.test.ts, /home/runner/workspace/lib/utils.GeneratedTest.test.ts, /home/runner/workspace/demo-app.GeneratedTest.test.ts
-- Generated: 2025-12-18T03:37:26.017Z
+- Generated: 2025-12-18T20:15:21.063Z
