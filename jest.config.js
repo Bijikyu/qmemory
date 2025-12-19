@@ -34,6 +34,13 @@ export default {
     'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue|qerrors|lru-cache|redis|mongoose)/)',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
+  modulePathIgnorePatterns: [
+    '<rootDir>/.cache/',
+    '<rootDir>/cache/',
+  ],
+  haste: {
+    throwOnModuleCollision: false,
+  },
   testPathIgnorePatterns: [
     '<rootDir>/node_modules/',
     '<rootDir>/dist/',

@@ -277,6 +277,25 @@ describe('Binary Storage', () => {
       });
     });
 
+    describe('Codec support', () => {
+      test('should encode and decode typed payloads using custom codec', async () => {
+        const codec = {
+          encode: (value) => Buffer.from(JSON.stringify(value), 'utf8'),
+          decode: (payload) => JSON.parse(Buffer.from(payload).toString('utf8'))
+        };
+
+        const typedStorage = new MemoryBinaryStorage(1024, codec);
+        const key = 'user:1';
+        const payload = { id: 'user-1', flags: ['alpha', 'beta'] };
+
+        await typedStorage.save(key, payload);
+        const roundTrip = await typedStorage.get(key);
+
+        expect(roundTrip).toEqual(payload);
+        expect(await typedStorage.exists(key)).toBe(true);
+      });
+    });
+
     describe('Clear Functionality', () => {
       test('should clear all data', async () => {
         await storage.save('key1', Buffer.from('data1'));
@@ -355,6 +374,24 @@ describe('Binary Storage', () => {
 
       test('should handle deleting non-existent files gracefully', async () => {
         await expect(storage.delete('non-existent')).resolves.not.toThrow();
+      });
+    });
+
+    describe('Codec support', () => {
+      test('should persist structured payloads with custom codec', async () => {
+        const codec = {
+          encode: (value) => Buffer.from(value.join('|'), 'utf8'),
+          decode: (payload) => Buffer.from(payload).toString('utf8').split('|')
+        };
+
+        const typedStorage = new FileSystemBinaryStorage(tempDir, codec);
+        const key = 'segments';
+        const payload = ['north', 'south', 'east', 'west'];
+
+        await typedStorage.save(key, payload);
+        const roundTrip = await typedStorage.get(key);
+
+        expect(roundTrip).toEqual(payload);
       });
     });
 

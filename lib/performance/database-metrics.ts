@@ -24,13 +24,18 @@ interface QueryStats {
   recentTimes: number[];
 }
 
-interface SlowQuery {
+export interface SlowQuery {
   queryName: string;
   duration: number;
   timestamp: Date;
   success: boolean;
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
+
+// Typed event contract ensures subscribers receive structured slow-query payloads
+export type DatabaseMetricsEvents = {
+  slowQuery: [SlowQuery];
+};
 
 interface ConnectionMetrics {
   active: number;
@@ -57,7 +62,7 @@ interface MetricsReport {
   recentSlowQueries: SlowQuery[];
 }
 
-export default class DatabaseMetrics extends EventEmitter {
+export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents> {
   private slowQueryThreshold: number;
   private maxSlowQueries: number;
   private maxRecentTimes: number;
@@ -93,7 +98,12 @@ export default class DatabaseMetrics extends EventEmitter {
    * @param success - Whether the query completed successfully without errors
    * @param metadata - Additional context for debugging and analysis
    */
-  recordQuery(queryName: string, duration: number, success: boolean = true, metadata: any = {}) {
+  recordQuery(
+    queryName: string,
+    duration: number,
+    success: boolean = true,
+    metadata: Record<string, unknown> = {}
+  ): void {
     console.log(
       `DatabaseMetrics recording query: ${queryName}, duration: ${duration}ms, success: ${success}`
     );
@@ -215,5 +225,35 @@ export default class DatabaseMetrics extends EventEmitter {
       `DatabaseMetrics calculated QPS: ${qps} for ${queryCount} queries over ${hoursRunning} hours`
     );
     return qps;
+  }
+
+  /**
+   * Strongly-typed listener registration so downstream handlers know the payload structure.
+   */
+  public override on<K extends keyof DatabaseMetricsEvents>(
+    eventName: K,
+    listener: (...args: DatabaseMetricsEvents[K]) => void
+  ): this {
+    return super.on(eventName, listener);
+  }
+
+  /**
+   * Strongly-typed single-shot listener registration for slow query alerts.
+   */
+  public override once<K extends keyof DatabaseMetricsEvents>(
+    eventName: K,
+    listener: (...args: DatabaseMetricsEvents[K]) => void
+  ): this {
+    return super.once(eventName, listener);
+  }
+
+  /**
+   * Strongly-typed event emission to guarantee emitted payloads match listeners.
+   */
+  public override emit<K extends keyof DatabaseMetricsEvents>(
+    eventName: K,
+    ...args: DatabaseMetricsEvents[K]
+  ): boolean {
+    return super.emit(eventName, ...args);
   }
 }

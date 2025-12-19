@@ -15,8 +15,17 @@ import {
   sendAuthError,
   generateRequestId,
 } from './lib/http-utils.js';
-// Database utilities (temporarily disabled for TypeScript conversion)
-// import { ensureMongoDB, ensureUnique, handleMongoError, safeDbOperation, retryDbOperation, ensureIdempotency, optimizeQuery, createAggregationPipeline } from './lib/database-utils.js';
+// Database utilities
+import {
+  ensureMongoDB,
+  ensureUnique,
+  handleMongoError,
+  safeDbOperation,
+  retryDbOperation,
+  ensureIdempotency,
+  optimizeQuery,
+  createAggregationPipeline,
+} from './lib/database-utils.js';
 // Document helpers
 import {
   findDocumentById,
@@ -103,7 +112,7 @@ import {
   teardownTestMemoryMonitoring,
 } from './lib/test-memory-manager.js';
 // Async queue
-import { createQueue } from './lib/async-queue';
+import { createQueue } from './lib/async-queue.js';
 // Database pool
 import {
   SimpleDatabasePool,

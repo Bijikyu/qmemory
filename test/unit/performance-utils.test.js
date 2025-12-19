@@ -96,6 +96,17 @@ describe('Performance Monitoring Utilities', () => {
       }));
     });
 
+    test('should notify typed slowQuery listeners', () => { // verify typed event bridge
+      const observed = [];
+      dbMetrics.on('slowQuery', payload => observed.push(payload));
+
+      dbMetrics.recordQuery('typedSlow', 250, true, { route: '/users' });
+
+      expect(observed).toHaveLength(1);
+      expect(observed[0].queryName).toBe('typedSlow');
+      expect(observed[0].metadata).toEqual({ route: '/users' });
+    });
+
     test('should maintain bounded slow query history', () => { // memory management
       const dbMetricsLimited = new DatabaseMetrics({ maxSlowQueries: 3 });
       

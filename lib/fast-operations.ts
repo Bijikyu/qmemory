@@ -13,6 +13,24 @@
  */
 
 import { Buffer } from 'buffer';
+// 🚩AI: ENTRY_POINT_FOR_FAST_OPERATIONS
+// 🚩AI: MUST_UPDATE_IF_FAST_OPS_ALGORITHMS_CHANGE
+
+/**
+ * Mutable numeric array contract used by high-performance routines. The type
+ * deliberately models the subset of array behaviour relied upon by the math
+ * helpers so both native arrays and TypedArrays can participate.
+ */
+export type NumericArray<TValue extends number = number> = {
+  readonly length: number;
+  [index: number]: TValue;
+};
+
+/**
+ * Accessor signature that allows callers to project arbitrary records into
+ * numeric values without incurring extra allocations in hot loops.
+ */
+export type NumericAccessor<TValue> = (value: TValue, index: number, array: NumericArray<TValue>) => number;
 
 /**
  * Fast math operations without bounds checking
@@ -24,10 +42,24 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Sum of all elements
    */
-  static sum(array: number[]): number {
+  static sum<TValue extends number>(array: NumericArray<TValue>): number {
     let result = 0;
     for (let i = 0; i < array.length; i++) {
-      result += array[i]!;
+      result += Number(array[i]);
+    }
+    return result;
+  }
+
+  /**
+   * Ultra-fast array sum using a value accessor
+   * 
+   * @param array - Array-like source
+    * @param accessor - Converts each element to a number
+   */
+  static sumBy<TValue>(array: NumericArray<TValue>, accessor: NumericAccessor<TValue>): number {
+    let result = 0;
+    for (let i = 0; i < array.length; i++) {
+      result += accessor(array[i], i, array);
     }
     return result;
   }
@@ -38,11 +70,12 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Maximum value
    */
-  static max(array: number[]): number {
+  static max<TValue extends number>(array: NumericArray<TValue>): number {
     if (array.length === 0) return -Infinity;
-    let result = array[0]!;
+    let result = Number(array[0]);
     for (let i = 1; i < array.length; i++) {
-      if (array[i]! > result) result = array[i]!;
+      const candidate = Number(array[i]);
+      if (candidate > result) result = candidate;
     }
     return result;
   }
@@ -53,11 +86,12 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Minimum value
    */
-  static min(array: number[]): number {
+  static min<TValue extends number>(array: NumericArray<TValue>): number {
     if (array.length === 0) return Infinity;
-    let result = array[0]!;
+    let result = Number(array[0]);
     for (let i = 1; i < array.length; i++) {
-      if (array[i]! < result) result = array[i]!;
+      const candidate = Number(array[i]);
+      if (candidate < result) result = candidate;
     }
     return result;
   }
@@ -68,7 +102,7 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Average value
    */
-  static average(array: number[]): number {
+  static average<TValue extends number>(array: NumericArray<TValue>): number {
     if (array.length === 0) return 0;
     return FastMath.sum(array) / array.length;
   }
@@ -80,10 +114,11 @@ export class FastMath {
    * @param p - Percentile (0-1)
    * @returns Percentile value
    */
-  static percentile(array: number[], p: number): number {
+  static percentile<TValue extends number>(array: NumericArray<TValue>, p: number): number {
     if (array.length === 0) return 0;
-    const k = Math.floor(array.length * p);
-    return FastMath.quickSelect(array, Math.min(k, array.length - 1))!;
+    const working = Array.from(array as ArrayLike<number>);
+    const k = Math.floor(working.length * p);
+    return FastMath.quickSelect(working, Math.min(k, working.length - 1))!;
   }
 
   static quickSelect(array: number[], k: number): number {
@@ -122,7 +157,7 @@ export class FastMath {
     return storeIndex;
   }
 
-  static swap(array: any[], i: number, j: number): void {
+  static swap<TValue>(array: TValue[], i: number, j: number): void {
     const temp = array[i];
     array[i] = array[j];
     array[j] = temp;
@@ -134,22 +169,22 @@ export class FastMath {
    * @param array - Array of numbers (will be modified)
    * @returns Median value
    */
-  static median(array: number[]): number {
+  static median<TValue extends number>(array: NumericArray<TValue>): number {
     return FastMath.percentile(array, 0.5);
   }
 
   /**
-   * Fast variance calculation
+   * Fast variance calculation supporting accessor-based extraction for complex types
    * 
    * @param array - Array of numbers
    * @returns Variance
    */
-  static variance(array: number[]): number {
+  static variance<TValue extends number>(array: NumericArray<TValue>): number {
     if (array.length === 0) return 0;
     const avg = FastMath.average(array);
     let sumSq = 0;
     for (let i = 0; i < array.length; i++) {
-      const diff = array[i]! - avg;
+      const diff = Number(array[i]) - avg;
       sumSq += diff * diff;
     }
     return sumSq / array.length;
@@ -161,7 +196,7 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Standard deviation
    */
-  static stddev(array: number[]): number {
+  static stddev<TValue extends number>(array: NumericArray<TValue>): number {
     return Math.sqrt(FastMath.variance(array));
   }
 }
@@ -178,9 +213,17 @@ export class FastString {
    * @param strings - Array of strings
    * @returns Concatenated string
    */
-  static fastConcat(strings: string[]): string {
-    const buffers = strings.map(str => Buffer.from(str, 'utf8'));
-    const concatenated = Buffer.concat(buffers);
+  static fastConcat(strings: Iterable<string>): string {
+    const buffers: Buffer[] = [];
+    let totalLength = 0;
+
+    for (const value of strings) {
+      const buffer = Buffer.from(value, 'utf8');
+      buffers.push(buffer);
+      totalLength += buffer.length;
+    }
+
+    const concatenated = Buffer.concat(buffers, totalLength);
     return concatenated.toString('utf8');
   }
 
@@ -211,7 +254,7 @@ export class FastString {
 /**
  * Lock-free circular buffer queue
  */
-export class LockFreeQueue<T = any> {
+export class LockFreeQueue<T = unknown> {
   private buffer: (T | undefined)[];
   private head: number;
   private tail: number;
@@ -289,7 +332,7 @@ export class LockFreeQueue<T = any> {
 /**
  * Ultra-fast object pooling for reduced GC pressure
  */
-export class ObjectPool<T = any> {
+export class ObjectPool<T = unknown> {
   private factory: () => T;
   private resetFn: ((obj: T) => void) | undefined;
   private pool: T[];
@@ -529,63 +572,83 @@ export class FastHash {
  * Performance-critical type casts
  */
 export const Cast = {
-  toInt32: (value: any): number => value | 0,
-  toUint32: (value: any): number => value >>> 0,
-  toFloat64: (value: any): number => +value,
-  toString: (value: any): string => value + '',
-  toBoolean: (value: any): boolean => !!value
+  toInt32: (value: unknown): number => Number(value) | 0, // Force numeric conversion before truncation to preserve semantics
+  toUint32: (value: unknown): number => Number(value) >>> 0, // Unsigned coercion mirrors original bitwise behaviour
+  toFloat64: (value: unknown): number => Number(value), // Number(...) guarantees IEEE754 conversion
+  toString: (value: unknown): string => String(value), // String(...) avoids unexpected concatenation side effects
+  toBoolean: (value: unknown): boolean => Boolean(value) // Boolean(...) provides predictable truthiness coercion
 };
 
 /**
  * Direct property access utilities
  */
 export const Prop = {
-  get(obj: any, path: string): any {
-    let result = obj;
+  get(obj: Record<string, unknown> | undefined | null, path: string): unknown {
+    let result: unknown = obj;
     const parts = path.split('.');
     for (let i = 0; i < parts.length && result != null; i++) {
       const part = parts[i];
-      if (part !== undefined) {
-        result = result[part];
+      if (!part) {
+        continue;
       }
+      if (typeof result !== 'object' || result === null) {
+        return undefined; // Bail early when traversing non-object leaves
+      }
+      result = (result as Record<string, unknown>)[part];
     }
     return result;
   },
 
-  set(obj: any, path: string, value: any): void {
+  set(obj: Record<string, unknown> | undefined | null, path: string, value: unknown): void {
     const parts = path.split('.');
-    let current = obj;
+    if (!obj || typeof obj !== 'object') {
+      throw new TypeError('Prop.set requires a non-null object target'); // Preserve fail-fast behaviour for invalid targets
+    }
+    let current: Record<string, unknown> = obj;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
-      if (part !== undefined && current[part] == null) {
+      if (!part) {
+        continue;
+      }
+      if (current[part] == null) {
+        current[part] = {}; // Lazily materialise nested objects to mirror JS behaviour
+      }
+      const next = current[part];
+      if (typeof next !== 'object' || next === null) {
         current[part] = {};
       }
-      if (part !== undefined) {
-        current = current[part];
-      }
+      current = current[part] as Record<string, unknown>;
     }
     const lastPart = parts[parts.length - 1];
-    if (lastPart !== undefined) {
+    if (lastPart) {
       current[lastPart] = value;
     }
   },
 
-  has(obj: any, path: string): boolean {
+  has(obj: Record<string, unknown> | undefined | null, path: string): boolean {
     return Prop.get(obj, path) !== undefined;
   },
 
-  delete(obj: any, path: string): boolean {
+  delete(obj: Record<string, unknown> | undefined | null, path: string): boolean {
     const parts = path.split('.');
-    let current = obj;
+    if (!obj || typeof obj !== 'object') {
+      throw new TypeError('Prop.delete requires a non-null object target'); // Surface misuse instead of silently succeeding
+    }
+    let current: Record<string, unknown> = obj;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
-      if (part !== undefined && current[part] == null) return false;
-      if (part !== undefined) {
-        current = current[part];
+      if (!part) {
+        continue;
       }
+      if (current[part] == null) return false;
+      const next = current[part];
+      if (typeof next !== 'object' || next === null) {
+        return false;
+      }
+      current = next as Record<string, unknown>;
     }
     const lastPart = parts[parts.length - 1];
-    if (lastPart !== undefined) {
+    if (lastPart) {
       return delete current[lastPart];
     }
     return false;
@@ -598,6 +661,7 @@ export const Prop = {
  */
 export const FastOps = {
   sum: FastMath.sum,
+  sumBy: FastMath.sumBy,
   max: FastMath.max,
   min: FastMath.min,
   avg: FastMath.average,
@@ -614,4 +678,9 @@ export const FastOps = {
   copy: FastMemory.memcopy,
   set: FastMemory.memset,
   compare: FastMemory.memcmp
+};
+
+export type {
+  NumericArray,
+  NumericAccessor
 };

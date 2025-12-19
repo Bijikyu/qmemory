@@ -1,44 +1,31 @@
 /**
  * Database Connection Pool Manager
- * Scalable database connection management with pooling and health monitoring
- *
- * Refactored for Single Responsibility Principle - now delegates to specialized modules:
- * - Simple pool implementation: database/simple-pool.js
- * - Connection pool manager: database/connection-pool-manager.js
- *
- * Features:
- * - Multi-database support (Redis, PostgreSQL, MySQL, MongoDB)
- * - Dynamic connection sizing (min/max)
- * - Health monitoring with automatic recovery
- * - Query timeouts and retry logic
- * - Waiting queue for connection acquisition
- * - Comprehensive statistics
- * - Graceful shutdown
- *
- * Use cases:
- * - High-throughput applications
- * - Microservices with database dependencies
- * - Connection reuse across requests
- * - Preventing connection exhaustion
+ * Provides strict typing and runtime validation around the underlying
+ * JavaScript connection pool implementation so TypeScript consumers
+ * receive predictable structures and meaningful failures when data
+ * falls outside expected contracts.
  */
 
 import SimpleDatabasePool from './database/simple-pool.js';
 import {
   DatabaseConnectionPool,
-  databaseConnectionPool as globalDatabaseConnectionPool,
+  databaseConnectionPool as sharedDatabaseConnectionPool,
 } from './database/connection-pool-manager.js';
 
-// Interface for database configuration
-interface DatabaseConfig {
-  min?: number;
-  max?: number;
-  timeout?: number;
-  retries?: number;
-  [key: string]: any;
+export interface DatabasePoolConfig {
+  maxConnections?: number;
+  minConnections?: number;
+  acquireTimeout?: number;
+  idleTimeout?: number;
+  healthCheckInterval?: number;
+  maxQueryTime?: number;
+  retryAttempts?: number;
+  retryDelay?: number;
+  // Additional configuration values are allowed but must be explicitly handled by callers.
+  [key: string]: unknown;
 }
 
-// Interface for pool statistics
-interface PoolStatistics {
+export interface PoolStatistics {
   active: number;
   idle: number;
   healthy: number;
@@ -49,15 +36,13 @@ interface PoolStatistics {
   dbType: string;
 }
 
-// Interface for health status
-interface PoolHealthStatus {
+export interface PoolHealthStatus {
   status: 'healthy' | 'warning' | 'critical';
   stats: PoolStatistics;
   issues: string[];
 }
 
-// Interface for global statistics
-interface GlobalPoolStatistics {
+export interface GlobalPoolStatistics {
   totalPools: number;
   totalConnections: number;
   totalActiveConnections: number;
@@ -66,104 +51,422 @@ interface GlobalPoolStatistics {
   overallHealth: 'healthy' | 'warning' | 'critical';
 }
 
-// Create singleton instance for immediate use across the application
+type QueryFunction = () => Promise<unknown>;
+type RedisMethodDescriptor = { method: string };
+type QueryDefinition = string | RedisMethodDescriptor | QueryFunction;
+
+type SimpleDatabasePoolInstance = InstanceType<typeof SimpleDatabasePool>;
+
+interface DatabaseConnectionPoolAPI {
+  createPool(databaseUrl: string, config?: DatabasePoolConfig): Promise<void>;
+  getPool(databaseUrl: string): SimpleDatabasePoolInstance | null | undefined;
+  getOrCreatePool(
+    databaseUrl: string,
+    config?: DatabasePoolConfig,
+  ): Promise<SimpleDatabasePoolInstance | null | undefined>;
+  removePool(databaseUrl: string): Promise<void>;
+  getPoolUrls(): unknown;
+  getAllPools(): unknown;
+  getAllStats(): unknown;
+  getAllHealthStatus(): unknown;
+  getGlobalStats(): unknown;
+  executeQuery(
+    databaseUrl: string,
+    query: QueryDefinition,
+    params?: unknown[],
+    config?: DatabasePoolConfig,
+  ): Promise<unknown>;
+  acquireConnection(
+    databaseUrl: string,
+    config?: DatabasePoolConfig,
+  ): Promise<unknown>;
+  releaseConnection(databaseUrl: string, connection: unknown): Promise<void>;
+  performGlobalHealthCheck(): unknown;
+  shutdown(): Promise<void>;
+  getPoolCount(): unknown;
+  hasPool(databaseUrl: string): unknown;
+  getPoolsByType(dbType: string): unknown;
+  getPoolUrlsByType(dbType: string): unknown;
+}
+
+type SimpleDatabasePoolContract = {
+  getStats: () => unknown;
+  getHealthStatus: () => unknown;
+  acquireConnection: (...args: unknown[]) => unknown;
+  releaseConnection: (...args: unknown[]) => unknown;
+  shutdown: (...args: unknown[]) => unknown;
+};
+
+// Explicit mapping of supported health states so invalid values surface immediately.
+const HEALTH_STATUSES: ReadonlySet<PoolHealthStatus['status']> = new Set([
+  'healthy',
+  'warning',
+  'critical',
+]);
+
+// Confirm pool objects either originate from SimpleDatabasePool or satisfy the same surface.
+function isSimplePoolInstance(value: unknown): value is SimpleDatabasePoolInstance {
+  if (value instanceof SimpleDatabasePool) {
+    return true;
+  }
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as Partial<SimpleDatabasePoolContract>;
+  return (
+    typeof candidate.getStats === 'function' &&
+    typeof candidate.getHealthStatus === 'function' &&
+    typeof candidate.acquireConnection === 'function' &&
+    typeof candidate.releaseConnection === 'function' &&
+    typeof candidate.shutdown === 'function'
+  );
+}
+
+// Guard numeric metrics to prevent NaN/Infinity from flowing into consumers.
+function assertFiniteNumber(value: unknown, context: string): number {
+  if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
+    throw new Error(`${context} must be a finite number`);
+  }
+  return value;
+}
+
+// Ensure descriptive strings remain meaningful for downstream logging.
+function assertNonEmptyString(value: unknown, context: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${context} must be a non-empty string`);
+  }
+  return value;
+}
+
+// Confirm arrays contain only strings; mixed types signal data corruption.
+function assertStringArray(value: unknown, context: string): string[] {
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
+    throw new Error(`${context} must be an array of strings`);
+  }
+  return value;
+}
+
+// Validate that every entry is a SimpleDatabasePool instance for safe method access.
+function assertSimplePoolArray(
+  value: unknown,
+  context: string,
+): SimpleDatabasePoolInstance[] {
+  if (
+    !Array.isArray(value) ||
+    value.some(pool => !isSimplePoolInstance(pool))
+  ) {
+    throw new Error(`${context} must be an array of SimpleDatabasePool instances`);
+  }
+  return value as SimpleDatabasePoolInstance[];
+}
+
+// Map database type tallies while enforcing numeric counts.
+function assertPoolsByTypeRecord(
+  value: unknown,
+  context: string,
+): Record<string, number> {
+  if (value === undefined) {
+    return {};
+  }
+  if (value === null || typeof value !== 'object') {
+    throw new Error(`${context} must be an object map of pool counts`);
+  }
+  const record: Record<string, number> = {};
+  for (const [key, count] of Object.entries(value as Record<string, unknown>)) {
+    record[key] = assertFiniteNumber(count, `${context}.${key}`);
+  }
+  return record;
+}
+
+// Normalize individual pool metric snapshots, rejecting malformed payloads.
+function assertPoolStatistics(value: unknown, context: string): PoolStatistics {
+  if (value === null || typeof value !== 'object') {
+    throw new Error(`${context} must be an object containing pool statistics`);
+  }
+  const stats = value as Record<string, unknown>;
+  return {
+    active: assertFiniteNumber(stats.active, `${context}.active`),
+    idle: assertFiniteNumber(stats.idle, `${context}.idle`),
+    healthy: assertFiniteNumber(stats.healthy, `${context}.healthy`),
+    total: assertFiniteNumber(stats.total, `${context}.total`),
+    waiting: assertFiniteNumber(stats.waiting, `${context}.waiting`),
+    max: assertFiniteNumber(stats.max, `${context}.max`),
+    min: assertFiniteNumber(stats.min, `${context}.min`),
+    dbType: assertNonEmptyString(stats.dbType, `${context}.dbType`),
+  };
+}
+
+// Translate arbitrary records into strongly typed stats dictionaries.
+function assertPoolStatisticsRecord(
+  value: unknown,
+  context: string,
+): Record<string, PoolStatistics> {
+  if (value === null || typeof value !== 'object') {
+    throw new Error(`${context} must return an object keyed by database URL`);
+  }
+  const record: Record<string, PoolStatistics> = {};
+  for (const [key, stats] of Object.entries(value as Record<string, unknown>)) {
+    record[key] = assertPoolStatistics(stats, `${context}[${key}]`);
+  }
+  return record;
+}
+
+// Validate per-pool health entries, including nested statistics and textual issue details.
+function assertHealthStatus(
+  value: unknown,
+  context: string,
+): PoolHealthStatus {
+  if (value === null || typeof value !== 'object') {
+    throw new Error(`${context} must be an object containing pool health data`);
+  }
+  const health = value as Record<string, unknown>;
+  const status = assertNonEmptyString(health.status, `${context}.status`);
+  if (!HEALTH_STATUSES.has(status as PoolHealthStatus['status'])) {
+    throw new Error(`${context}.status must be one of ${Array.from(HEALTH_STATUSES).join(', ')}`);
+  }
+  return {
+    status: status as PoolHealthStatus['status'],
+    stats: assertPoolStatistics(health.stats, `${context}.stats`),
+    issues: assertStringArray(health.issues, `${context}.issues`),
+  };
+}
+
+// Guard health maps to ensure each database URL yields a valid health snapshot.
+function assertPoolHealthRecord(
+  value: unknown,
+  context: string,
+): Record<string, PoolHealthStatus> {
+  if (value === null || typeof value !== 'object') {
+    throw new Error(`${context} must return an object keyed by database URL`);
+  }
+  const record: Record<string, PoolHealthStatus> = {};
+  for (const [key, health] of Object.entries(value as Record<string, unknown>)) {
+    record[key] = assertHealthStatus(health, `${context}[${key}]`);
+  }
+  return record;
+}
+
+// Restrict health strings to the sanctioned set emitted by the pool layer.
+function assertOverallHealth(
+  value: unknown,
+  context: string,
+): GlobalPoolStatistics['overallHealth'] {
+  const status = assertNonEmptyString(value, context);
+  if (!HEALTH_STATUSES.has(status as PoolHealthStatus['status'])) {
+    throw new Error(`${context} must be one of ${Array.from(HEALTH_STATUSES).join(', ')}`);
+  }
+  return status as GlobalPoolStatistics['overallHealth'];
+}
+
+// Validate the aggregated statistics payload pulled from the connection manager.
+function assertGlobalStatistics(
+  value: unknown,
+  context: string,
+): GlobalPoolStatistics {
+  if (value === null || typeof value !== 'object') {
+    throw new Error(`${context} must return an object with global statistics`);
+  }
+  const stats = value as Record<string, unknown>;
+  return {
+    totalPools: assertFiniteNumber(stats.totalPools, `${context}.totalPools`),
+    totalConnections: assertFiniteNumber(
+      stats.totalConnections,
+      `${context}.totalConnections`,
+    ),
+    totalActiveConnections: assertFiniteNumber(
+      stats.totalActiveConnections,
+      `${context}.totalActiveConnections`,
+    ),
+    totalWaitingRequests: assertFiniteNumber(
+      stats.totalWaitingRequests,
+      `${context}.totalWaitingRequests`,
+    ),
+    poolsByType: assertPoolsByTypeRecord(stats.poolsByType, `${context}.poolsByType`),
+    overallHealth: assertOverallHealth(stats.overallHealth, `${context}.overallHealth`),
+  };
+}
+
+// Shared singleton surfaced by the connection-pool manager module (JS implementation).
+const connectionPoolManager: DatabaseConnectionPoolAPI =
+  sharedDatabaseConnectionPool as unknown as DatabaseConnectionPoolAPI;
+
+// Local instance exported for callers who prefer a dedicated manager object.
 const databaseConnectionPool = new DatabaseConnectionPool();
 
-// Convenience functions for common operations
-const createDatabasePool = (databaseUrl: string, config: DatabaseConfig = {}): Promise<void> =>
-  globalDatabaseConnectionPool.createPool(databaseUrl, config as any);
-
-const acquireDatabaseConnection = async (databaseUrl: string): Promise<any> =>
-  globalDatabaseConnectionPool.acquireConnection(databaseUrl);
-
-const releaseDatabaseConnection = (databaseUrl: string, connection: any): Promise<void> =>
-  globalDatabaseConnectionPool.releaseConnection(databaseUrl, connection);
-
-const executeDatabaseQuery = async (
+// Provision a pool for the provided database URL, delegating configuration as-is.
+function createDatabasePool(
   databaseUrl: string,
-  query: string,
-  params: any[] = []
-): Promise<any> => globalDatabaseConnectionPool.executeQuery(databaseUrl, query, params);
+  config: DatabasePoolConfig = {},
+): Promise<void> {
+  return connectionPoolManager.createPool(databaseUrl, config);
+}
 
-const getDatabasePoolStats = (): any => globalDatabaseConnectionPool.getAllStats();
+// Fetch an existing pool while ensuring the returned instance matches the expected class.
+function getDatabasePool(databaseUrl: string): SimpleDatabasePoolInstance | null {
+  const pool = connectionPoolManager.getPool(databaseUrl);
+  if (pool == null) {
+    return null;
+  }
+  if (!isSimplePoolInstance(pool)) {
+    throw new Error('Retrieved pool does not match SimpleDatabasePool instance');
+  }
+  return pool;
+}
 
-const getDatabasePoolHealth = (): any => globalDatabaseConnectionPool.getAllHealthStatus();
-
-const shutdownDatabasePools = async (): Promise<void> => globalDatabaseConnectionPool.shutdown();
-
-// Additional convenience functions for advanced pool management
-const getDatabasePool = (databaseUrl: string): SimpleDatabasePool | null =>
-  globalDatabaseConnectionPool.getPool(databaseUrl);
-
-const createOrGetDatabasePool = async (
+// Lazily create or fetch a pool, guaranteeing a valid SimpleDatabasePool is returned.
+async function createOrGetDatabasePool(
   databaseUrl: string,
-  config: DatabaseConfig = {}
-): Promise<SimpleDatabasePool> =>
-  globalDatabaseConnectionPool.getOrCreatePool(databaseUrl, config as any);
+  config: DatabasePoolConfig = {},
+): Promise<SimpleDatabasePoolInstance> {
+  const pool = await connectionPoolManager.getOrCreatePool(databaseUrl, config);
+  if (!isSimplePoolInstance(pool)) {
+    throw new Error('getOrCreatePool must return a SimpleDatabasePool instance');
+  }
+  return pool;
+}
 
-const removeDatabasePool = async (databaseUrl: string): Promise<void> =>
-  globalDatabaseConnectionPool.removePool(databaseUrl);
+// Remove a pool and trigger graceful teardown on the manager layer.
+function removeDatabasePool(databaseUrl: string): Promise<void> {
+  return connectionPoolManager.removePool(databaseUrl);
+}
 
-const getAllDatabasePoolUrls = (): string[] => globalDatabaseConnectionPool.getPoolUrls();
+// Acquire a connection proxy from the appropriate pool.
+function acquireDatabaseConnection(
+  databaseUrl: string,
+  config?: DatabasePoolConfig,
+): Promise<unknown> {
+  return connectionPoolManager.acquireConnection(databaseUrl, config);
+}
 
-const getAllDatabasePools = (): SimpleDatabasePool[] => globalDatabaseConnectionPool.getAllPools();
+// Release a connection back to its pool, mirroring the manager contract.
+function releaseDatabaseConnection(
+  databaseUrl: string,
+  connection: unknown,
+): Promise<void> {
+  return connectionPoolManager.releaseConnection(databaseUrl, connection);
+}
 
-const getGlobalDatabaseStatistics = (): GlobalPoolStatistics =>
-  globalDatabaseConnectionPool.getGlobalStats();
+// Execute a query or queued operation, enforcing parameter list integrity.
+function executeDatabaseQuery(
+  databaseUrl: string,
+  query: QueryDefinition,
+  params: unknown[] = [],
+  config?: DatabasePoolConfig,
+): Promise<unknown> {
+  if (!Array.isArray(params)) {
+    throw new Error('Query parameters must be supplied as an array');
+  }
+  return connectionPoolManager.executeQuery(databaseUrl, query, params, config);
+}
 
-const performGlobalDatabaseHealthCheck = async (): Promise<Record<string, PoolHealthStatus>> =>
-  globalDatabaseConnectionPool.performGlobalHealthCheck();
+// Retrieve statistics for every registered pool.
+function getDatabasePoolStats(): Record<string, PoolStatistics> {
+  return assertPoolStatisticsRecord(
+    connectionPoolManager.getAllStats(),
+    'database pool statistics',
+  );
+}
 
-const getDatabasePoolCount = (): number => globalDatabaseConnectionPool.getPoolCount();
+// Retrieve health snapshots for every registered pool.
+function getDatabasePoolHealth(): Record<string, PoolHealthStatus> {
+  return assertPoolHealthRecord(
+    connectionPoolManager.getAllHealthStatus(),
+    'database pool health',
+  );
+}
 
-const hasDatabasePool = (databaseUrl: string): boolean =>
-  globalDatabaseConnectionPool.hasPool(databaseUrl);
+// Request a global shutdown across every pool.
+function shutdownDatabasePools(): Promise<void> {
+  return connectionPoolManager.shutdown();
+}
 
-const getDatabasePoolsByType = (dbType: string): SimpleDatabasePool[] =>
-  globalDatabaseConnectionPool.getPoolsByType(dbType);
+// Enumerate every pooled database URL.
+function getAllDatabasePoolUrls(): string[] {
+  return assertStringArray(
+    connectionPoolManager.getPoolUrls(),
+    'connection pool URLs',
+  );
+}
 
-const getDatabasePoolUrlsByType = (dbType: string): string[] =>
-  globalDatabaseConnectionPool.getPoolUrlsByType(dbType);
+// Enumerate every SimpleDatabasePool instance.
+function getAllDatabasePools(): SimpleDatabasePoolInstance[] {
+  return assertSimplePoolArray(
+    connectionPoolManager.getAllPools(),
+    'connection pool list',
+  );
+}
+
+// Aggregate cross-pool statistics into a single object.
+function getGlobalDatabaseStatistics(): GlobalPoolStatistics {
+  return assertGlobalStatistics(
+    connectionPoolManager.getGlobalStats(),
+    'global database statistics',
+  );
+}
+
+// Trigger a health check across all pools and return the detailed map.
+function performGlobalDatabaseHealthCheck(): Record<string, PoolHealthStatus> {
+  return assertPoolHealthRecord(
+    connectionPoolManager.performGlobalHealthCheck(),
+    'global health check results',
+  );
+}
+
+// Enumerate database URLs for a specific pool type.
+function getDatabasePoolUrlsByType(dbType: string): string[] {
+  const normalizedType = assertNonEmptyString(dbType, 'database type');
+  return assertStringArray(
+    connectionPoolManager.getPoolUrlsByType(normalizedType),
+    `connection pool URLs filtered by type ${normalizedType}`,
+  );
+}
+
+// Count the number of active pools across all types.
+function getDatabasePoolCount(): number {
+  return assertFiniteNumber(
+    connectionPoolManager.getPoolCount(),
+    'database pool count',
+  );
+}
+
+// Determine whether a pool already exists for the requested URL.
+function hasDatabasePool(databaseUrl: string): boolean {
+  const result = connectionPoolManager.hasPool(databaseUrl);
+  if (typeof result !== 'boolean') {
+    throw new Error('hasPool must return a boolean');
+  }
+  return result;
+}
+
+// Enumerate pools filtered by database type.
+function getDatabasePoolsByType(dbType: string): SimpleDatabasePoolInstance[] {
+  const normalizedType = assertNonEmptyString(dbType, 'database type');
+  return assertSimplePoolArray(
+    connectionPoolManager.getPoolsByType(normalizedType),
+    `connection pools filtered by type ${normalizedType}`,
+  );
+}
 
 export {
-  // Core classes
   SimpleDatabasePool,
   DatabaseConnectionPool,
   databaseConnectionPool,
-
-  // Basic pool operations
   createDatabasePool,
   getDatabasePool,
   createOrGetDatabasePool,
   removeDatabasePool,
-
-  // Connection management
   acquireDatabaseConnection,
   releaseDatabaseConnection,
-
-  // Query execution
   executeDatabaseQuery,
-
-  // Statistics and health
   getDatabasePoolStats,
   getDatabasePoolHealth,
   getGlobalDatabaseStatistics,
   performGlobalDatabaseHealthCheck,
-
-  // Pool enumeration and inspection
   getAllDatabasePoolUrls,
   getAllDatabasePools,
+  getDatabasePoolUrlsByType,
   getDatabasePoolCount,
   hasDatabasePool,
   getDatabasePoolsByType,
-  getDatabasePoolUrlsByType,
-
-  // Lifecycle management
   shutdownDatabasePools,
-
-  // Type exports for TypeScript users
-  type DatabaseConfig,
-  type PoolStatistics,
-  type PoolHealthStatus,
-  type GlobalPoolStatistics,
 };

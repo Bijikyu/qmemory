@@ -55,3 +55,21 @@ declare module 'qerrors' {
   export const logFatal: (message: string, meta?: any) => void;
   export const logAudit: (message: string, meta?: any) => void;
 }
+
+declare module 'pluralize' {
+  export type PluralizeFunction = (word: string, count?: number, inclusive?: boolean) => string;
+
+  export interface PluralizeModule extends PluralizeFunction {
+    plural: PluralizeFunction;
+    singular: (word: string) => string;
+    addPluralRule(rule: RegExp | string, replacement: string): void;
+    addSingularRule(rule: RegExp | string, replacement: string): void;
+    addIrregularRule(single: string, plural: string): void;
+    addUncountableRule(rule: RegExp | string): void;
+    isPlural(word: string): boolean;
+    isSingular(word: string): boolean;
+  }
+
+  const pluralize: PluralizeModule;
+  export default pluralize;
+}

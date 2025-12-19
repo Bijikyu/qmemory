@@ -16,8 +16,10 @@ interface ValidationRule {
   message: string;
 }
 
+type MongoTypeName = ReturnType<typeof getMongoType>;
+
 interface FieldType {
-  type: any;
+  type: MongoTypeName;
   required?: boolean;
   validate?: ValidationRule;
 }
@@ -29,16 +31,16 @@ interface FieldType {
  */
 function generateValidationRules(param: Parameter): FieldType {
   const baseType: FieldType = {
-    type: getMongoType(param.type),
-    required: param.required,
+    type: getMongoType(param.type), // Normalize incoming type strings so schema generation is consistent
+    required: param.required, // Preserve caller intent regarding required-ness for validation enforcement
   };
-  const lower = param.name.toLowerCase();
+  const lower = param.name.toLowerCase(); // Use lowercase comparisons to detect heuristic field matches safely
   // Email validation for fields containing 'email'
   if (lower.includes('email')) {
     return {
       ...baseType,
       validate: {
-        validator: 'function(v) { return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v); }',
+        validator: 'function(v) { return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v); }', // Use light-weight regex to catch common email mistakes without heavy dependencies
         message: 'Invalid email format',
       },
     };
@@ -48,7 +50,7 @@ function generateValidationRules(param: Parameter): FieldType {
     return {
       ...baseType,
       validate: {
-        validator: 'function(v) { try { new URL(v); return true; } catch { return false; } }',
+        validator: 'function(v) { try { new URL(v); return true; } catch { return false; } }', // Rely on WHATWG URL parser for robust validation without third-party packages
         message: 'Invalid URL format',
       },
     };

@@ -1,4 +1,4 @@
-// Generated unit test for demo-app.js - TypeScript ES module
+// Generated unit test for demo-app.ts - TypeScript ES module
 // 🚩AI: ENTRY_POINT_FOR_GENERATED_TEST_IMPORTS
 import 'qtests/setup';
 

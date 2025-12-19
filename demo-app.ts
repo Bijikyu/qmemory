@@ -19,7 +19,7 @@
  * - Includes health checks for production readiness demonstration
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Application } from 'express';
 import {
   MemStorage,
   sendNotFound,
@@ -34,6 +34,7 @@ import {
   requireEnvVars,
   gracefulShutdown,
 } from './lib/qgenutils-wrapper.js';
+import type { Server } from 'http';
 
 // Define interfaces for complex objects
 interface User {
@@ -71,7 +72,7 @@ interface PaginationInfo {
   skip: number;
 }
 
-const app = express();
+const app: Application = express();
 // Prefer typed/env-aware port retrieval via qgenutils
 const port: number = getEnvVar('PORT', process.env.PORT ?? 5000, 'number');
 
@@ -147,7 +148,7 @@ app.use(express.json()); // body parser for JSON payloads, ensures consistent re
 app.use(express.static('public')); // serve static files for documentation and example assets
 
 // Initialize storage
-const storage = new MemStorage(); // in-memory store is used to keep the demo self contained
+const storage: MemStorage = new MemStorage(); // in-memory store is used to keep the demo self contained
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -344,7 +345,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Graceful shutdown via qgenutils
-function registerGracefulShutdown(serverInstance: unknown): void {
+function registerGracefulShutdown(serverInstance: Server | undefined): void {
   try {
     gracefulShutdown(serverInstance, null, 10000); // handles SIGTERM/SIGINT
   } catch (err: unknown) {
@@ -352,7 +353,7 @@ function registerGracefulShutdown(serverInstance: unknown): void {
   }
 }
 
-let server: unknown; // holds HTTP server instance when started manually or via CLI
+let server: Server | undefined; // holds HTTP server instance when started manually or via CLI
 if (import.meta.url === `file://${process.argv[1]}`) {
   // start server only when running this file directly (ESM equivalent of require.main === module)
   server = app.listen(port, '0.0.0.0', () => {

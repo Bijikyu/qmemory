@@ -1,4 +1,4 @@
-// Generated unit test for index.js - TypeScript ES module
+// Generated unit test for index.ts - TypeScript ES module
 // 🚩AI: ENTRY_POINT_FOR_GENERATED_TEST_IMPORTS
 import 'qtests/setup';
 

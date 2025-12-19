@@ -1,4 +1,10 @@
-import { createCircuitBreaker, type CircuitBreakerOptions } from './circuit-breaker.js';
+import {
+  STATES,
+  createCircuitBreaker,
+  type CircuitBreakerOptions,
+  type CircuitBreakerWrapper,
+  type CircuitBreakerState,
+} from './circuit-breaker.js';
 
 export interface CircuitBreakerConfig extends CircuitBreakerOptions {
   failureThreshold?: number;
@@ -18,7 +24,7 @@ export interface FactoryOptions {
 export interface BreakerStats {
   failures: number;
   successes: number;
-  state: string;
+  state: CircuitBreakerState;
   lastFailureTime?: number;
 }
 
@@ -26,7 +32,7 @@ export interface BreakerInfo {
   domain: string;
   failures: number;
   successes: number;
-  state: string;
+  state: CircuitBreakerState;
   lastFailureTime: number | undefined;
   createdTime: number;
   lastUsedTime: number;
@@ -40,16 +46,16 @@ export interface FactoryStats {
   isShutdown: boolean;
 }
 
-export interface ExtendedCircuitBreaker {
+export type ExtendedCircuitBreaker = CircuitBreakerWrapper & {
   _domain: string;
   _createdTime: number;
   _lastUsedTime: number;
   destroy?(): void;
-  getState(): string;
+  getState(): CircuitBreakerState;
   getFailures(): number;
   getSuccesses(): number;
-  getLastFailureTime(): number;
-}
+  getLastFailureTime(): number | undefined;
+};
 
 export class CircuitBreakerFactory {
   private breakers: Map<string, ExtendedCircuitBreaker>;
@@ -92,18 +98,19 @@ export class CircuitBreakerFactory {
       const newBreaker = createCircuitBreaker({
         failureThreshold: config.failureThreshold ?? this.defaultConfig.failureThreshold ?? 5,
         timeout: config.timeout ?? this.defaultConfig.timeout ?? 60000,
-        resetTimeout: config.resetTimeout ?? this.defaultConfig.resetTimeout ?? 120000
-      }) as any;
-      
-      breaker = Object.assign(newBreaker, {
+        resetTimeout: config.resetTimeout ?? this.defaultConfig.resetTimeout ?? 120000,
+      });
+
+      const extendedBreaker = Object.assign(newBreaker, {
         _domain: '',
         _createdTime: 0,
         _lastUsedTime: 0,
         getFailures: () => newBreaker.getStats().failures || 0,
         getSuccesses: () => newBreaker.getStats().successes || 0,
-        getLastFailureTime: () => newBreaker.getStats().lastFailureTime
+        getLastFailureTime: () => newBreaker.getStats().lastFailureTime,
       }) as ExtendedCircuitBreaker;
-      
+
+      breaker = extendedBreaker;
       breaker._domain = domain;
       breaker._createdTime = Date.now();
       breaker._lastUsedTime = Date.now();
@@ -247,13 +254,13 @@ export class CircuitBreakerFactory {
   private getBreakerState(breaker: ExtendedCircuitBreaker): BreakerStats {
     try {
       return {
-        state: breaker.getState?.() || 'closed',
+        state: breaker.getState?.() || STATES.CLOSED,
         failures: breaker.getFailures?.() || 0,
         successes: breaker.getSuccesses?.() || 0,
         lastFailureTime: breaker.getLastFailureTime?.()
       };
     } catch {
-      return { state: 'closed', failures: 0, successes: 0 };
+      return { state: STATES.CLOSED, failures: 0, successes: 0 };
     }
   }
 

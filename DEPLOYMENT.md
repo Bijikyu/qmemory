@@ -34,7 +34,7 @@ npm publish
 **Package Information:**
 - Name: `qmemory`
 - Version: `1.0.0`
-- Main entry: `index.js`
+- Main entry: `index.ts` (emits `dist/index.js` after build)
 
 ### 2. Direct Integration
 
@@ -43,7 +43,7 @@ To integrate into an existing Express.js application:
 ```bash
 # Clone or copy the lib directory
 cp -r lib/ your-project/
-cp index.js your-project/
+cp index.ts your-project/
 
 # Install dependencies
 npm install mongoose

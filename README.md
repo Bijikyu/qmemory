@@ -547,10 +547,11 @@ app.post('/posts', async (req, res) => {
 
 ## Demo Application
 
-For a working example of the library, run the included demo server:
+For a working example of the library, run the included TypeScript demo server (`demo-app.ts`):
 
 ```bash
-NODE_ENV=development node demo-app.js
+npm run build
+NODE_ENV=development node dist/demo-app.js
 ```
 
 The server uses `PORT` if set; otherwise it starts on `5000` and exposes basic user management routes for exploration.

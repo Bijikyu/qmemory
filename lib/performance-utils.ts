@@ -17,6 +17,7 @@ import DatabaseMetrics from './performance/database-metrics.js';
 import RequestMetrics from './performance/request-metrics.js';
 import SystemMetrics from './performance/system-metrics.js';
 import PerformanceMonitor from './performance/performance-monitor.js';
+import type { DatabaseMetricsEvents, SlowQuery } from './performance/database-metrics.js';
 
 // Create singleton instance for immediate use across the application
 // This provides a ready-to-use global performance monitor while still allowing
@@ -33,3 +34,6 @@ export {
     PerformanceMonitor,     // unified performance monitoring orchestration
     performanceMonitor      // singleton instance for immediate application-wide monitoring
 };
+
+// Expose typed event contracts for downstream monitoring integrations
+export type { DatabaseMetricsEvents, SlowQuery };

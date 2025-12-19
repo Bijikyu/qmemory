@@ -83,21 +83,8 @@ author = "agent"
 task = "shell.exec"
 args = "./run-codex.sh"
 
-
 [[ports]]
 localPort = 5000
-externalPort = 80
-
-[[ports]]
-localPort = 33225
-externalPort = 3001
-
-[[ports]]
-localPort = 39555
-externalPort = 3000
-
-[[ports]]
-localPort = 46329
 externalPort = 80
 
 [agent]

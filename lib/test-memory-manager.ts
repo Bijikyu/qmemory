@@ -1,83 +1,13 @@
-/**
- * Test Memory Manager
- * Advanced memory management utilities for test environments
- * 
- * Combines memory monitoring, cleanup, and tracking capabilities specifically
- * optimized for testing environments. Solves the critical problem of memory leaks
- * in test suites that can cause flaky tests, CI failures, and unreliable results.
- * 
- * Features:
- * - Memory checkpoint tracking with before/after comparison
- * - Automatic leak detection with configurable thresholds
- * - Garbage collection forcing (when available)
- * - Global reference cleanup for test isolation
- * - Comprehensive leak analysis and recommendations
- * 
- * Use cases:
- * - Large test suites with memory concerns
- * - Integration tests with database connections
- * - CI/CD pipelines needing reliable memory behavior
- * - Debugging memory leaks in test environments
- */
+import { performance } from 'node:perf_hooks';
 
-import { performance } from 'perf_hooks';
-
-interface MemoryCheckpoint {
-  id: string;
-  timestamp: number;
-  heapUsed: number;
-  heapTotal: number;
-  external: number;
+export interface MemoryThresholds {
+  heap: number;
   rss: number;
-  arrayBuffers?: number | undefined;
-  context?: string | undefined;
+  external: number;
+  growthRate: number;
 }
 
-interface MemoryLeakAnalysis {
-  heapGrowth: number;
-  rssGrowth: number;
-  externalGrowth: number;
-  averageGrowthRate: number;
-  suspiciousPatterns: string[];
-}
-
-interface MemoryLeakReport {
-  detected: boolean;
-  checkpoints: MemoryCheckpoint[];
-  analysis: MemoryLeakAnalysis;
-  recommendations: string[];
-}
-
-interface MemoryManagerStats {
-  isActive: boolean;
-  checkpointsCount: number;
-  gcAvailable: boolean;
-  currentUsage: MemoryCheckpoint;
-  thresholds: {
-    heap: number;
-    rss: number;
-    external: number;
-    growthRate: number;
-  };
-}
-
-interface MemoryCheckResult {
-  before: MemoryCheckpoint;
-  after: MemoryCheckpoint;
-  freed: {
-    heap: number;
-    rss: number;
-    external: number;
-  };
-  gcRan: boolean;
-}
-
-interface MemoryTrackingResult<T = any> {
-  result: T;
-  memoryReport: MemoryLeakReport;
-}
-
-interface TestMemoryManagerOptions {
+export interface TestMemoryManagerOptions {
   heapThreshold?: number;
   rssThreshold?: number;
   externalThreshold?: number;
@@ -85,90 +15,144 @@ interface TestMemoryManagerOptions {
   maxCheckpoints?: number;
 }
 
+export interface MemoryCheckpoint {
+  id: string;
+  timestamp: number;
+  heapUsed: number;
+  heapTotal: number;
+  external: number;
+  rss: number;
+  arrayBuffers?: number;
+  context?: string;
+}
+
+export interface MemoryLeakAnalysis {
+  heapGrowth: number;
+  rssGrowth: number;
+  externalGrowth: number;
+  averageGrowthRate: number;
+  suspiciousPatterns: string[];
+}
+
+export interface MemoryLeakReport {
+  detected: boolean;
+  checkpoints: MemoryCheckpoint[];
+  analysis: MemoryLeakAnalysis;
+  recommendations: string[];
+}
+
+export interface FreedMemoryBreakdown {
+  heap: number;
+  rss: number;
+  external: number;
+}
+
+export interface MemoryCheckResult {
+  before: MemoryCheckpoint;
+  after: MemoryCheckpoint;
+  freed: FreedMemoryBreakdown;
+  gcRan: boolean;
+}
+
+export interface MemoryTrackingResult<T> {
+  result: T;
+  memoryReport: MemoryLeakReport;
+}
+
+type GlobalWithGc = {
+  [key: string]: unknown;
+  gc?: () => void;
+};
+
 /**
  * Test Memory Manager Class
- * 
+ *
  * Provides comprehensive memory monitoring and leak detection for tests.
  */
-class TestMemoryManager {
-  checkpoints: MemoryCheckpoint[];
-  isActive: boolean;
-  gcAvailable: boolean;
-  leakThresholds: {
-    heap: number;
-    rss: number;
-    external: number;
-    growthRate: number;
-  };
-  maxCheckpoints: number;
+export class TestMemoryManager {
+  private checkpoints: MemoryCheckpoint[];
+
+  private isActive: boolean;
+
+  public readonly gcAvailable: boolean;
+
+  private readonly leakThresholds: MemoryThresholds;
+
+  private readonly maxCheckpoints: number;
+
+  private readonly globalContext: GlobalWithGc;
 
   constructor(options: TestMemoryManagerOptions = {}) {
     this.checkpoints = [];
     this.isActive = false;
-    this.gcAvailable = typeof (global as any).gc === 'function';
-    
+    this.globalContext = globalThis as GlobalWithGc;
+
+    this.gcAvailable = typeof this.globalContext.gc === 'function';
+
     this.leakThresholds = {
       heap: options.heapThreshold ?? 50,
       rss: options.rssThreshold ?? 100,
       external: options.externalThreshold ?? 25,
-      growthRate: options.growthRateThreshold ?? 5
+      growthRate: options.growthRateThreshold ?? 5,
     };
-    
+
     this.maxCheckpoints = options.maxCheckpoints ?? 20;
   }
 
   /**
-   * Start memory monitoring session
-   * 
-   * @param {string} context - Optional context description
+   * Start memory monitoring session.
+   *
+   * @param context Optional context description.
    */
   startMonitoring(context?: string): void {
     if (this.isActive) {
       console.warn('Memory monitoring already active');
       return;
     }
-    
+
     this.isActive = true;
     this.checkpoints = [];
-    
+
+    // Capture a baseline snapshot so we can compare deltas later.
     this.takeCheckpoint('baseline', context);
     console.log(`Memory monitoring started ${context ? `for ${context}` : ''}`);
   }
 
   /**
-   * Stop memory monitoring and generate report
-   * 
-   * @returns {MemoryLeakReport} Memory leak report
+   * Stop memory monitoring and generate report.
+   *
+   * @returns Memory leak report.
    */
   stopMonitoring(): MemoryLeakReport {
     if (!this.isActive) {
       console.warn('Memory monitoring not active');
       return this.generateEmptyReport();
     }
-    
+
+    // Capture one final checkpoint before analysis.
     this.takeCheckpoint('final');
     this.isActive = false;
-    
+
     const report = this.analyzeMemoryLeaks();
     console.log('Memory monitoring stopped');
     this.printReport(report);
-    
     return report;
   }
 
   /**
-   * Take memory checkpoint
-   * 
-   * @param {string} id - Checkpoint identifier
-   * @param {string} context - Optional context description
-   * @returns {MemoryCheckpoint} Memory checkpoint
+   * Take memory checkpoint.
+   *
+   * @param id Checkpoint identifier.
+   * @param context Optional context description.
+   * @returns Memory checkpoint.
    */
   takeCheckpoint(id: string, context?: string): MemoryCheckpoint {
     if (!this.isActive && id !== 'current') {
       throw new Error('Memory monitoring not active');
     }
-    
+
     const usage = process.memoryUsage();
+
     const checkpoint: MemoryCheckpoint = {
       id,
       timestamp: performance.now(),
@@ -177,49 +161,53 @@ class TestMemoryManager {
       external: Math.round(usage.external / 1024 / 1024),
       rss: Math.round(usage.rss / 1024 / 1024),
       arrayBuffers: usage.arrayBuffers ? Math.round(usage.arrayBuffers / 1024 / 1024) : undefined,
-      context
+      context,
     };
-    
+
     if (id !== 'current') {
       this.checkpoints.push(checkpoint);
-      
+
       if (this.checkpoints.length > this.maxCheckpoints) {
+        // Keep the sliding window bounded so analysis stays fast and relevant.
         this.checkpoints.shift();
       }
     }
-    
+
     return checkpoint;
   }
 
   /**
-   * Force garbage collection if available
-   * 
-   * @returns {boolean} True if GC was run
+   * Force garbage collection if available.
+   *
+   * @returns True if GC was run.
    */
   forceGarbageCollection(): boolean {
-    if (!this.gcAvailable) {
+    if (!this.gcAvailable || typeof this.globalContext.gc !== 'function') {
       console.warn('Garbage collection not available. Run node with --expose-gc flag.');
       return false;
     }
-    
-    for (let i = 0; i < 3; i++) {
-      (global as any).gc();
+
+    for (let iteration = 0; iteration < 3; iteration += 1) {
+      this.globalContext.gc();
       const start = Date.now();
+
+      // Delay briefly to give the runtime a chance to finish the GC pass.
       while (Date.now() - start < 10) {
-        // Small delay for GC to complete
+        // Intentional busy-wait: keeps execution synchronous and predictable for tests.
       }
     }
-    
+
     return true;
   }
 
   /**
-   * Get current memory usage
-   * 
-   * @returns {MemoryCheckpoint} Current memory checkpoint
+   * Get current memory usage.
+   *
+   * @returns Current memory checkpoint snapshot.
    */
   getCurrentUsage(): MemoryCheckpoint {
     const usage = process.memoryUsage();
+
     return {
       id: 'current',
       timestamp: performance.now(),
@@ -227,142 +215,158 @@ class TestMemoryManager {
       heapTotal: Math.round(usage.heapTotal / 1024 / 1024),
       external: Math.round(usage.external / 1024 / 1024),
       rss: Math.round(usage.rss / 1024 / 1024),
-      arrayBuffers: usage.arrayBuffers ? Math.round(usage.arrayBuffers / 1024 / 1024) : undefined
+      arrayBuffers: usage.arrayBuffers ? Math.round(usage.arrayBuffers / 1024 / 1024) : undefined,
     };
   }
 
   /**
-   * Cleanup memory aggressively
-   * 
-   * @returns {Promise<void>}
+   * Cleanup memory aggressively.
+   *
+   * @returns Promise that resolves once cleanup completes.
    */
   async cleanup(): Promise<void> {
     console.log('Starting aggressive memory cleanup...');
-    
     this.clearGlobalReferences();
     this.forceGarbageCollection();
-    
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 100);
+    });
+
     if (this.isActive) {
       this.takeCheckpoint('cleanup');
     }
-    
+
     console.log('Memory cleanup completed');
   }
 
   /**
-   * Analyze memory leaks from checkpoints
-   * 
-   * @returns {MemoryLeakReport} Memory leak report
+   * Analyze memory leaks from checkpoints.
+   *
+   * @returns Memory leak report.
    */
   analyzeMemoryLeaks(): MemoryLeakReport {
     if (this.checkpoints.length < 2) {
       return this.generateEmptyReport();
     }
-    
-    const baseline = this.checkpoints[0]!;
-    const final = this.checkpoints[this.checkpoints.length - 1]!;
+
+    const baseline = this.checkpoints[0];
+    const final = this.checkpoints[this.checkpoints.length - 1];
     const recent = this.checkpoints.slice(-3);
-    
+
     const heapGrowth = final.heapUsed - baseline.heapUsed;
     const rssGrowth = final.rss - baseline.rss;
     const externalGrowth = final.external - baseline.external;
-    
-    const duration = (final.timestamp - baseline.timestamp) / 1000 / 60;
-    const averageGrowthRate = duration > 0 ? (heapGrowth + rssGrowth) / 2 / duration : 0;
-    
+    const durationMinutes = (final.timestamp - baseline.timestamp) / 1000 / 60;
+    const averageGrowthRate = durationMinutes > 0 ? (heapGrowth + rssGrowth) / 2 / durationMinutes : 0;
+
     const suspiciousPatterns: string[] = [];
-    
+
     if (heapGrowth > this.leakThresholds.heap) {
       suspiciousPatterns.push('Heap memory exceeds threshold');
     }
-    
+
     if (rssGrowth > this.leakThresholds.rss) {
       suspiciousPatterns.push('RSS memory exceeds threshold');
     }
-    
+
     if (externalGrowth > this.leakThresholds.external) {
       suspiciousPatterns.push('External memory exceeds threshold');
     }
-    
+
     if (averageGrowthRate > this.leakThresholds.growthRate) {
       suspiciousPatterns.push('High memory growth rate detected');
     }
-    
+
     if (this.isMonotonicGrowth(recent)) {
       suspiciousPatterns.push('Monotonic memory growth pattern');
     }
-    
+
     const analysis: MemoryLeakAnalysis = {
       heapGrowth,
       rssGrowth,
       externalGrowth,
       averageGrowthRate,
-      suspiciousPatterns
+      suspiciousPatterns,
     };
-    
+
     const detected = suspiciousPatterns.length > 0;
-    
+
     return {
       detected,
       checkpoints: this.checkpoints,
       analysis,
-      recommendations: this.generateRecommendations(detected, suspiciousPatterns, analysis)
+      recommendations: this.generateRecommendations(detected, suspiciousPatterns, analysis),
     };
   }
 
   /**
-   * Check for monotonic growth pattern
+   * Check for monotonic growth pattern.
+   *
+   * @param checkpoints Recent checkpoints to analyze.
+   * @returns True when all recent checkpoints grow monotonically.
    */
   isMonotonicGrowth(checkpoints: MemoryCheckpoint[]): boolean {
-    if (checkpoints.length < 3) return false;
-    
-    for (let i = 1; i < checkpoints.length; i++) {
-      if (checkpoints[i]!.heapUsed < checkpoints[i - 1]!.heapUsed ||
-          checkpoints[i]!.rss < checkpoints[i - 1]!.rss) {
+    if (checkpoints.length < 3) {
+      return false;
+    }
+
+    for (let index = 1; index < checkpoints.length; index += 1) {
+      if (
+        checkpoints[index].heapUsed < checkpoints[index - 1].heapUsed ||
+        checkpoints[index].rss < checkpoints[index - 1].rss
+      ) {
         return false;
       }
     }
-    
+
     return true;
   }
 
   /**
-   * Generate recommendations based on analysis
+   * Generate recommendations based on analysis.
+   *
+   * @param detected Whether a leak was detected.
+   * @param patterns Suspicious pattern descriptions.
+   * @param analysis Computed leak analysis metrics.
+   * @returns Recommendation strings.
    */
-  generateRecommendations(detected: boolean, patterns: string[], analysis: MemoryLeakAnalysis): string[] {
+  generateRecommendations(
+    detected: boolean,
+    patterns: string[],
+    analysis: MemoryLeakAnalysis,
+  ): string[] {
     const recommendations: string[] = [];
-    
+
     if (!detected) {
       recommendations.push('No memory leaks detected');
       return recommendations;
     }
-    
+
     if (analysis.heapGrowth > this.leakThresholds.heap) {
       recommendations.push('Consider increasing heap memory limits');
       recommendations.push('Check for large object allocations');
     }
-    
+
     if (analysis.averageGrowthRate > this.leakThresholds.growthRate) {
       recommendations.push('Implement more frequent garbage collection');
       recommendations.push('Review object lifecycle management');
     }
-    
+
     if (patterns.includes('Monotonic memory growth pattern')) {
       recommendations.push('Investigate event listeners and timers');
       recommendations.push('Check for circular references');
       recommendations.push('Review cache management');
     }
-    
+
     recommendations.push('Run with --inspect to identify memory hotspots');
     recommendations.push('Consider using heap snapshot analysis');
-    
+
     return recommendations;
   }
 
   /**
-   * Clear common global references that might hold memory
+   * Clear common global references that might hold memory.
    */
   clearGlobalReferences(): void {
     const refsToClear = [
@@ -375,69 +379,86 @@ class TestMemoryManager {
       'io',
       'redisClient',
       'cache',
-      'timers'
+      'timers',
     ];
-    
-    refsToClear.forEach(ref => {
-      if ((global as any)[ref]) {
-        try {
-          if (typeof (global as any)[ref].close === 'function') {
-            (global as any)[ref].close();
+
+    refsToClear.forEach((refName) => {
+      const reference = this.globalContext[refName] as
+        | {
+            close?: () => unknown;
+            disconnect?: () => unknown;
+            clear?: () => unknown;
           }
-          if (typeof (global as any)[ref].disconnect === 'function') {
-            (global as any)[ref].disconnect();
-          }
-          if (typeof (global as any)[ref].clear === 'function') {
-            (global as any)[ref].clear();
-          }
-        } catch (error: any) {
-          console.warn(`Failed to clear ${ref}:`, error);
-        }
-        
-        (global as any)[ref] = null;
-        delete (global as any)[ref];
+        | null
+        | undefined;
+
+      if (!reference) {
+        return;
       }
+
+      try {
+        if (typeof reference.close === 'function') {
+          reference.close();
+        }
+
+        if (typeof reference.disconnect === 'function') {
+          reference.disconnect();
+        }
+
+        if (typeof reference.clear === 'function') {
+          reference.clear();
+        }
+      } catch (error) {
+        console.warn(`Failed to clear ${refName}:`, error);
+      }
+
+      this.globalContext[refName] = null;
+      delete this.globalContext[refName];
     });
   }
 
   /**
-   * Print memory report to console
+   * Print memory report to console.
+   *
+   * @param report Memory leak report to display.
    */
   printReport(report: MemoryLeakReport): void {
     console.log('\nMemory Leak Analysis Report:');
     console.log('=====================================');
-    
+
     if (report.detected) {
       console.log('MEMORY LEAKS DETECTED');
     } else {
       console.log('No significant memory leaks detected');
     }
-    
+
     console.log('\nGrowth Analysis:');
     console.log(`   Heap Growth: ${report.analysis.heapGrowth > 0 ? '+' : ''}${report.analysis.heapGrowth}MB`);
     console.log(`   RSS Growth: ${report.analysis.rssGrowth > 0 ? '+' : ''}${report.analysis.rssGrowth}MB`);
     console.log(`   External Growth: ${report.analysis.externalGrowth > 0 ? '+' : ''}${report.analysis.externalGrowth}MB`);
     console.log(`   Growth Rate: ${report.analysis.averageGrowthRate.toFixed(2)}MB/min`);
-    
+
     if (report.analysis.suspiciousPatterns.length > 0) {
       console.log('\nSuspicious Patterns:');
-      report.analysis.suspiciousPatterns.forEach(pattern => {
+      report.analysis.suspiciousPatterns.forEach((pattern) => {
         console.log(`   - ${pattern}`);
       });
     }
-    
+
     if (report.recommendations.length > 0) {
       console.log('\nRecommendations:');
-      report.recommendations.forEach(rec => {
-        console.log(`   ${rec}`);
+      report.recommendations.forEach((recommendation) => {
+        console.log(`   ${recommendation}`);
       });
     }
-    
+
     console.log('=====================================\n');
   }
 
   /**
-   * Generate empty report
+   * Generate empty report.
+   *
+   * @returns Default report object indicating insufficient data.
    */
   generateEmptyReport(): MemoryLeakReport {
     return {
@@ -448,27 +469,35 @@ class TestMemoryManager {
         rssGrowth: 0,
         externalGrowth: 0,
         averageGrowthRate: 0,
-        suspiciousPatterns: []
+        suspiciousPatterns: [],
       },
-      recommendations: ['Insufficient data for analysis']
+      recommendations: ['Insufficient data for analysis'],
     };
   }
 
   /**
-   * Get memory manager statistics
+   * Get memory manager statistics.
+   *
+   * @returns Stats describing current monitoring state.
    */
-  getStats(): MemoryManagerStats {
+  getStats(): {
+    isActive: boolean;
+    checkpointsCount: number;
+    gcAvailable: boolean;
+    currentUsage: MemoryCheckpoint;
+    thresholds: MemoryThresholds;
+  } {
     return {
       isActive: this.isActive,
       checkpointsCount: this.checkpoints.length,
       gcAvailable: this.gcAvailable,
       currentUsage: this.getCurrentUsage(),
-      thresholds: this.leakThresholds
+      thresholds: this.leakThresholds,
     };
   }
 
   /**
-   * Reset memory manager
+   * Reset memory manager.
    */
   reset(): void {
     this.isActive = false;
@@ -478,67 +507,70 @@ class TestMemoryManager {
 }
 
 /**
- * Create a new memory manager instance
- * 
- * @param {TestMemoryManagerOptions} options - Configuration options
- * @returns {TestMemoryManager} New instance
+ * Create a new memory manager instance.
+ *
+ * @param options Configuration options.
+ * @returns New memory manager instance.
  */
-function createMemoryManager(options: TestMemoryManagerOptions = {}): TestMemoryManager {
+export function createMemoryManager(options: TestMemoryManagerOptions = {}): TestMemoryManager {
   return new TestMemoryManager(options);
 }
 
 /**
- * Create and start a leak detection session
- * 
- * @param {string} context - Optional context description
- * @returns {TestMemoryManager} Active memory manager
+ * Create and start a leak detection session.
+ *
+ * @param context Optional context description.
+ * @returns Active memory manager.
  */
-function createLeakDetectionSession(context?: string): TestMemoryManager {
+export function createLeakDetectionSession(context?: string): TestMemoryManager {
   const manager = new TestMemoryManager();
   manager.startMonitoring(context);
   return manager;
 }
 
 /**
- * Quick memory check with GC
- * 
- * @returns {MemoryCheckResult} Before/after memory comparison
+ * Quick memory check with GC.
+ *
+ * @returns Before/after memory comparison.
  */
-function quickMemoryCheck(): MemoryCheckResult {
+export function quickMemoryCheck(): MemoryCheckResult {
   const manager = new TestMemoryManager();
   const before = manager.getCurrentUsage();
   manager.forceGarbageCollection();
   const after = manager.getCurrentUsage();
-  
+
   return {
     before,
     after,
     freed: {
       heap: before.heapUsed - after.heapUsed,
       rss: before.rss - after.rss,
-      external: before.external - after.external
+      external: before.external - after.external,
     },
-    gcRan: manager.gcAvailable
+    gcRan: manager.gcAvailable,
   };
 }
 
 /**
- * Run a function with memory tracking
- * 
- * @param {Function} fn - Async function to run
- * @param {string} context - Context description
- * @returns {Promise<MemoryTrackingResult>} Result with memory report
+ * Run a function with memory tracking.
+ *
+ * @param fn Async function to run.
+ * @param context Context description used in monitoring.
+ * @returns Result with memory report.
  */
-async function withMemoryTracking<T>(fn: () => Promise<T>, context?: string): Promise<MemoryTrackingResult<T>> {
+export async function withMemoryTracking<T>(
+  fn: () => Promise<T> | T,
+  context?: string,
+): Promise<MemoryTrackingResult<T>> {
   const manager = createLeakDetectionSession(context);
-  
+
   try {
-    const result = await fn();
+    const result = await Promise.resolve(fn());
     const report = manager.stopMonitoring();
-    
+
     return {
       result,
-      memoryReport: report
+      memoryReport: report,
     };
   } catch (error) {
     manager.stopMonitoring();
@@ -547,34 +579,29 @@ async function withMemoryTracking<T>(fn: () => Promise<T>, context?: string): Pr
 }
 
 /**
- * Jest/test framework beforeAll helper
- * 
- * @param {string} context - Test suite context
- * @returns {TestMemoryManager} Memory manager for the test suite
+ * Jest/test framework beforeAll helper.
+ *
+ * @param context Test suite context.
+ * @returns Memory manager for the test suite.
  */
-function setupTestMemoryMonitoring(context?: string): TestMemoryManager {
+export function setupTestMemoryMonitoring(context?: string): TestMemoryManager {
   const manager = new TestMemoryManager();
   manager.startMonitoring(context);
   return manager;
 }
 
 /**
- * Jest/test framework afterAll helper
- * 
- * @param {TestMemoryManager} manager - Memory manager to finalize
- * @returns {MemoryLeakReport} Memory leak report
+ * Jest/test framework afterAll helper.
+ *
+ * @param manager Memory manager to finalize.
+ * @returns Memory leak report.
  */
-function teardownTestMemoryMonitoring(manager?: TestMemoryManager): MemoryLeakReport | null {
-  if (!manager) return null;
+export function teardownTestMemoryMonitoring(
+  manager: TestMemoryManager | null | undefined,
+): MemoryLeakReport | null {
+  if (!manager) {
+    return null;
+  }
+
   return manager.stopMonitoring();
 }
-
-export {
-  TestMemoryManager,
-  createMemoryManager,
-  createLeakDetectionSession,
-  quickMemoryCheck,
-  withMemoryTracking,
-  setupTestMemoryMonitoring,
-  teardownTestMemoryMonitoring
-};

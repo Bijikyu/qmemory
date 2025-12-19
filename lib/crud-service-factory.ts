@@ -1,11 +1,11 @@
 /**
  * CRUD Service Factory
- * Generates standardized CRUD service layers for MongoDB/Mongoose models
- * 
+ * Generates standardized CRUD service layers for MongoDB/Mongoose models.
+ *
  * Eliminates repetitive CRUD service code by providing a factory pattern that
  * creates complete service objects with standard operations. Provides lifecycle
  * hooks for customization while reducing code duplication.
- * 
+ *
  * Features:
  * - Complete CRUD operations (create, read, update, delete)
  * - Built-in duplicate detection
@@ -13,7 +13,7 @@
  * - Search with configurable searchable fields
  * - Pagination with consistent response format
  * - Query enhancement and result transformation
- * 
+ *
  * Use cases:
  * - Mongoose applications
  * - MongoDB-based APIs
@@ -21,20 +21,27 @@
  * - Any application needing standardized data access
  */
 
-import { Model, Document } from 'mongoose';
+import type {
+  FilterQuery,
+  HydratedDocument,
+  Model,
+  QueryWithHelpers,
+  UpdateQuery,
+} from 'mongoose';
 
-/**
- * Mongoose model type
- */
-export type MongooseModel = Model<Document>;
+type DocumentShape = Record<string, unknown>;
+type SortDefinition = Record<string, 1 | -1>;
+type HydratedFindQuery<TDoc extends DocumentShape> = QueryWithHelpers<
+  HydratedDocument<TDoc>[],
+  HydratedDocument<TDoc>,
+  Record<string, never>,
+  TDoc
+>; // Provide precise typings for fluent find queries without leaking helper generics
 
-/**
- * Validation rule interface
- */
 export interface ValidationRule {
   required?: boolean;
   type?: 'string' | 'number' | 'boolean' | 'object' | 'array';
-  enum?: any[];
+  enum?: unknown[];
   minLength?: number;
   maxLength?: number;
   min?: number;
@@ -42,25 +49,16 @@ export interface ValidationRule {
   pattern?: RegExp;
 }
 
-/**
- * Validation rules interface
- */
-export interface ValidationRules {
-  [field: string]: ValidationRule;
-}
+export type ValidationRules<TDoc extends DocumentShape> = Partial<
+  Record<keyof TDoc & string, ValidationRule>
+>;
 
-/**
- * Pagination options interface
- */
-export interface PaginationOptions {
+export interface PaginationOptions<TSort = SortDefinition> {
   page?: number;
   limit?: number;
-  sort?: any;
+  sort?: TSort;
 }
 
-/**
- * Pagination response interface
- */
 export interface PaginationResponse {
   page: number;
   limit: number;
@@ -69,109 +67,142 @@ export interface PaginationResponse {
   hasMore: boolean;
 }
 
-/**
- * CRUD service options interface
- */
-export interface CrudServiceOptions {
-  uniqueField?: string;
-  searchableFields?: string[];
-  beforeCreate?: (data: any) => Promise<any>;
-  afterCreate?: (created: any) => Promise<void>;
-  beforeUpdate?: (data: any, existing: any) => Promise<any>;
-  afterUpdate?: (updated: any) => Promise<void>;
-  beforeDelete?: (existing: any) => Promise<void>;
-  afterDelete?: (deleted: any) => Promise<void>;
-  defaultSort?: any;
+interface PaginatedServiceResult<TDoc extends DocumentShape> {
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  hasMore: boolean;
+  [key: string]: unknown;
+}
+
+interface LifecycleHooks<TDoc extends DocumentShape> {
+  beforeCreate?: (data: Partial<TDoc>) => Promise<Partial<TDoc>> | Partial<TDoc>;
+  afterCreate?: (created: HydratedDocument<TDoc>) => Promise<void> | void;
+  beforeUpdate?: (
+    data: Partial<TDoc>,
+    existing: HydratedDocument<TDoc>
+  ) => Promise<Partial<TDoc>> | Partial<TDoc>;
+  afterUpdate?: (updated: HydratedDocument<TDoc>) => Promise<void> | void;
+  beforeDelete?: (existing: HydratedDocument<TDoc>) => Promise<void> | void;
+  afterDelete?: (deleted: HydratedDocument<TDoc>) => Promise<void> | void;
+}
+
+export interface CrudServiceOptions<TDoc extends DocumentShape> extends LifecycleHooks<TDoc> {
+  uniqueField?: keyof TDoc & string;
+  searchableFields?: Array<keyof TDoc & string>;
+  defaultSort?: SortDefinition;
   defaultLimit?: number;
 }
 
-/**
- * Paginated service options interface
- */
-export interface PaginatedServiceOptions {
-  defaultSort?: any;
+export interface PaginatedServiceOptions<TDoc extends DocumentShape, TSort = SortDefinition> {
+  defaultSort?: TSort;
   defaultLimit?: number;
-  queryEnhancer?: (query: any, filters: any) => any;
-  resultEnhancer?: (resources: any[], filters: any) => Promise<any[]>;
-  additionalData?: (filters: any, resources: any[]) => any | Promise<any>;
+  queryEnhancer?: (
+    query: HydratedFindQuery<TDoc>,
+    filters: FilterQuery<TDoc>
+  ) => HydratedFindQuery<TDoc>;
+  resultEnhancer?: (
+    resources: HydratedDocument<TDoc>[],
+    filters: FilterQuery<TDoc>
+  ) => Promise<HydratedDocument<TDoc>[]> | HydratedDocument<TDoc>[];
+  additionalData?: (
+    filters: FilterQuery<TDoc>,
+    resources: HydratedDocument<TDoc>[]
+  ) => Promise<Record<string, unknown>> | Record<string, unknown>;
 }
 
-/**
- * CRUD service interface
- */
-export interface CrudService {
-  create: (data: any) => Promise<any>;
-  getById: (id: string) => Promise<any>;
-  getAll: (filters?: any, pagination?: PaginationOptions, sort?: any) => Promise<{
-    data: any[];
+export interface CrudService<TDoc extends DocumentShape> {
+  create: (data: Partial<TDoc>) => Promise<HydratedDocument<TDoc>>;
+  getById: (id: string) => Promise<HydratedDocument<TDoc>>;
+  getAll: (
+    filters?: FilterQuery<TDoc>,
+    pagination?: PaginationOptions,
+    sort?: SortDefinition
+  ) => Promise<{
+    data: HydratedDocument<TDoc>[];
     pagination: PaginationResponse;
   }>;
-  update: (id: string, updateData: any) => Promise<any>;
-  deleteById: (id: string) => Promise<any>;
-  search: (query: string, pagination?: PaginationOptions) => Promise<{
-    data: any[];
+  update: (id: string, updateData: Partial<TDoc>) => Promise<HydratedDocument<TDoc>>;
+  deleteById: (id: string) => Promise<HydratedDocument<TDoc>>;
+  search: (
+    query: string,
+    pagination?: PaginationOptions
+  ) => Promise<{
+    data: HydratedDocument<TDoc>[];
     pagination: PaginationResponse;
     query: string;
   }>;
-  getByField: (field: string, value: any) => Promise<any[]>;
-  count: (filters?: any) => Promise<number>;
+  getByField: (
+    field: keyof TDoc & string,
+    value: TDoc[keyof TDoc & string]
+  ) => Promise<HydratedDocument<TDoc>[]>;
+  count: (filters?: FilterQuery<TDoc>) => Promise<number>;
   exists: (id: string) => Promise<boolean>;
-  bulkCreate: (items: any[]) => Promise<Array<{
-    success: boolean;
-    data?: any;
-    error?: string;
-  }>>;
-  upsert: (query: any, data: any) => Promise<any>;
+  bulkCreate: (items: Array<Partial<TDoc>>) => Promise<
+    Array<{
+      success: boolean;
+      data?: HydratedDocument<TDoc>;
+      error?: string;
+      input: Partial<TDoc>;
+    }>
+  >;
+  upsert: (query: FilterQuery<TDoc>, data: Partial<TDoc>) => Promise<HydratedDocument<TDoc>>;
 }
 
-/**
- * Duplicate error interface
- */
 export interface DuplicateError extends Error {
   code: 'DUPLICATE';
   field: string;
-  value: any;
+  value: unknown;
 }
 
-/**
- * Not found error interface
- */
 export interface NotFoundError extends Error {
   code: 'NOT_FOUND';
 }
 
 /**
- * Find document by field value (case-insensitive)
+ * Find document by field value (case-insensitive).
+ * @param Model - Mongoose model used for lookups.
+ * @param field - Field to search against.
+ * @param value - Value to compare.
+ * @returns Hydrated document when found, otherwise null.
  */
-export async function findByFieldIgnoreCase(
-  Model: MongooseModel,
-  field: string,
-  value: any
-): Promise<any | null> {
+export async function findByFieldIgnoreCase<
+  TDoc extends DocumentShape,
+  TField extends keyof TDoc & string,
+>(Model: Model<TDoc>, field: TField, value: TDoc[TField]): Promise<HydratedDocument<TDoc> | null> {
   if (!value || typeof value !== 'string') {
-    return await Model.findOne({ [field]: value });
+    return Model.findOne({ [field]: value } as FilterQuery<TDoc>).exec(); // Query directly without regex when value is non-string to leverage indexes
   }
-  return await Model.findOne({
-    [field]: { $regex: new RegExp(`^${escapeRegex(value)}$`, 'i') }
-  });
+
+  return Model.findOne({
+    [field]: { $regex: new RegExp(`^${escapeRegex(value)}$`, 'i') },
+  } as FilterQuery<TDoc>).exec(); // Use case-insensitive regex to prevent duplicates differing only by casing
 }
 
 /**
- * Escape special regex characters
+ * Escape special regex characters for safe use in queries.
+ * @param str - Raw string to escape.
+ * @returns Sanitized string safe for regex construction.
  */
 export function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex metacharacters to avoid injection vulnerabilities
 }
 
 /**
- * Create a duplicate error
+ * Create a duplicate error that can be surfaced to clients.
+ * @param resourceType - Name of the resource (for messaging).
+ * @param field - Field that violated uniqueness.
+ * @param value - Offending value.
+ * @returns DuplicateError enriched with metadata.
  */
 export function createDuplicateError(
   resourceType: string,
   field: string,
-  value: any
+  value: unknown
 ): DuplicateError {
-  const error = new Error(`${resourceType} with ${field} "${value}" already exists`) as DuplicateError;
+  const error = new Error(
+    `${resourceType} with ${field} "${String(value)}" already exists`
+  ) as DuplicateError;
   error.code = 'DUPLICATE';
   error.field = field;
   error.value = value;
@@ -179,58 +210,54 @@ export function createDuplicateError(
 }
 
 /**
- * Creates a CRUD service factory for a given Mongoose model
+ * Creates a CRUD service factory for a given Mongoose model.
+ * @param Model - Mongoose model to wrap.
+ * @param resourceType - Semantic name for logging and messages.
+ * @param options - Optional lifecycle hooks and defaults.
+ * @returns Service implementing standardized CRUD operations.
  */
-export function createCrudService(
-  Model: MongooseModel,
+export function createCrudService<TDoc extends DocumentShape>(
+  Model: Model<TDoc>,
   resourceType: string,
-  options: CrudServiceOptions = {}
-): CrudService {
+  options: CrudServiceOptions<TDoc> = {}
+): CrudService<TDoc> {
   const {
-    uniqueField = 'name',
-    searchableFields = ['name'],
-    beforeCreate = null,
-    afterCreate = null,
-    beforeUpdate = null,
-    afterUpdate = null,
-    beforeDelete = null,
-    afterDelete = null,
+    uniqueField = 'name' as keyof TDoc & string,
+    searchableFields = ['name'] as Array<keyof TDoc & string>,
+    beforeCreate,
+    afterCreate,
+    beforeUpdate,
+    afterUpdate,
+    beforeDelete,
+    afterDelete,
     defaultSort = { createdAt: -1 },
-    defaultLimit = 50
+    defaultLimit = 50,
   } = options;
 
-  /**
-   * Creates a new resource
-   */
-  async function create(data: any): Promise<any> {
-    if (data[uniqueField]) {
-      const existing = await findByFieldIgnoreCase(Model, uniqueField, data[uniqueField]);
+  async function create(data: Partial<TDoc>): Promise<HydratedDocument<TDoc>> {
+    const uniqueValue = data[uniqueField];
+    if (uniqueValue !== undefined && uniqueValue !== null && uniqueValue !== '') {
+      const existing = await findByFieldIgnoreCase(Model, uniqueField, uniqueValue);
       if (existing) {
-        throw createDuplicateError(resourceType, uniqueField, data[uniqueField]);
+        throw createDuplicateError(resourceType, uniqueField, uniqueValue);
       }
     }
 
-    let processedData = { ...data };
-    if (beforeCreate) {
-      processedData = await beforeCreate(processedData);
-    }
+    const processedData = beforeCreate ? await beforeCreate({ ...data }) : { ...data };
 
     const item = new Model(processedData);
-    const saved = await item.save();
+    const saved = await item.save(); // Persist via Mongoose so hooks and validation execute
 
     if (afterCreate) {
       await afterCreate(saved);
     }
 
-    console.log(`[crud] ${resourceType} created: ${saved._id}`);
+    console.log(`[crud] ${resourceType} created: ${saved._id}`); // Emit structured log to support operational tracing
     return saved;
   }
 
-  /**
-   * Gets a resource by ID
-   */
-  async function getById(id: string): Promise<any> {
-    const item = await Model.findById(id);
+  async function getById(id: string): Promise<HydratedDocument<TDoc>> {
+    const item = await Model.findById(id).exec(); // Use exec to obtain a real promise and better typings
     if (!item) {
       const error = new Error(`${resourceType} not found`) as NotFoundError;
       error.code = 'NOT_FOUND';
@@ -239,24 +266,26 @@ export function createCrudService(
     return item;
   }
 
-  /**
-   * Gets all resources with optional filtering and pagination
-   */
   async function getAll(
-    filters: any = {},
+    filters: FilterQuery<TDoc> = {},
     pagination: PaginationOptions = {},
-    sort: any = defaultSort
-  ): Promise<{ data: any[]; pagination: PaginationResponse }> {
+    sort: SortDefinition = defaultSort
+  ): Promise<{
+    data: HydratedDocument<TDoc>[];
+    pagination: PaginationResponse;
+  }> {
     const { page = 1, limit = defaultLimit } = pagination;
     const skip = (page - 1) * limit;
 
-    const query = Model.find(filters);
-    query.sort(sort);
+    const query = Model.find(filters); // Start with raw query to allow optional enhancers
+    query.sort(sort); // Apply sorting early to leverage indexes
 
     const [data, total] = await Promise.all([
-      query.skip(skip).limit(limit),
-      Model.countDocuments(filters)
+      query.skip(skip).limit(limit).exec(), // Execute query with pagination to fetch subset
+      Model.countDocuments(filters).exec(), // Count separately to compute pagination metadata safely
     ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
     return {
       data,
@@ -264,53 +293,58 @@ export function createCrudService(
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
-        hasMore: page < Math.ceil(total / limit)
-      }
+        pages: totalPages,
+        hasMore: page < totalPages,
+      },
     };
   }
 
-  /**
-   * Updates a resource by ID
-   */
-  async function update(id: string, updateData: any): Promise<any> {
-    const existing = await Model.findById(id);
+  async function update(id: string, updateData: Partial<TDoc>): Promise<HydratedDocument<TDoc>> {
+    const existing = await Model.findById(id).exec(); // Fetch document once to compare unique fields and reuse in hooks
     if (!existing) {
       const error = new Error(`${resourceType} not found`) as NotFoundError;
       error.code = 'NOT_FOUND';
       throw error;
     }
 
-    if (updateData[uniqueField] && updateData[uniqueField] !== (existing as any)[uniqueField]) {
-      const duplicate = await findByFieldIgnoreCase(Model, uniqueField, updateData[uniqueField]);
-      if (duplicate && duplicate._id.toString() !== id) {
-        throw createDuplicateError(resourceType, uniqueField, updateData[uniqueField]);
+    const incomingValue = updateData[uniqueField];
+    if (
+      incomingValue !== undefined &&
+      incomingValue !== null &&
+      incomingValue !== '' &&
+      existing[uniqueField] !== incomingValue
+    ) {
+      const duplicate = await findByFieldIgnoreCase(Model, uniqueField, incomingValue);
+      if (duplicate && String((duplicate as { _id: unknown })._id) !== id) {
+        throw createDuplicateError(resourceType, uniqueField, incomingValue);
       }
     }
 
-    let processedData = { ...updateData };
-    if (beforeUpdate) {
-      processedData = await beforeUpdate(processedData, existing);
-    }
+    const processedData = beforeUpdate
+      ? await beforeUpdate({ ...updateData }, existing)
+      : { ...updateData };
 
-    const updated = await Model.findByIdAndUpdate(id, processedData, { 
-      new: true, 
-      runValidators: true 
-    });
+    const updated = await Model.findByIdAndUpdate(id, processedData as UpdateQuery<TDoc>, {
+      new: true,
+      runValidators: true,
+    }).exec(); // Execute update with validators ensuring Mongoose produces a fresh document
+
+    if (!updated) {
+      const error = new Error(`${resourceType} not found`) as NotFoundError;
+      error.code = 'NOT_FOUND';
+      throw error;
+    }
 
     if (afterUpdate) {
-      await afterUpdate(updated!);
+      await afterUpdate(updated);
     }
 
-    console.log(`[crud] ${resourceType} updated: ${updated!._id}`);
+    console.log(`[crud] ${resourceType} updated: ${updated._id}`); // Log updates for auditing and debugging diffs
     return updated;
   }
 
-  /**
-   * Deletes a resource by ID
-   */
-  async function deleteById(id: string): Promise<any> {
-    const existing = await Model.findById(id);
+  async function deleteById(id: string): Promise<HydratedDocument<TDoc>> {
+    const existing = await Model.findById(id).exec(); // Ensure we load document for lifecycle hooks before removing
     if (!existing) {
       const error = new Error(`${resourceType} not found`) as NotFoundError;
       error.code = 'NOT_FOUND';
@@ -321,36 +355,44 @@ export function createCrudService(
       await beforeDelete(existing);
     }
 
-    const deleted = await Model.findByIdAndDelete(id);
-
-    if (afterDelete) {
-      await afterDelete(deleted!);
+    const deleted = await Model.findByIdAndDelete(id).exec(); // Delete via Mongoose so middleware executes and document returned
+    if (!deleted) {
+      const error = new Error(`${resourceType} not found`) as NotFoundError;
+      error.code = 'NOT_FOUND';
+      throw error;
     }
 
-    console.log(`[crud] ${resourceType} deleted: ${deleted!._id}`);
+    if (afterDelete) {
+      await afterDelete(deleted);
+    }
+
+    console.log(`[crud] ${resourceType} deleted: ${deleted._id}`); // Capture deletions for compliance-friendly audit trail
     return deleted;
   }
 
-  /**
-   * Searches resources by text query
-   */
   async function search(
-    query: string,
+    queryText: string,
     pagination: PaginationOptions = {}
-  ): Promise<{ data: any[]; pagination: PaginationResponse; query: string }> {
+  ): Promise<{
+    data: HydratedDocument<TDoc>[];
+    pagination: PaginationResponse;
+    query: string;
+  }> {
     const { page = 1, limit = defaultLimit } = pagination;
     const skip = (page - 1) * limit;
 
-    const searchCriteria = {
+    const searchCriteria: FilterQuery<TDoc> = {
       $or: searchableFields.map(field => ({
-        [field]: { $regex: escapeRegex(query), $options: 'i' }
-      }))
-    };
+        [field]: { $regex: escapeRegex(queryText), $options: 'i' },
+      })),
+    } as FilterQuery<TDoc>;
 
     const [data, total] = await Promise.all([
-      Model.find(searchCriteria).skip(skip).limit(limit).sort(defaultSort),
-      Model.countDocuments(searchCriteria)
+      Model.find(searchCriteria).skip(skip).limit(limit).sort(defaultSort).exec(), // Execute search query with pagination to keep memory bounded
+      Model.countDocuments(searchCriteria).exec(), // Count matches to inform client pagination
     ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
     return {
       data,
@@ -358,66 +400,72 @@ export function createCrudService(
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
-        hasMore: page < Math.ceil(total / limit)
+        pages: totalPages,
+        hasMore: page < totalPages,
       },
-      query
+      query: queryText,
     };
   }
 
-  /**
-   * Gets resources by field value
-   */
-  async function getByField(field: string, value: any): Promise<any[]> {
-    return await Model.find({ [field]: value });
+  async function getByField(
+    field: keyof TDoc & string,
+    value: TDoc[keyof TDoc & string]
+  ): Promise<HydratedDocument<TDoc>[]> {
+    return Model.find({ [field]: value } as FilterQuery<TDoc>).exec(); // Retrieve all matching docs for analytics/helpers while preserving indexes
   }
 
-  /**
-   * Counts resources matching criteria
-   */
-  async function count(filters: any = {}): Promise<number> {
-    return await Model.countDocuments(filters);
+  async function count(filters: FilterQuery<TDoc> = {}): Promise<number> {
+    return Model.countDocuments(filters).exec(); // Use exec for deterministic promise resolution and to surface query errors eagerly
   }
 
-  /**
-   * Check if resource exists by ID
-   */
   async function exists(id: string): Promise<boolean> {
-    const doc = await Model.findById(id).select('_id').lean();
-    return !!doc;
+    const doc = await Model.findById(id).select('_id').lean<{ _id: unknown }>().exec(); // Lean query keeps memory usage low when only checking existence
+    return doc !== null;
   }
 
-  /**
-   * Bulk create resources
-   */
-  async function bulkCreate(items: any[]): Promise<Array<{
-    success: boolean;
-    data?: any;
-    error?: string;
-  }>> {
-    const results = [];
-    for (const data of items) {
+  async function bulkCreate(items: Array<Partial<TDoc>>): Promise<
+    Array<{
+      success: boolean;
+      data?: HydratedDocument<TDoc>;
+      error?: string;
+      input: Partial<TDoc>;
+    }>
+  > {
+    const results: Array<{
+      success: boolean;
+      data?: HydratedDocument<TDoc>;
+      error?: string;
+      input: Partial<TDoc>;
+    }> = [];
+
+    for (const item of items) {
       try {
-        const created = await create(data);
-        results.push({ success: true, data: created });
-      } catch (error: any) {
-        results.push({ success: false, error: error.message, data });
+        const created = await create(item);
+        results.push({ success: true, data: created, input: item });
+      } catch (error) {
+        const err = error as Error;
+        results.push({
+          success: false,
+          error: err.message,
+          input: item,
+        });
       }
     }
+
     return results;
   }
 
-  /**
-   * Upsert a resource (create or update)
-   */
-  async function upsert(query: any, data: any): Promise<any> {
-    const existing = await Model.findOne(query);
-    
+  async function upsert(
+    query: FilterQuery<TDoc>,
+    data: Partial<TDoc>
+  ): Promise<HydratedDocument<TDoc>> {
+    const existing = await Model.findOne(query).exec(); // Look for existing doc first to respect hooks on update
     if (existing) {
-      return await update((existing as any)._id.toString(), data);
+      const identifier = (existing as { _id: unknown })._id;
+      return update(String(identifier), data);
     }
-    
-    return await create({ ...query, ...data });
+
+    return create({ ...query, ...data });
   }
 
   return {
@@ -431,71 +479,67 @@ export function createCrudService(
     count,
     exists,
     bulkCreate,
-    upsert
+    upsert,
   };
 }
 
 /**
- * Creates a paginated service function with standardized response format
+ * Creates a paginated service function with standardized response format.
+ * @param Model - Mongoose model backing the pagination.
+ * @param resourceType - Resource key inserted into the response.
+ * @param options - Pagination behaviour customization.
+ * @returns Service function returning pagination metadata plus data.
  */
-export function createPaginatedService(
-  Model: MongooseModel,
+export function createPaginatedService<TDoc extends DocumentShape>(
+  Model: Model<TDoc>,
   resourceType: string,
-  options: PaginatedServiceOptions = {}
-) {
+  options: PaginatedServiceOptions<TDoc> = {}
+): (
+  filters?: FilterQuery<TDoc>,
+  serviceOptions?: PaginationOptions
+) => Promise<PaginatedServiceResult<TDoc>> {
   const {
-    defaultSort = { createdAt: -1 },
+    defaultSort = { createdAt: -1 } as SortDefinition,
     defaultLimit = 50,
-    queryEnhancer = null,
-    resultEnhancer = null,
-    additionalData = null
+    queryEnhancer,
+    resultEnhancer,
+    additionalData,
   } = options;
 
   return async function getPaginatedResources(
-    filters: any = {},
+    filters: FilterQuery<TDoc> = {},
     serviceOptions: PaginationOptions = {}
-  ): Promise<any> {
-    const {
-      page = 1,
-      limit = defaultLimit,
-      sort = defaultSort
-    } = serviceOptions;
-    
+  ): Promise<PaginatedServiceResult<TDoc>> {
+    const { page = 1, limit = defaultLimit, sort = defaultSort } = serviceOptions;
     const skip = (page - 1) * limit;
 
-    let query = Model.find(filters);
-
+    let query = Model.find(filters) as HydratedFindQuery<TDoc>; // Start from base query then optionally enhance without mutating Model global state
     if (queryEnhancer) {
-      query = queryEnhancer(query, filters);
+      query = queryEnhancer(query, filters); // Allow consumers to add populates or projections while keeping type safety
     }
 
+    const paginatedQuery = query.sort(sort).skip(skip).limit(limit) as HydratedFindQuery<TDoc>; // Preserve fluent query so we can execute once and keep helpers intact
     const [resources, totalCount] = await Promise.all([
-      query.sort(sort).skip(skip).limit(limit).lean(),
-      Model.countDocuments(filters)
+      paginatedQuery.exec(), // Execute final query respecting user-provided enhancements
+      Model.countDocuments(filters).exec(), // Count documents separately to avoid mutating enhanced query
     ]);
 
-    let enhancedResources = resources;
-    if (resultEnhancer) {
-      enhancedResources = await resultEnhancer(resources, filters);
-    }
+    const enhancedResources = resultEnhancer ? await resultEnhancer(resources, filters) : resources; // Allow callers to decorate results (e.g., populate, transform) without reimplementing pagination
 
-    const totalPages = Math.ceil(totalCount / limit);
+    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
     const hasMore = page < totalPages;
 
-    const response: any = {
+    const response: PaginatedServiceResult<TDoc> = {
       [resourceType]: enhancedResources,
       totalCount,
       currentPage: page,
       totalPages,
-      hasMore
+      hasMore,
     };
 
     if (additionalData) {
-      const extraDataResult = additionalData(filters, enhancedResources);
-      const extraData = extraDataResult && typeof extraDataResult.then === 'function'
-        ? await extraDataResult
-        : extraDataResult;
-      Object.assign(response, extraData);
+      const extra = await additionalData(filters, enhancedResources);
+      Object.assign(response, extra);
     }
 
     return response;
@@ -503,74 +547,96 @@ export function createPaginatedService(
 }
 
 /**
- * Create service with validation for a specific domain
+ * Create service with validation for a specific domain.
+ * @param Model - Mongoose model to protect.
+ * @param resourceType - Resource name for messaging.
+ * @param validationRules - Rules applied during create/update.
+ * @returns CRUD service that validates payloads.
  */
-export function createValidatedService(
-  Model: MongooseModel,
+export function createValidatedService<TDoc extends DocumentShape>(
+  Model: Model<TDoc>,
   resourceType: string,
-  validationRules: ValidationRules = {}
-): CrudService {
-  const baseService = createCrudService(Model, resourceType, {
-    beforeCreate: async (data) => {
+  validationRules: ValidationRules<TDoc> = {}
+): CrudService<TDoc> {
+  return createCrudService(Model, resourceType, {
+    async beforeCreate(data) {
       validateData(data, validationRules);
       return data;
     },
-    beforeUpdate: async (data, existing) => {
-      validateData(data, validationRules, true);
+    async beforeUpdate(data, existing) {
+      validateData({ ...(existing.toObject() as Partial<TDoc>), ...data }, validationRules, true);
       return data;
-    }
+    },
   });
-
-  return baseService;
 }
 
 /**
- * Validate data against rules
+ * Validate data against rules to provide pre-save safety.
+ * @param data - Payload being validated.
+ * @param rules - Validation rules keyed by field name.
+ * @param isUpdate - Whether validation occurs during update (relaxes required check).
+ * @returns Nothing; throws on validation failure.
  */
-export function validateData(
-  data: any,
-  rules: ValidationRules,
+export function validateData<TDoc extends DocumentShape>(
+  data: Partial<TDoc>,
+  rules: ValidationRules<TDoc>,
   isUpdate: boolean = false
 ): void {
   for (const [field, rule] of Object.entries(rules)) {
-    const value = data[field];
-    
+    if (!rule) {
+      continue;
+    }
+
+    const value = data[field as keyof TDoc];
+
     if (rule.required && !isUpdate && (value === undefined || value === null || value === '')) {
       throw new Error(`${field} is required`);
     }
-    
-    if (value !== undefined && value !== null) {
-      if (rule.type === 'string' && typeof value !== 'string') {
-        throw new Error(`${field} must be a string`);
-      }
-      
-      if (rule.type === 'number' && typeof value !== 'number') {
-        throw new Error(`${field} must be a number`);
-      }
-      
-      if (rule.enum && !rule.enum.includes(value)) {
-        throw new Error(`${field} must be one of: ${rule.enum.join(', ')}`);
-      }
-      
-      if (rule.minLength && typeof value === 'string' && value.length < rule.minLength) {
-        throw new Error(`${field} must be at least ${rule.minLength} characters`);
-      }
-      
-      if (rule.maxLength && typeof value === 'string' && value.length > rule.maxLength) {
-        throw new Error(`${field} must be at most ${rule.maxLength} characters`);
-      }
-      
-      if (rule.min && typeof value === 'number' && value < rule.min) {
-        throw new Error(`${field} must be at least ${rule.min}`);
-      }
-      
-      if (rule.max && typeof value === 'number' && value > rule.max) {
-        throw new Error(`${field} must be at most ${rule.max}`);
-      }
-      
-      if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
-        throw new Error(`${field} has invalid format`);
-      }
+
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    if (rule.type === 'string' && typeof value !== 'string') {
+      throw new Error(`${field} must be a string`);
+    }
+
+    if (rule.type === 'number' && typeof value !== 'number') {
+      throw new Error(`${field} must be a number`);
+    }
+
+    if (rule.enum && !rule.enum.includes(value)) {
+      throw new Error(`${field} must be one of: ${rule.enum.join(', ')}`);
+    }
+
+    if (
+      rule.minLength !== undefined &&
+      typeof value === 'string' &&
+      value.length < rule.minLength
+    ) {
+      throw new Error(`${field} must be at least ${rule.minLength} characters`);
+    }
+
+    if (
+      rule.maxLength !== undefined &&
+      typeof value === 'string' &&
+      value.length > rule.maxLength
+    ) {
+      throw new Error(`${field} must be at most ${rule.maxLength} characters`);
+    }
+
+    if (rule.min !== undefined && typeof value === 'number' && value < rule.min) {
+      throw new Error(`${field} must be at least ${rule.min}`);
+    }
+
+    if (rule.max !== undefined && typeof value === 'number' && value > rule.max) {
+      throw new Error(`${field} must be at most ${rule.max}`);
+    }
+
+    if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
+      throw new Error(`${field} has invalid format`);
     }
   }
 }
+
+export type { DocumentShape as CrudDocument };

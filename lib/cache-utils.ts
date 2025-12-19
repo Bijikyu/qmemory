@@ -1,50 +1,107 @@
-import { createClient as createRedisClientBase } from 'redis';
+import {
+  createClient as createRedisClientBase,
+  type RedisClientOptions,
+  type RedisClientType,
+  type RedisFunctions,
+  type RedisModules,
+  type RedisScripts,
+  type RespVersions,
+  type TypeMapping,
+} from 'redis';
 
-// Type definitions
-export interface RedisOptions {
+type BaseRedisOptions = RedisClientOptions<
+  RedisModules,
+  RedisFunctions,
+  RedisScripts,
+  RespVersions,
+  TypeMapping
+>;
+
+interface SocketOverrides extends Record<string, unknown> {
   host?: string;
   port?: number;
-  db?: number;
-  password?: string;
-  retryDelayOnFailover?: number;
-  maxRetriesPerRequest?: number;
-  socket?: {
-    reconnectStrategy?: (retries: number) => number | Error;
-  };
+  reconnectStrategy?: (retries: number) => number | Error;
 }
 
 /**
- * Create a Redis client with default configuration
- *
- * @param options - Redis client configuration options
- * @returns Redis client instance
+ * Extended configuration accepted by the convenience Redis client factory.
  */
-export function createRedisClient(options: RedisOptions = {}) {
-  const clientOptions: any = {
-    socket: {
-      host: options.host || process.env.REDIS_HOST || 'localhost',
-      port: options.port || Number(process.env.REDIS_PORT) || 6379,
-      reconnectStrategy: (retries: number): number | Error => {
-        if (retries > 10) {
-          return new Error('Redis reconnection failed after 10 attempts');
-        }
-        return Math.min(retries * 50, 1000);
-      },
-      ...options.socket,
-    },
-    database: options.db || Number(process.env.REDIS_DB) || 0,
-    retryDelayOnFailover: options.retryDelayOnFailover || 100,
-    maxRetriesPerRequest: options.maxRetriesPerRequest || 3,
+export interface RedisOptions extends Partial<BaseRedisOptions> {
+  host?: string;
+  port?: number;
+  db?: number;
+  retryDelayOnFailover?: number;
+  maxRetriesPerRequest?: number;
+  socket?: SocketOverrides;
+}
+
+export type RedisClient = RedisClientType<RedisModules, RedisFunctions, RedisScripts>;
+
+/**
+ * Computes a resilient reconnect strategy that caps delay escalation.
+ */
+const defaultReconnectStrategy = (retries: number): number | Error => {
+  if (retries > 10) return new Error('Redis reconnection failed after 10 attempts');
+  return Math.min(retries * 50, 1000);
+};
+
+/**
+ * Normalizes numeric configuration values.
+ */
+const asNumber = (value: unknown, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+/**
+ * Builds a Redis client configured with sensible defaults for local development.
+ *
+ * @param options - User-supplied overrides for Redis configuration.
+ * @returns Ready-to-use Redis client instance.
+ */
+export function createRedisClient(
+  options: RedisOptions = {}
+): RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
+  const {
+    host,
+    port,
+    db,
+    retryDelayOnFailover = 100,
+    maxRetriesPerRequest = 3,
+    socket,
+    password,
+    database,
+    ...redisOptionOverrides
+  } = options;
+
+  const socketOverrides: SocketOverrides = { ...(socket ?? {}) };
+
+  const sanitizedSocket: SocketOverrides = {
+    ...socketOverrides,
+    host: host ?? (socketOverrides.host as string | undefined) ?? process.env.REDIS_HOST ?? 'localhost',
+    port:
+      port ??
+      (socketOverrides.port as number | undefined) ??
+      asNumber(process.env.REDIS_PORT, 6379),
+    reconnectStrategy: socketOverrides.reconnectStrategy ?? defaultReconnectStrategy,
   };
 
-  if (options.password) {
-    clientOptions.password = options.password;
-  } else if (process.env.REDIS_PASSWORD) {
-    clientOptions.password = process.env.REDIS_PASSWORD;
-  }
+  const clientOptions: BaseRedisOptions & Record<string, unknown> = {
+    ...(redisOptionOverrides as BaseRedisOptions),
+    socket: sanitizedSocket as BaseRedisOptions['socket'],
+    database: db ?? database ?? asNumber(process.env.REDIS_DB, 0),
+    password: password ?? process.env.REDIS_PASSWORD,
+    retryDelayOnFailover,
+    maxRetriesPerRequest,
+  };
 
-  Object.assign(clientOptions, options);
-  return createRedisClientBase(clientOptions);
+  return createRedisClientBase<
+    RedisModules,
+    RedisFunctions,
+    RedisScripts,
+    RespVersions,
+    TypeMapping
+  >(clientOptions as BaseRedisOptions) as RedisClientType<RedisModules, RedisFunctions, RedisScripts>;
 }
 
 // Re-export redis module for advanced usage

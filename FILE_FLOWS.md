@@ -7,13 +7,13 @@ This document describes the data flow, file organization, and module relationshi
 ## Entry Points
 
 ### Primary Entry Point
-- **`index.js`** - Main module exports all library utilities through a centralized barrel export pattern
+- **`index.ts`** - Main module exports all library utilities through a centralized barrel export pattern
   - Exports 200+ functions and classes from lib/ modules
   - Provides single import point for consumers
   - No direct implementation - pure aggregation module
 
 ### Application Entry Point
-- **`demo-app.js`** - Express.js demonstration application
+- **`demo-app.ts`** - Express.js demonstration application
   - Shows practical library usage patterns
   - Implements complete REST API for user management
   - Demonstrates error handling and pagination
@@ -90,7 +90,7 @@ This document describes the data flow, file organization, and module relationshi
   - Classes: `IStorage`, `MemoryBinaryStorage`, `FileSystemBinaryStorage`
   - Factory pattern: `StorageFactory`, `getDefaultStorage()`
 
-- **`server/objectStorage.js`** - Google Cloud Storage integration
+- **`server/objectStorage.ts`** - Google Cloud Storage integration
   - Production binary storage with Replit-sidecar authentication
   - Error handling: `ObjectNotFoundError`
 

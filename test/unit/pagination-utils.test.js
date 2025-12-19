@@ -355,6 +355,11 @@ describe('Pagination Utilities', () => {
       // Note: createPaginatedResponse passes data directly, so it will be same reference
       expect(result.data).toBe(complexData);
     });
+
+    test('should attach custom metadata when extra object is provided', () => {
+      const result = createPaginatedResponse([], 1, 10, 0, { region: 'us-east-1', cacheKey: 'foo' });
+      expect(result.pagination.extra).toEqual({ region: 'us-east-1', cacheKey: 'foo' });
+    });
   });
 
   describe('Integration with existing HTTP utilities', () => {
@@ -646,7 +651,7 @@ describe('Pagination Utilities', () => {
     describe('createCursorPaginatedResponse', () => {
       test('should create complete cursor response', () => { // complete cursor response
         const data = [{ id: 1, name: 'Item 1' }];
-        const pagination = { limit: 10, direction: 'next', sort: 'id' };
+        const pagination = { limit: 10, direction: 'next', sort: 'id', cursor: null, rawCursor: null };
         
         const response = createCursorPaginatedResponse(data, pagination, true, 'id');
         
@@ -654,6 +659,22 @@ describe('Pagination Utilities', () => {
         expect(response.pagination).toBeDefined();
         expect(response.pagination.hasMore).toBe(true);
         expect(response.timestamp).toBeDefined();
+      });
+
+      test('should use custom cursor factory and include extra metadata', () => {
+        const data = [{ id: 1, score: 10 }, { id: 2, score: 20 }];
+        const pagination = { limit: 2, direction: 'next', sort: 'score', cursor: 'custom-cursor', rawCursor: 'custom-cursor' };
+        const cursorFactory = jest.fn((record) => `cursor:${record.id}`);
+
+        const response = createCursorPaginatedResponse(data, pagination, true, 'score', {
+          cursorFactory,
+          extra: { window: 'A' }
+        });
+
+        expect(cursorFactory).toHaveBeenCalled();
+        expect(response.pagination.cursors.next).toBe('cursor:2');
+        expect(response.pagination.cursors.prev).toBe('cursor:1');
+        expect(response.pagination.extra).toEqual({ window: 'A' });
       });
     });
   });

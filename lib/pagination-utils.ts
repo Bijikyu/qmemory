@@ -26,6 +26,8 @@
  * - Follows the same logging patterns as other modules for debugging consistency
  * - Maintains the same parameter validation approach used throughout the library
  */
+// 🚩AI: ENTRY_POINT_FOR_PAGINATION_UTILS
+// 🚩AI: MUST_UPDATE_IF_PAGINATION_RULES_CHANGE
 
 // Import existing HTTP utilities to maintain consistency with library patterns
 import { sendInternalServerError, validateExpressResponse, sendErrorResponse } from './http-utils.js';
@@ -44,7 +46,7 @@ interface PaginationOptions {
   maxLimit?: number;
 }
 
-interface PaginationParams {
+export interface PaginationParams {
   page: number;
   limit: number;
   skip: number;
@@ -56,12 +58,12 @@ interface CursorPaginationOptions {
   defaultSort?: string;
 }
 
-interface CursorPaginationParams {
+interface CursorPaginationParams<TCursor = string> {
   limit: number;
-  cursor: any;
+  cursor: TCursor | null;
   direction: 'next' | 'prev';
   sort: string;
-  rawCursor: string | null;
+  rawCursor: TCursor | null;
 }
 
 interface SortingOptions {
@@ -81,7 +83,7 @@ interface SortingResult {
   primarySort: SortConfig;
 }
 
-interface PaginationMeta {
+export interface PaginationMeta<TExtra extends Record<string, unknown> | undefined = undefined> {
   currentPage: number;
   totalPages: number;
   totalRecords: number;
@@ -90,34 +92,36 @@ interface PaginationMeta {
   hasPrevPage: boolean;
   nextPage: number | null;
   prevPage: number | null;
+  extra?: TExtra;
 }
 
-interface PaginatedResponse {
-  data: any[];
-  pagination: PaginationMeta;
+export interface PaginatedResponse<TData, TMeta extends PaginationMeta = PaginationMeta> {
+  data: TData[];
+  pagination: TMeta;
   timestamp: string;
 }
 
-interface CursorPaginationMeta {
+export interface CursorPaginationMeta<TCursor = string, TExtra extends Record<string, unknown> | undefined = undefined> {
   limit: number;
   direction: 'next' | 'prev';
   sort: string;
   hasMore: boolean;
   cursors: {
-    next?: string | null;
-    prev?: string | null;
-    current?: string | null;
+    next?: TCursor | null;
+    prev?: TCursor | null;
+    current?: TCursor | null;
   };
+  extra?: TExtra;
 }
 
-interface CursorPaginatedResponse {
-  data: any[];
-  pagination: CursorPaginationMeta;
+export interface CursorPaginatedResponse<TData, TCursor = string, TMeta extends CursorPaginationMeta<TCursor> = CursorPaginationMeta<TCursor>> {
+  data: TData[];
+  pagination: TMeta;
   timestamp: string;
 }
 
-const parseIntegerParam = (paramValue: any, paramName: string): ParseIntegerResult => {
-    const paramStr = String(paramValue).trim();
+const parseIntegerParam = (paramValue: unknown, paramName: string): ParseIntegerResult => {
+    const paramStr = String(paramValue ?? '').trim();
     const paramNum = parseInt(paramStr, 10);
     
     // Check if input is a valid integer string (no decimals, no non-numeric chars)
@@ -252,7 +256,7 @@ function validatePagination(req: Request, res: Response, options: PaginationOpti
         console.log(`validatePagination is returning: ${JSON.stringify(pagination)}`);
         return pagination;
         
-    } catch (error) {
+    } catch (error: unknown) {
         // Handle unexpected errors using existing HTTP utility for consistency
         // This maintains the same error handling patterns used throughout the library
         console.error('Pagination validation error:', error);
@@ -291,7 +295,12 @@ function validatePagination(req: Request, res: Response, options: PaginationOpti
  * @param totalRecords - Total number of records in the complete dataset
  * @returns Comprehensive pagination metadata object for API responses
  */
-function createPaginationMeta(page: number, limit: number, totalRecords: number): PaginationMeta { // metadata generation for client navigation
+function createPaginationMeta<TExtra extends Record<string, unknown> | undefined = undefined>(
+    page: number,
+    limit: number,
+    totalRecords: number,
+    extra?: TExtra
+  ): PaginationMeta<TExtra> { // metadata generation for client navigation
     // Calculate total pages with proper ceiling division to handle partial pages
     // Math.ceil ensures that any remainder creates an additional page
     const totalPages = Math.ceil(totalRecords / limit);
@@ -303,7 +312,7 @@ function createPaginationMeta(page: number, limit: number, totalRecords: number)
     
     // Return comprehensive metadata object with all navigation information
     // Structure designed for easy consumption by various client implementations
-    return {
+    const baseMeta: PaginationMeta = {
         currentPage: page,                                    // Current page for highlighting in navigation
         totalPages,                                          // Total pages for "X of Y" displays
         totalRecords,                                        // Total records for result count displays
@@ -313,6 +322,12 @@ function createPaginationMeta(page: number, limit: number, totalRecords: number)
         nextPage: hasNextPage ? page + 1 : null,           // Next page number or null for conditional rendering
         prevPage: hasPrevPage ? page - 1 : null            // Previous page number or null for conditional rendering
     };
+
+    if (extra && typeof extra === 'object') {
+        return { ...baseMeta, extra } as PaginationMeta<TExtra>;
+    }
+
+    return baseMeta as PaginationMeta<TExtra>;
 }
 
 /**
@@ -339,10 +354,17 @@ function createPaginationMeta(page: number, limit: number, totalRecords: number)
  * @param totalRecords - Total records in complete dataset
  * @returns Complete paginated response with data and metadata
  */
-function createPaginatedResponse(data: any[], page: number, limit: number, totalRecords: number): PaginatedResponse { // complete response structure
+function createPaginatedResponse<TData, TExtra extends Record<string, unknown> | undefined = undefined>(
+    data: TData[],
+    page: number,
+    limit: number,
+    totalRecords: number,
+    extra?: TExtra
+  ): PaginatedResponse<TData, PaginationMeta<TExtra>> { // complete response structure
+    const pagination = createPaginationMeta(page, limit, totalRecords, extra);
     return {
         data,                                                // Current page results
-        pagination: createPaginationMeta(page, limit, totalRecords), // Navigation metadata
+        pagination,                                         // Navigation metadata
         timestamp: new Date().toISOString()                 // Response timestamp for consistency
     };
 }
@@ -373,7 +395,7 @@ function createPaginatedResponse(data: any[], page: number, limit: number, total
  * @param options.defaultSort - Default sort field (default: 'id')
  * @returns Cursor pagination object or null if validation fails
  */
-function validateCursorPagination(req: Request, res: Response, options: CursorPaginationOptions = {}): CursorPaginationParams | null { // cursor-based pagination validation
+function validateCursorPagination(req: Request, res: Response, options: CursorPaginationOptions = {}): CursorPaginationParams<string> | null { // cursor-based pagination validation
     logFunctionEntry('validateCursorPagination', { query: req.query });
     
     // Validate Express response object using shared utility
@@ -440,14 +462,15 @@ function validateCursorPagination(req: Request, res: Response, options: CursorPa
                 const cursorJson = Buffer.from(cursor as string, 'base64').toString('utf-8');
                 decodedCursor = JSON.parse(cursorJson);
                 console.log(`validateCursorPagination decoded cursor:`, decodedCursor);
-            } catch (error) {
-                console.log(`validateCursorPagination is returning null due to invalid cursor: ${(error as Error).message}`);
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error); // Inline normalization keeps logs consistent
+                console.log(`validateCursorPagination is returning null due to invalid cursor: ${message}`);
                 sendErrorResponse(res, 400, 'Invalid cursor format');
                 return null;
             }
         }
         
-        const pagination: CursorPaginationParams = { 
+        const pagination: CursorPaginationParams<string> = { 
             limit, 
             cursor: decodedCursor, 
             direction: direction as 'next' | 'prev', 
@@ -457,7 +480,7 @@ function validateCursorPagination(req: Request, res: Response, options: CursorPa
         console.log(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
         return pagination;
         
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Cursor pagination validation error:', error);
         sendInternalServerError(res, 'Internal server error during cursor pagination validation');
         return null;
@@ -510,8 +533,21 @@ function createCursor(record: any, sortField: string = 'id'): string | null { //
  * @param sortField - Field used for sorting and cursor generation
  * @returns Cursor pagination metadata object
  */
-function createCursorPaginationMeta(data: any[], pagination: CursorPaginationParams, hasMore: boolean, sortField: string = 'id'): CursorPaginationMeta { // cursor metadata generation
-    const meta: CursorPaginationMeta = {
+type CursorFactory<TRecord, TCursor> = (record: TRecord, sortField: string) => TCursor | null;
+
+function createCursorPaginationMeta<TRecord, TCursor = string, TExtra extends Record<string, unknown> | undefined = undefined>(
+    data: TRecord[],
+    pagination: CursorPaginationParams<TCursor>,
+    hasMore: boolean,
+    sortField: string = 'id',
+    options: { cursorFactory?: CursorFactory<TRecord, TCursor>; extra?: TExtra } = {}
+  ): CursorPaginationMeta<TCursor, TExtra> { // cursor metadata generation
+    const {
+        cursorFactory = createCursor as unknown as CursorFactory<TRecord, TCursor>,
+        extra
+    } = options;
+
+    const meta: CursorPaginationMeta<TCursor> = {
         limit: pagination.limit,
         direction: pagination.direction,
         sort: pagination.sort,
@@ -522,11 +558,11 @@ function createCursorPaginationMeta(data: any[], pagination: CursorPaginationPar
     // Generate cursors for navigation if data exists
     if (data && data.length > 0) {
         if (pagination.direction === 'next') {
-            meta.cursors.next = hasMore ? createCursor(data[data.length - 1], sortField) : null;
-            meta.cursors.prev = createCursor(data[0], sortField);
+            meta.cursors.next = hasMore ? cursorFactory(data[data.length - 1]!, sortField) : null;
+            meta.cursors.prev = cursorFactory(data[0]!, sortField);
         } else {
-            meta.cursors.next = createCursor(data[data.length - 1], sortField);
-            meta.cursors.prev = hasMore ? createCursor(data[0], sortField) : null;
+            meta.cursors.next = cursorFactory(data[data.length - 1]!, sortField);
+            meta.cursors.prev = hasMore ? cursorFactory(data[0]!, sortField) : null;
         }
     }
     
@@ -535,8 +571,12 @@ function createCursorPaginationMeta(data: any[], pagination: CursorPaginationPar
         meta.cursors.current = pagination.rawCursor;
     }
     
+    if (extra && typeof extra === 'object') {
+        (meta as CursorPaginationMeta<TCursor, TExtra>).extra = extra;
+    }
+    
     console.log(`createCursorPaginationMeta generated metadata:`, meta);
-    return meta;
+    return meta as CursorPaginationMeta<TCursor, TExtra>;
 }
 
 /**
@@ -634,7 +674,7 @@ function validateSorting(req: Request, res: Response, options: SortingOptions = 
         console.log(`validateSorting is returning: ${JSON.stringify(result)}`);
         return result;
         
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Sorting validation error:', error);
         sendInternalServerError(res, 'Internal server error during sorting validation');
         return null;
@@ -654,10 +694,17 @@ function validateSorting(req: Request, res: Response, options: SortingOptions = 
  * @param sortField - Field used for sorting and cursor generation
  * @returns Complete cursor-based paginated response
  */
-function createCursorPaginatedResponse(data: any[], pagination: CursorPaginationParams, hasMore: boolean, sortField: string = 'id'): CursorPaginatedResponse { // complete cursor response
+function createCursorPaginatedResponse<TRecord, TCursor = string, TExtra extends Record<string, unknown> | undefined = undefined>(
+    data: TRecord[],
+    pagination: CursorPaginationParams<TCursor>,
+    hasMore: boolean,
+    sortField: string = 'id',
+    options: { cursorFactory?: CursorFactory<TRecord, TCursor>; extra?: TExtra } = {}
+  ): CursorPaginatedResponse<TRecord, TCursor, CursorPaginationMeta<TCursor, TExtra>> { // complete cursor response
+    const paginationMeta = createCursorPaginationMeta(data, pagination, hasMore, sortField, options);
     return {
         data,
-        pagination: createCursorPaginationMeta(data, pagination, hasMore, sortField),
+        pagination: paginationMeta,
         timestamp: new Date().toISOString()
     };
 }
@@ -687,5 +734,6 @@ export type {
     PaginatedResponse,
     CursorPaginationMeta,
     CursorPaginatedResponse,
-    ParseIntegerResult
+    ParseIntegerResult,
+    CursorFactory
 };

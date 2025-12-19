@@ -15,52 +15,57 @@ interface FunctionMetadata {
   parameters: Parameter[];
 }
 
+type UnknownRecord = Record<PropertyKey, unknown>;
+
 /**
- * Validate a single parameter object
- * @param param - Parameter to validate
- * @throws {Error} If parameter is invalid
+ * Validates that the provided value represents a parameter definition.
+ * @param param - Candidate parameter.
+ * @throws Error when the shape is invalid.
  */
-function validateParameter(param: any): void {
+function validateParameter(param: unknown): asserts param is Parameter {
   if (!param || typeof param !== 'object') {
-    throw new Error('Parameter must be an object');
+    throw new Error('Parameter must be an object'); // Enforce object shape to avoid runtime key access errors
   }
-  if (typeof param.name !== 'string' || !param.name.trim()) {
-    throw new Error('Parameter name must be a non-empty string');
+  const candidate = param as UnknownRecord;
+  if (typeof candidate.name !== 'string' || !candidate.name.trim()) {
+    throw new Error('Parameter name must be a non-empty string'); // Name drives schema keys so blank values are unsafe
   }
-  if (typeof param.type !== 'string' || !param.type.trim()) {
-    throw new Error('Parameter type must be a non-empty string');
+  if (typeof candidate.type !== 'string' || !candidate.type.trim()) {
+    throw new Error('Parameter type must be a non-empty string'); // Type is required to generate Mongoose schema fields
   }
-  if (typeof param.required !== 'boolean') {
-    throw new Error('Parameter required must be a boolean');
+  if (typeof candidate.required !== 'boolean') {
+    throw new Error('Parameter required must be a boolean'); // Required flag needs strict boolean semantics for clarity
   }
 }
 
 /**
- * Validate array of parameters
- * @param params - Parameters to validate
- * @throws {Error} If parameters array is invalid
+ * Validates an array of parameter definitions.
+ * @param params - Candidate array of parameters.
+ * @throws Error when the array or any entry is invalid.
  */
-function validateParameters(params: any): void {
+function validateParameters(params: unknown): asserts params is Parameter[] {
   if (!Array.isArray(params)) {
-    throw new Error('Parameters must be an array');
+    throw new Error('Parameters must be an array'); // Guard against single objects to maintain API expectations
+  }
+  for (const param of params) {
+    validateParameter(param); // Reuse single validator to guarantee each element matches runtime contract
   }
 }
 
 /**
- * Validate function metadata for schema generation
- * @param func - Function metadata to validate
- * @throws {Error} If function metadata is invalid
+ * Validates metadata describing a function signature.
+ * @param func - Candidate metadata payload.
+ * @throws Error when structure or nested parameters are invalid.
  */
-function validateFunctionMetadata(func: any): void {
+function validateFunctionMetadata(func: unknown): asserts func is FunctionMetadata {
   if (!func || typeof func !== 'object') {
-    throw new Error('Function metadata must be an object');
+    throw new Error('Function metadata must be an object'); // Prevent null and primitive metadata from propagating
   }
-  if (typeof func.name !== 'string' || !func.name.trim()) {
-    throw new Error('Function name must be a non-empty string');
+  const candidate = func as UnknownRecord;
+  if (typeof candidate.name !== 'string' || !candidate.name.trim()) {
+    throw new Error('Function name must be a non-empty string'); // Function names seed schema names; blanks break generation
   }
-  if (!Array.isArray(func.parameters)) {
-    throw new Error('Function parameters must be an array');
-  }
+  validateParameters(candidate.parameters); // Reuse array validator to enforce deep correctness
 }
 
 export { validateParameter, validateParameters, validateFunctionMetadata };
