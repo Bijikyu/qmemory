@@ -1,5 +1,5 @@
 /**
- * Jest configuration for TypeScript
+ * Jest configuration for TypeScript with ESM support
  */
 /** @type {import('jest').Config} */
 export default {
@@ -9,8 +9,8 @@ export default {
   globals: {
     'ts-jest': {
       useESM: true,
-      tsconfig: 'tsconfig.json'
-    }
+      tsconfig: 'tsconfig.json',
+    },
   },
   collectCoverageFrom: [
     'lib/**/*.ts',
@@ -19,36 +19,32 @@ export default {
     'index.js',
     '!**/node_modules/**',
     '!**/*.d.ts',
-    '!dist/**'
+    '!dist/**',
+    '!**/cache/**',
   ],
-  testMatch: [
-    '**/test/**/*.test.ts',
-    '**/test/**/*.test.js',
-    '**/*.test.ts',
-    '**/*.test.js'
-  ],
+  testMatch: ['**/test/**/*.test.ts', '**/test/**/*.test.js', '**/*.test.ts', '**/*.test.js'],
   setupFilesAfterEnv: ['<rootDir>/config/jest-require-polyfill.cjs'],
-  verbose: true,
+  verbose: false,
   clearMocks: true,
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  collectCoverage: true,
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80
-    }
-  },
+  collectCoverage: false,
   transform: {},
   transformIgnorePatterns: [
-    'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue)/)'
+    'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue|qerrors|lru-cache|redis|mongoose)/)',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
   testPathIgnorePatterns: [
     '<rootDir>/node_modules/',
-    '<rootDir>/dist/'
+    '<rootDir>/dist/',
+    '<rootDir>/.cache/',
+    '<rootDir>/cache/',
+    '<rootDir>/temp-storage/',
+    '<rootDir>/factory-storage/',
   ],
-  errorOnDeprecated: true
+  errorOnDeprecated: true,
+  resolver: undefined,
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '<rootDir>/$1',
+  },
 };

@@ -2,23 +2,24 @@
  * Validation Rules Generator
  * Creates validation rules for Mongoose schemas based on field names
  */
-
 import { getMongoType } from '../typeMap.js';
 
+// Type definitions
 interface Parameter {
-  name: string;
   type: string;
-  required: boolean;
-  [key: string]: any;
+  required?: boolean;
+  name: string;
 }
 
-interface MongooseFieldDescriptor {
+interface ValidationRule {
+  validator: string;
+  message: string;
+}
+
+interface FieldType {
   type: any;
-  required: boolean;
-  validate?: {
-    validator: string;
-    message: string;
-  };
+  required?: boolean;
+  validate?: ValidationRule;
 }
 
 /**
@@ -26,14 +27,12 @@ interface MongooseFieldDescriptor {
  * @param param - Parameter object
  * @returns Mongoose field descriptor with validation rules
  */
-function generateValidationRules(param: Parameter): MongooseFieldDescriptor {
-  const baseType: MongooseFieldDescriptor = { 
-    type: getMongoType(param.type), 
-    required: param.required 
+function generateValidationRules(param: Parameter): FieldType {
+  const baseType: FieldType = {
+    type: getMongoType(param.type),
+    required: param.required,
   };
-  
   const lower = param.name.toLowerCase();
-  
   // Email validation for fields containing 'email'
   if (lower.includes('email')) {
     return {
@@ -44,7 +43,6 @@ function generateValidationRules(param: Parameter): MongooseFieldDescriptor {
       },
     };
   }
-  
   // URL validation for fields containing 'url'
   if (lower.includes('url')) {
     return {
@@ -55,15 +53,7 @@ function generateValidationRules(param: Parameter): MongooseFieldDescriptor {
       },
     };
   }
-  
   return baseType;
 }
 
-export {
-  generateValidationRules
-};
-
-export type {
-  Parameter,
-  MongooseFieldDescriptor
-};
+export { generateValidationRules };

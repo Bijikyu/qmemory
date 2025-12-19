@@ -6,11 +6,11 @@
  * performance analysis, capacity planning, and optimization decision-making.
  */
 
-export interface RequestMetricsOptions {
+interface RequestMetricsOptions {
   maxRecentTimes?: number;
 }
 
-export interface EndpointStats {
+interface EndpointStats {
   requests: number;
   totalDuration: number;
   minDuration: number;
@@ -20,7 +20,7 @@ export interface EndpointStats {
   p95: number;
 }
 
-export interface RequestMetricsReport {
+interface RequestMetricsReport {
   totalRequests: number;
   requestsPerSecond: number;
   uptime: number;
@@ -47,15 +47,12 @@ export default class RequestMetrics {
   constructor(options: RequestMetricsOptions = {}) {
     // Configuration with production-appropriate defaults
     this.maxRecentTimes = options.maxRecentTimes || 100; // rolling window size for percentile calculations
-
     // Core metrics storage optimized for performance and memory efficiency
     this.endpoints = new Map(); // per-endpoint performance statistics
     this.totalRequests = 0; // global request counter for throughput analysis
     this.startTime = Date.now(); // application start time for uptime calculations
-
     console.log('RequestMetrics initialized for HTTP performance tracking');
   }
-
   /**
    * Records comprehensive HTTP request performance metrics
    *
@@ -73,13 +70,10 @@ export default class RequestMetrics {
     userAgent: string | null = null
   ): void {
     console.log(`RequestMetrics recording: ${method} ${path} ${statusCode} ${duration}ms`);
-
     // Increment global request counter for overall throughput calculations
     this.totalRequests++;
-
     // Create endpoint identifier for performance categorization
     const endpoint = `${method} ${path}`;
-
     // Initialize endpoint statistics if this is first request to this endpoint
     if (!this.endpoints.has(endpoint)) {
       this.endpoints.set(endpoint, {
@@ -92,31 +86,30 @@ export default class RequestMetrics {
         p95: 0, // 95th percentile response time
       });
     }
-
     // Update endpoint performance statistics with current request data
-    const stats = this.endpoints.get(endpoint)!;
-    stats.requests++;
-    stats.totalDuration += duration;
-    stats.minDuration = Math.min(stats.minDuration, duration);
-    stats.maxDuration = Math.max(stats.maxDuration, duration);
-    stats.recentTimes.push(duration);
-
-    // Track HTTP status code distribution for error pattern analysis
-    stats.statusCodes.set(statusCode, (stats.statusCodes.get(statusCode) || 0) + 1);
-
-    // Maintain bounded rolling window for memory efficiency and recent performance focus
-    if (stats.recentTimes.length > this.maxRecentTimes) {
-      stats.recentTimes.shift(); // Remove oldest measurement to maintain window size
+    const stats = this.endpoints.get(endpoint);
+    if (stats) {
+      stats.requests++;
+      stats.totalDuration += duration;
+      stats.minDuration = Math.min(stats.minDuration, duration);
+      stats.maxDuration = Math.max(stats.maxDuration, duration);
+      stats.recentTimes.push(duration);
     }
-
-    // Calculate 95th percentile from recent measurements for current performance assessment
-    if (stats.recentTimes.length >= 20) {
-      // Require minimum sample size for statistical validity
-      const sorted = [...stats.recentTimes].sort((a, b) => a - b);
-      stats.p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+    // Track HTTP status code distribution for error pattern analysis
+    if (stats) {
+      stats.statusCodes.set(statusCode, (stats.statusCodes.get(statusCode) || 0) + 1);
+      // Maintain bounded rolling window for memory efficiency and recent performance focus
+      if (stats.recentTimes.length > this.maxRecentTimes) {
+        stats.recentTimes.shift(); // Remove oldest measurement to maintain window size
+      }
+      // Calculate 95th percentile from recent measurements for current performance assessment
+      if (stats.recentTimes.length >= 20) {
+        // Require minimum sample size for statistical validity
+        const sorted = [...stats.recentTimes].sort((a, b) => a - b);
+        stats.p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+      }
     }
   }
-
   /**
    * Generates comprehensive HTTP performance metrics report
    *
@@ -124,25 +117,21 @@ export default class RequestMetrics {
    */
   getMetrics(): RequestMetricsReport {
     console.log('RequestMetrics generating comprehensive metrics report');
-
     // Calculate application-wide throughput metrics
     const uptime = Date.now() - this.startTime;
     const rps = this.totalRequests / (uptime / 1000);
-
     const metrics: RequestMetricsReport = {
       totalRequests: this.totalRequests, // overall request volume
       requestsPerSecond: Math.round(rps * 100) / 100, // throughput indicator
       uptime: Math.round(uptime / 1000), // application availability duration
       endpoints: {}, // per-endpoint performance breakdown
     };
-
     // Generate detailed statistics for each tracked endpoint
     for (const [endpoint, stats] of Array.from(this.endpoints.entries())) {
       // Calculate error rate from status code distribution
       const errorCount = Array.from(stats.statusCodes.entries())
         .filter(([code]) => code >= 400)
         .reduce((sum, [, count]) => sum + count, 0);
-
       metrics.endpoints[endpoint] = {
         requests: stats.requests, // endpoint request volume
         avgDuration: Math.round((stats.totalDuration / stats.requests) * 100) / 100, // mean response time
@@ -153,7 +142,6 @@ export default class RequestMetrics {
         statusCodes: Object.fromEntries(stats.statusCodes), // HTTP outcome distribution
       };
     }
-
     console.log(
       `RequestMetrics report generated with ${Object.keys(metrics.endpoints).length} endpoints`
     );

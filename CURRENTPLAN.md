@@ -1,29 +1,40 @@
-# ESM TypeScript Conversion Plan
+# ESM & TypeScript Conversion Plan - CSUP Swarm Execution
 
 ## Overview
 
-This is a non-trivial task that requires converting the existing Node.js utility library to a full ESM TypeScript app. The project already has `"type": "module"` in package.json and TypeScript configuration, but several key .js files need conversion and proper ESM import/export patterns need to be established.
+This is a non-trivial task requiring conversion of 40+ JavaScript files to TypeScript with full ESM compatibility. The project already has `"type": "module"` in package.json and TypeScript configuration, but needs comprehensive file conversion and proper ESM import/export patterns. Using CSUP tmux codex swarm for parallel processing.
 
 ## Current State Analysis
 
 ### Files Requiring Conversion
 
-1. **lib/performance/\*.js files (3 files)**
-   - `database-metrics.js` - Database performance tracking with EventEmitter
-   - `request-metrics.js` - HTTP request performance metrics
-   - `system-metrics.js` - System resource monitoring
+**Core Library Files (40+ files in /lib/):**
 
-2. **Root level .js files**
-   - `demo-app.js` - Main demo application (298 lines)
-   - `server/objectStorage.js` - Object storage server
+- All files still using .js extension need TypeScript conversion
+- Files include database ops, HTTP utils, performance monitoring, etc.
+- Many already have corresponding .ts files but need consolidation
 
-3. **Test files (.js)**
-   - Multiple test files in test/ directory
-   - Mock files in **mocks**/
+**Root Level Files:**
 
-4. **Configuration files**
-   - `eslint.config.js` - ESLint configuration
-   - `jest.config.js` - Jest configuration
+- `index.js` - Main entry point (already using ESM imports)
+- `demo-app.js` - Demo application
+- `server/objectStorage.js` - Object storage server
+
+**Test Files:**
+
+- `test/unit/*.js` - 15+ unit test files
+- `test/integration/*.js` - Integration tests
+- `test/production/*.js` - Production validation tests
+- `__mocks__/*.js` - Mock files for Jest
+
+**Examples:**
+
+- `examples/*.js` - 8+ demo files
+
+**Configuration:**
+
+- `eslint.config.js` - ESLint configuration
+- `jest.config.js` - Jest configuration
 
 ### Current TypeScript Setup
 
@@ -181,29 +192,62 @@ import { something } from './utils.js';
 - Update Jest configuration for TypeScript ESM
 - Verify test runner works with new setup
 
-## Parallel Execution Plan (CSUP)
+## CSUP Swarm Execution Plan
 
-This conversion can be parallelized using 3 tmux agents:
+### Phase 1: Spawn 6 Parallel Agents for Library Conversion
 
-### Agent 1: Performance Metrics Conversion
+**Agent 1 - Core Utilities:**
 
-- Convert all 3 performance metric files
-- Focus on proper TypeScript interfaces and EventEmitter typing
-- Test each file individually after conversion
+- Convert: utils.js, storage.js, logging-utils.js, perf.js, lru-cache.js, cache-utils.js
+- Focus: Basic utility types and interfaces
 
-### Agent 2: Demo Application Conversion
+**Agent 2 - Database Operations:**
 
-- Convert demo-app.js to TypeScript
-- Fix all import statements
-- Ensure Express.js typing is correct
-- Test the demo application runs
+- Convert: database-utils.js, document-helpers.js, document-ops.js, mongoose-mapper.js
+- Focus: MongoDB/Mongoose typing and database interfaces
 
-### Agent 3: Import Statement Fixes
+**Agent 3 - HTTP & Validation:**
 
-- Go through all TypeScript files and fix import extensions
-- Focus on index.ts main entry point
-- Test that all imports resolve correctly
-- Run TypeScript compiler to check for errors
+- Convert: http-utils.js, validators/\*.js, unique-validator.js, crud-service-factory.js
+- Focus: Express.js types and validation interfaces
+
+**Agent 4 - Performance & Monitoring:**
+
+- Convert: performance/_.js, health-check.js, test-memory-manager.js, circuit-breaker_.js
+- Focus: EventEmitter typing and metrics interfaces
+
+**Agent 5 - Advanced Features:**
+
+- Convert: binary-storage.js, streaming-json.js, fast-operations.js, serialization-utils.js, pagination-utils.js
+- Focus: Complex generic types and advanced patterns
+
+**Agent 6 - Schema & Types:**
+
+- Convert: schema/\*.js, field-utils.js, typeMap.js, database-pool.js, async-queue.js
+- Focus: Schema generation and type mapping interfaces
+
+### Phase 2: Root Level & Application Files (1 Agent)
+
+**Agent 7 - Applications:**
+
+- Convert: index.js, demo-app.js, server/\*.js
+- Focus: Express.js application typing and main entry point
+
+### Phase 3: Test Files (1 Agent)
+
+**Agent 8 - Tests:**
+
+- Convert: test/**/\*.js, **mocks**/**/_.js, examples/_.js
+- Focus: Jest TypeScript configuration and test typing
+
+### Phase 4: Import/Export Coordination (1 Agent)
+
+**Agent 9 - Import Fixer:**
+
+- Fix all import statements to use .js extensions for ESM
+- Update index.ts main exports
+- Ensure TypeScript module resolution works
+- Run final type checking and build validation
 
 ## Success Criteria
 
@@ -221,12 +265,52 @@ This conversion can be parallelized using 3 tmux agents:
 3. **Import Mapping:** Ensure TypeScript properly maps .ts imports to .js extensions
 4. **Jest Compatibility:** Verify Jest works with TypeScript ESM setup
 
-## Estimated Timeline
+## CSUP Execution Timeline
 
-- **Phase 1 (Core Library):** 2-3 hours
-- **Phase 2 (Application):** 1-2 hours
-- **Phase 3 (Import Fixes):** 1-2 hours
-- **Phase 4 (Testing):** 1-2 hours
-- **Total:** 5-9 hours depending on complexity
+**Phase 1 (Parallel Library Conversion):** 15-20 minutes
 
-This plan ensures a systematic conversion to ESM TypeScript while maintaining backward compatibility and ensuring all functionality continues to work as expected.
+- 6 agents working concurrently on 6-7 files each
+- Each agent: convert files, add types, test individually
+
+**Phase 2 (Application Files):** 5 minutes
+
+- 1 agent converts root level and server files
+
+**Phase 3 (Test Files):** 10 minutes
+
+- 1 agent converts all test files and updates Jest config
+
+**Phase 4 (Import Coordination):** 10 minutes
+
+- 1 agent fixes all import statements and runs final validation
+
+**Total Estimated Time:** 40-50 minutes with 9 parallel agents
+
+## Success Criteria
+
+1. **All files converted to TypeScript** with proper ESM imports/exports
+2. **TypeScript compilation** (`npm run build`) completes without errors
+3. **Type checking** (`npm run type-check`) passes with strict mode
+4. **All tests pass** (`npm test`) with TypeScript/Jest integration
+5. **Demo application runs** (`npm run dev`) successfully
+6. **ESM compatibility** verified with .js extensions in imports
+7. **No functionality regression** - all APIs maintain same signatures
+
+## Swarm Coordination Commands
+
+```bash
+# Spawn agents for Phase 1
+./scripts/spawn-agent.sh agent01 ./
+./scripts/spawn-agent.sh agent02 ./
+./scripts/spawn-agent.sh agent03 ./
+./scripts/spawn-agent.sh agent04 ./
+./scripts/spawn-agent.sh agent05 ./
+./scripts/spawn-agent.sh agent06 ./
+
+# Dispatch work prompts (≤1024 chars each)
+./scripts/send-to-agent.sh agent01 "Convert core utilities: utils.js, storage.js, logging-utils.js, perf.js, lru-cache.js, cache-utils.js. Add TypeScript types and ESM exports."
+./scripts/send-to-agent.sh agent02 "Convert database ops: database-utils.js, document-helpers.js, document-ops.js, mongoose-mapper.js. Focus on MongoDB types."
+# ... continue for all agents
+```
+
+This plan leverages CSUP parallel processing to complete the comprehensive ESM TypeScript conversion in under an hour while maintaining code quality and functionality.

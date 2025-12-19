@@ -2,7 +2,6 @@
  * My NPM Module
  * A simple Node.js module with database utilities
  */
-
 // HTTP utilities
 import {
   sendNotFound,
@@ -16,19 +15,8 @@ import {
   sendAuthError,
   generateRequestId,
 } from './lib/http-utils.js';
-
-// Database utilities
-import {
-  ensureMongoDB,
-  ensureUnique,
-  handleMongoError,
-  safeDbOperation,
-  retryDbOperation,
-  ensureIdempotency,
-  optimizeQuery,
-  createAggregationPipeline,
-} from './lib/database-utils.js';
-
+// Database utilities (temporarily disabled for TypeScript conversion)
+// import { ensureMongoDB, ensureUnique, handleMongoError, safeDbOperation, retryDbOperation, ensureIdempotency, optimizeQuery, createAggregationPipeline } from './lib/database-utils.js';
 // Document helpers
 import {
   findDocumentById,
@@ -40,7 +28,6 @@ import {
   findOneDocument,
   bulkUpdateDocuments,
 } from './lib/document-helpers.js';
-
 // Document operations
 import {
   performUserDocOp,
@@ -55,10 +42,8 @@ import {
   validateDocumentUniqueness,
   hasUniqueFieldChanges,
 } from './lib/document-ops.js';
-
 // Storage
 import { MemStorage, storage } from './lib/storage.js';
-
 // Utils
 import {
   greet,
@@ -69,7 +54,6 @@ import {
   dedupeByLast,
   dedupe,
 } from './lib/utils.js';
-
 // Email utilities
 import {
   getEmails,
@@ -79,14 +63,8 @@ import {
   getEmailDomain,
   filterValidEmails,
 } from './lib/email-utils.js';
-
 // Circuit breaker
-import {
-  CircuitBreakerWrapper as CircuitBreaker,
-  createCircuitBreaker,
-  STATES as CIRCUIT_BREAKER_STATES,
-} from './lib/circuit-breaker.js';
-
+import { createCircuitBreaker, STATES as CIRCUIT_BREAKER_STATES } from './lib/circuit-breaker.js';
 // Circuit breaker factory
 import {
   CircuitBreakerFactory,
@@ -97,7 +75,6 @@ import {
   clearAllCircuitBreakers,
   shutdownCircuitBreakerFactory,
 } from './lib/circuit-breaker-factory.js';
-
 // Health check
 import {
   updateMetrics as updateHealthMetrics,
@@ -115,7 +92,6 @@ import {
   createLivenessEndpoint,
   createReadinessEndpoint,
 } from './lib/health-check.js';
-
 // Test memory manager
 import {
   TestMemoryManager,
@@ -126,10 +102,8 @@ import {
   setupTestMemoryMonitoring,
   teardownTestMemoryMonitoring,
 } from './lib/test-memory-manager.js';
-
 // Async queue
-import { AsyncQueueWrapper as AsyncQueue, createQueue } from './lib/async-queue.js';
-
+import { createQueue } from './lib/async-queue';
 // Database pool
 import {
   SimpleDatabasePool,
@@ -143,7 +117,6 @@ import {
   getDatabasePoolHealth,
   shutdownDatabasePools,
 } from './lib/database-pool.js';
-
 // CRUD service factory
 import {
   createCrudService,
@@ -154,7 +127,6 @@ import {
   escapeRegex as escapeRegexCrud,
   validateData,
 } from './lib/crud-service-factory.js';
-
 // Unique validator
 import {
   checkDuplicateByField,
@@ -168,10 +140,8 @@ import {
   isDuplicateError,
   createBatchUniqueChecker,
 } from './lib/unique-validator.js';
-
 // Streaming JSON
 import { safeJsonStringify, safeJsonParse, SafeJSON } from './lib/streaming-json.js';
-
 // Fast operations
 import {
   FastMath,
@@ -185,10 +155,8 @@ import {
   Cast,
   Prop,
 } from './lib/fast-operations.js';
-
 // Logging utilities
 import { logFunctionEntry, logFunctionExit, logFunctionError } from './lib/logging-utils.js';
-
 // Pagination utilities
 import {
   validatePagination,
@@ -200,7 +168,6 @@ import {
   createCursorPaginatedResponse,
   validateSorting,
 } from './lib/pagination-utils.js';
-
 // Performance utilities
 import {
   DatabaseMetrics,
@@ -209,13 +176,10 @@ import {
   PerformanceMonitor,
   performanceMonitor,
 } from './lib/performance-utils.js';
-
 // Cache utilities
 import { createRedisClient, redisCreateClient } from './lib/cache-utils.js';
-
 // LRU cache
 import { LRUCache } from './lib/lru-cache.js';
-
 // Performance metrics
 import {
   incCacheHit,
@@ -224,7 +188,6 @@ import {
   getCacheMetrics,
   resetCacheMetrics,
 } from './lib/perf.js';
-
 // Field utilities
 import {
   normalizeFieldName,
@@ -233,10 +196,8 @@ import {
   normalizeObjectFields,
   denormalizeObjectFields,
 } from './lib/field-utils.js';
-
 // Type map
 import { getMongoType, getSupportedTypes, isSupportedType } from './lib/typeMap.js';
-
 // Mongoose mapper
 import {
   mapParameterToMongoType,
@@ -244,7 +205,6 @@ import {
   generateMongooseSchema,
   generateMongoSchema,
 } from './lib/mongoose-mapper.js';
-
 // Binary storage
 import {
   IStorage,
@@ -253,7 +213,6 @@ import {
   StorageFactory,
   getDefaultStorage,
 } from './lib/binary-storage.js';
-
 // Serialization utilities
 import {
   serializeDocument,
@@ -269,7 +228,6 @@ import {
   serializeFields,
   serializeWithoutFields,
 } from './lib/serialization-utils.js';
-
 // Export everything
 export {
   // HTTP utilities
@@ -283,7 +241,6 @@ export {
   sendValidationError,
   sendAuthError,
   generateRequestId,
-
   // Database utilities
   ensureMongoDB,
   ensureUnique,
@@ -293,7 +250,6 @@ export {
   ensureIdempotency,
   optimizeQuery,
   createAggregationPipeline,
-
   // Document helpers
   findDocumentById,
   updateDocumentById,
@@ -303,7 +259,6 @@ export {
   findDocuments,
   findOneDocument,
   bulkUpdateDocuments,
-
   // Document operations
   performUserDocOp,
   findUserDoc,
@@ -316,11 +271,9 @@ export {
   updateUserDoc,
   validateDocumentUniqueness,
   hasUniqueFieldChanges,
-
   // Storage
   MemStorage,
   storage,
-
   // Utils
   greet,
   add,
@@ -329,7 +282,6 @@ export {
   dedupeByLowercaseFirst,
   dedupeByLast,
   dedupe,
-
   // Email utilities
   getEmails,
   createEmailTarget,
@@ -337,12 +289,8 @@ export {
   normalizeEmail,
   getEmailDomain,
   filterValidEmails,
-
-  // Circuit breaker
-  type CircuitBreaker,
   createCircuitBreaker,
   CIRCUIT_BREAKER_STATES,
-
   // Circuit breaker factory
   CircuitBreakerFactory,
   getCircuitBreakerFactory,
@@ -351,7 +299,6 @@ export {
   getCircuitBreakerFactoryStats,
   clearAllCircuitBreakers,
   shutdownCircuitBreakerFactory,
-
   // Health check
   updateHealthMetrics,
   incrementActiveRequests,
@@ -367,7 +314,6 @@ export {
   createHealthEndpoint,
   createLivenessEndpoint,
   createReadinessEndpoint,
-
   // Test memory manager
   TestMemoryManager,
   createMemoryManager,
@@ -376,11 +322,7 @@ export {
   withMemoryTracking,
   setupTestMemoryMonitoring,
   teardownTestMemoryMonitoring,
-
-  // Async queue
-  type AsyncQueue,
   createQueue,
-
   // Database pool
   SimpleDatabasePool,
   DatabaseConnectionPool,
@@ -392,7 +334,6 @@ export {
   getDatabasePoolStats,
   getDatabasePoolHealth,
   shutdownDatabasePools,
-
   // CRUD service factory
   createCrudService,
   createPaginatedService,
@@ -401,7 +342,6 @@ export {
   createDuplicateError,
   escapeRegexCrud,
   validateData,
-
   // Unique validator
   checkDuplicateByField,
   validateUniqueField,
@@ -413,12 +353,10 @@ export {
   createUniqueFieldsMiddleware,
   isDuplicateError,
   createBatchUniqueChecker,
-
   // Streaming JSON
   safeJsonStringify,
   safeJsonParse,
   SafeJSON as JSON,
-
   // Fast operations
   FastMath,
   FastString,
@@ -430,12 +368,10 @@ export {
   FastOps,
   Cast,
   Prop,
-
   // Logging utilities
   logFunctionEntry,
   logFunctionExit,
   logFunctionError,
-
   // Pagination utilities
   validatePagination,
   createPaginationMeta,
@@ -445,53 +381,44 @@ export {
   createCursorPaginationMeta,
   createCursorPaginatedResponse,
   validateSorting,
-
   // Performance utilities
   DatabaseMetrics,
   RequestMetrics,
   SystemMetrics,
   PerformanceMonitor,
   performanceMonitor,
-
   // Cache utilities
   createRedisClient,
   redisCreateClient,
-
   // LRU cache
   LRUCache,
-
   // Performance metrics
   incCacheHit,
   incCacheMiss,
   setCacheKeys,
   getCacheMetrics,
   resetCacheMetrics,
-
   // Field utilities
   normalizeFieldName,
   getCollectionName,
   denormalizeFieldName,
   normalizeObjectFields,
   denormalizeObjectFields,
-
   // Type map
   getMongoType,
   getSupportedTypes,
   isSupportedType,
-
   // Mongoose mapper
   mapParameterToMongoType,
   mapParametersToSchema,
   generateMongooseSchema,
   generateMongoSchema,
-
   // Binary storage
   IStorage,
   MemoryBinaryStorage,
   FileSystemBinaryStorage,
   StorageFactory,
   getDefaultStorage,
-
   // Serialization utilities
   serializeDocument,
   serializeMongooseDocument,

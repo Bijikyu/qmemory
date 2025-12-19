@@ -36,7 +36,7 @@
       "lib/*": ["./lib/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.js"],
+  "include": ["**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
@@ -45,7 +45,8 @@
     "config",
     "temp",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "lib/**/*.js"
   ],
   "ts-node": {
     "esm": true,
