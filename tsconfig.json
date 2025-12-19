@@ -43,6 +43,7 @@
     "coverage",
     "examples",
     "config",
+    "temp",
     "**/*.test.ts",
     "**/*.spec.ts"
   ],
