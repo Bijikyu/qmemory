@@ -66,7 +66,8 @@ export const ENABLE_REQUEST_ID = process.env.ENABLE_REQUEST_ID !== 'false';
 /**
  * Testing Environment Settings
  */
-export const TEST_MONGODB_URI = process.env.TEST_MONGODB_URI || 'mongodb://localhost:27017/qmemory_test';
+export const TEST_MONGODB_URI =
+  process.env.TEST_MONGODB_URI || 'mongodb://localhost:27017/qmemory_test';
 export const TEST_TIMEOUT = process.env.TEST_TIMEOUT || 10000;
 export const ENABLE_TEST_LOGGING = process.env.ENABLE_TEST_LOGGING === 'true';
 
@@ -88,6 +89,13 @@ export const CIRCUIT_BREAKER_TIMEOUT = process.env.CIRCUIT_BREAKER_TIMEOUT || 60
 export const CIRCUIT_BREAKER_ERROR_THRESHOLD = process.env.CIRCUIT_BREAKER_ERROR_THRESHOLD || 5;
 export const CIRCUIT_BREAKER_RESET_TIMEOUT = process.env.CIRCUIT_BREAKER_RESET_TIMEOUT || 30000;
 
+// ==================== STORAGE CONFIGURATION ====================
+
+/**
+ * Storage Default Settings
+ */
+export const DEFAULT_MAX_USERS = process.env.MAX_MEMORY_STORAGE_USERS || 10000;
+
 // ==================== HEALTH CHECK CONFIGURATION ====================
 
 /**
@@ -108,3 +116,32 @@ export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 export const MONGODB_CONNECTION_RETRY_ATTEMPTS = 3;
 export const MONGODB_CONNECTION_RETRY_DELAY = 5000;
+
+// ==================== DEMO APPLICATION CONFIGURATION ====================
+
+/**
+ * Demo Application Settings
+ */
+export const DEFAULT_PORT = process.env.PORT || 5000;
+
+// ==================== QUEUE CONFIGURATION ====================
+
+/**
+ * Queue and Redis Configuration
+ */
+export const DEFAULT_REDIS_HOST = process.env.REDIS_HOST || 'localhost';
+export const DEFAULT_REDIS_PORT = process.env.REDIS_PORT || 6379;
+export const DEFAULT_QUEUE_PREFIX = process.env.QUEUE_PREFIX || 'qmemory';
+
+// ==================== CIRCUIT BREAKER CONFIGURATION ====================
+
+/**
+ * Circuit Breaker Default Settings
+ */
+export const DEFAULT_CIRCUIT_BREAKER_TIMEOUT = process.env.CIRCUIT_BREAKER_TIMEOUT || 30000;
+export const DEFAULT_CIRCUIT_BREAKER_ERROR_THRESHOLD =
+  process.env.CIRCUIT_BREAKER_ERROR_THRESHOLD || 50;
+export const DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT =
+  process.env.CIRCUIT_BREAKER_RESET_TIMEOUT || 60000;
+export const DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD =
+  process.env.CIRCUIT_BREAKER_FAILURE_THRESHOLD || 5;
