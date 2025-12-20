@@ -1,203 +1,107 @@
 /**
  * Binary Storage Interface and Implementations
- * 
+ *
  * Provides a unified interface for storing and retrieving binary data (Buffer objects)
  * with multiple implementation strategies:
  * - In-memory storage for development and testing
  * - Object storage for production persistence
  * - File system storage for local persistence
- * 
+ *
  * Design Philosophy:
  * - Simple, async interface for all storage operations
  * - Graceful error handling with meaningful error messages
  * - Environment-aware implementation selection
  * - Buffer-based binary data handling for maximum flexibility
  */
-// 🚩AI: ENTRY_POINT_FOR_BINARY_STORAGE_IMPLEMENTATIONS
-// 🚩AI: MUST_UPDATE_IF_STORAGE_FACTORY_BEHAVIOR_CHANGES
-
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
 
-type ObjectStorageBinaryStorageCtor = typeof import('./object-storage-binary.js').ObjectStorageBinaryStorage; // Describe optional object storage constructor shape
-
-let ObjectStorageBinaryStorageClass: ObjectStorageBinaryStorageCtor | null = null; // Cache optional object storage class once loaded
-let objectStorageImportError: Error | null = null; // Preserve import failure details for downstream logging
-
-try {
-  const module = await import('./object-storage-binary.js') as { ObjectStorageBinaryStorage?: ObjectStorageBinaryStorageCtor }; // Narrow imported module shape for safer optional dependency handling
-  ObjectStorageBinaryStorageClass = module?.ObjectStorageBinaryStorage ?? null; // Store constructor to keep factory synchronous
-} catch (error: unknown) {
-  objectStorageImportError = error instanceof Error ? error : new Error(String(error)); // Normalize error so logging remains predictable
-}
-
-/**
- * Storage statistics interface
- */
-export interface StorageStats<TKey extends string = string, TExtra extends Record<string, unknown> | undefined = undefined> {
+interface StorageStats {
   type: string;
   itemCount: number;
   totalSize: number;
   maxSize?: number;
   utilizationPercent?: number;
-  keys?: TKey[];
   storageDir?: string;
+  keys?: string[];
   error?: string;
-  extra?: TExtra;
 }
 
-/**
- * Storage configuration interface
- */
-export interface StorageConfig {
-  maxSize?: number;
-  storageDir?: string;
+interface IStorageInterface {
+  save(key: string, data: Buffer): Promise<void>;
+  get(key: string): Promise<Buffer | null>;
+  delete(key: string): Promise<void>;
+  exists(key: string): Promise<boolean>;
+  getStats(): Promise<StorageStats>;
 }
 
-/**
- * Storage options interface
- */
-export interface StorageOptions<TKey extends string = string, TDomain = Buffer, TRuntime extends Buffer = Buffer> {
-  type?: 'memory' | 'filesystem' | 'file' | 'object' | 'cloud';
-  config?: StorageConfig;
-  codec?: StorageCodec<TDomain, TRuntime>;
+interface StorageOptions {
+  type?: string;
+  config?: {
+    maxSize?: number;
+    storageDir?: string;
+    [key: string]: any;
+  };
 }
 
-/**
- * Codec abstraction that translates consumer-facing payloads into the concrete
- * runtime representation used by the storage engine (typically Buffer) and back.
- * This keeps storage implementations agnostic of the application-level payload type.
- */
-export interface StorageCodec<TDomain, TRuntime extends Buffer = Buffer> {
-  encode(data: TDomain): TRuntime;
-  decode(payload: TRuntime): TDomain;
+let ObjectStorageBinaryStorage: (new () => IStorageInterface) | null = null; // Hold optional object storage implementation when available
+let objectStorageImportError: Error | null = null; // Track why the optional dependency failed to load for better diagnostics
+
+try {
+  const module = await import('./object-storage-binary.js'); // Dynamically load optional object storage using ESM-compatible import
+  ObjectStorageBinaryStorage = module?.ObjectStorageBinaryStorage ?? null; // Cache the constructor to preserve synchronous factory API
+} catch (error) {
+  objectStorageImportError = error instanceof Error ? error : new Error(String(error)); // Normalize error for consistent logging later
 }
-
-const defaultBufferCodec: StorageCodec<Buffer> = {
-  encode(data) {
-    return data;
-  },
-  decode(payload) {
-    return Buffer.from(payload);
-  }
-};
-
-/**
- * File metadata interface
- */
-export interface FileMetadata {
-  key: string;
-  size: number;
-  created: string;
-}
-
 /**
  * IStorage Interface Definition
- * 
+ *
  * This interface defines the contract for binary data storage operations.
  * All implementations must provide these four core methods.
  */
-export class IStorage<
-  TKey extends string = string,
-  TDomain = Buffer,
-  TRuntime extends Buffer = Buffer,
-  TStats extends StorageStats<TKey> = StorageStats<TKey>
-> {
-  protected readonly codec: StorageCodec<TDomain, TRuntime>;
-
-  protected constructor(codec?: StorageCodec<TDomain, TRuntime>) {
-    this.codec = codec ?? (defaultBufferCodec as StorageCodec<TDomain, TRuntime>);
-  }
-
-  protected encode(data: TDomain): TRuntime {
-    return this.codec.encode(data);
-  }
-
-  protected decode(payload: TRuntime): TDomain {
-    return this.codec.decode(payload);
-  }
-
-  /**
-   * Store binary data with a unique key
-   * @param key - Unique identifier for the stored data
-   * @param data - Binary data to store (e.g., processed images)
-   */
-  async save(key: TKey, _data: TDomain): Promise<void> {
-    throw new Error('save method must be implemented');
-  }
-
-  /**
-   * Retrieve binary data by key
-   * @param key - Unique identifier for the data to retrieve
-   * @returns Binary data if found, null if not found
-   */
-  async get(key: TKey): Promise<TDomain | null> {
-    throw new Error('get method must be implemented');
-  }
-
-  /**
-   * Remove stored data by key
-   * @param key - Unique identifier for the data to delete
-   */
-  async delete(key: TKey): Promise<void> {
-    throw new Error('delete method must be implemented');
-  }
-
-  /**
-   * Check if data exists for the given key
-   * @param key - Unique identifier to check for existence
-   * @returns True if data exists, false otherwise
-   */
-  async exists(key: TKey): Promise<boolean> {
-    throw new Error('exists method must be implemented');
-  }
-
+export class IStorage {
   /**
    * Get storage statistics (optional method for monitoring)
    * @returns Storage usage statistics
    */
-  async getStats(): Promise<TStats> {
+  async getStats() {
     return {
       type: 'unknown',
       itemCount: 0,
-      totalSize: 0
-    } as TStats;
+      totalSize: 0,
+    };
   }
 }
-
 /**
  * In-Memory Binary Storage Implementation
- * 
+ *
  * Fast, volatile storage using JavaScript Map.
  * Perfect for development, testing, and caching scenarios.
  * Data is lost when the process restarts.
- * 
+ *
  * Features:
  * - O(1) read/write performance
  * - Built-in size tracking
  * - Memory usage monitoring
  * - Automatic cleanup capabilities
  */
-export class MemoryBinaryStorage<
-  TKey extends string = string,
-  TDomain = Buffer,
-  TRuntime extends Buffer = Buffer
-> extends IStorage<TKey, TDomain, TRuntime> {
-  private storage: Map<TKey, Buffer> = new Map();
-  private maxSize: number;
+export class MemoryBinaryStorage extends IStorage {
+  private storage: Map<string, Buffer> = new Map();
   private currentSize: number = 0;
+  private maxSize: number;
 
-  constructor(maxSize: number = 100 * 1024 * 1024, codec?: StorageCodec<TDomain, TRuntime>) { // 100MB default limit
-    super(codec);
+  constructor(maxSize: number = 100 * 1024 * 1024) {
+    super();
+    this.storage = new Map();
+    this.currentSize = 0;
     this.maxSize = maxSize;
     console.log(`Initialized MemoryBinaryStorage with ${maxSize} bytes limit`);
   }
-
   /**
    * Validate key format and ensure it's safe for storage
    */
-  private _validateKey(key: TKey): void {
+  private _validateKey(key: string): void {
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('Key must be a non-empty string');
     }
@@ -209,50 +113,48 @@ export class MemoryBinaryStorage<
       throw new Error('Key cannot contain path separators or relative paths');
     }
   }
-
   /**
-   * Encode data via codec and return a defensive Buffer copy.
+   * Validate data is a Buffer object
    */
-  private _encodeData(data: TDomain): Buffer {
-    const encoded = this.encode(data);
-    if (!Buffer.isBuffer(encoded)) {
-      throw new Error('Storage codec must produce Buffer instances');
+  _validateData(data) {
+    if (!Buffer.isBuffer(data)) {
+      throw new Error('Data must be a Buffer object');
     }
-    return Buffer.from(encoded);
   }
-
   /**
    * Check if adding new data would exceed size limit
    */
-  private _checkSizeLimit(newDataSize: number): void {
+  _checkSizeLimit(newDataSize) {
     if (this.currentSize + newDataSize > this.maxSize) {
-      throw new Error(`Storage size limit exceeded. Current: ${this.currentSize}, New: ${newDataSize}, Limit: ${this.maxSize}`);
+      throw new Error(
+        `Storage size limit exceeded. Current: ${this.currentSize}, New: ${newDataSize}, Limit: ${this.maxSize}`
+      );
     }
   }
-
-  override async save(key: TKey, data: TDomain): Promise<void> {
+  async save(key, data) {
     this._validateKey(key);
-    const encoded = this._encodeData(data);
-
-    const existingSize = this.storage.has(key) ? this.storage.get(key)!.length : 0;
-    const sizeDifference = encoded.length - existingSize;
+    this._validateData(data);
+    // Calculate size difference for existing vs new data
+    const existingSize = this.storage.has(key) ? this.storage.get(key).length : 0;
+    const sizeDifference = data.length - existingSize;
     this._checkSizeLimit(sizeDifference);
-
-    this.storage.set(key, encoded);
+    // Store the data and update size tracking
+    this.storage.set(key, Buffer.from(data)); // Create copy to prevent external mutations
     this.currentSize += sizeDifference;
-    console.log(`Stored ${encoded.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`);
+    console.log(
+      `Stored ${data.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`
+    );
   }
-
-  override async get(key: TKey): Promise<TDomain | null> {
+  async get(key) {
     this._validateKey(key);
     const data = this.storage.get(key);
     if (!data) {
       return null;
     }
-    return this.decode(Buffer.from(data) as TRuntime);
+    // Return a copy to prevent external mutations
+    return Buffer.from(data);
   }
-
-  override async delete(key: TKey): Promise<void> {
+  async delete(key) {
     this._validateKey(key);
     const data = this.storage.get(key);
     if (data) {
@@ -261,68 +163,58 @@ export class MemoryBinaryStorage<
       console.log(`Deleted data at key '${key}'. Remaining storage: ${this.currentSize} bytes`);
     }
   }
-
-  override async exists(key: TKey): Promise<boolean> {
+  async exists(key) {
     this._validateKey(key);
     return this.storage.has(key);
   }
-
-  override async getStats(): Promise<StorageStats<TKey>> {
+  async getStats() {
     return {
       type: 'memory',
       itemCount: this.storage.size,
       totalSize: this.currentSize,
       maxSize: this.maxSize,
       utilizationPercent: Math.round((this.currentSize / this.maxSize) * 100),
-      keys: Array.from(this.storage.keys())
+      keys: Array.from(this.storage.keys()),
     };
   }
-
   /**
    * Clear all stored data (useful for testing)
    */
-  async clear(): Promise<void> {
+  async clear() {
     this.storage.clear();
     this.currentSize = 0;
     console.log('Cleared all data from memory storage');
   }
 }
-
 /**
  * File System Binary Storage Implementation
- * 
+ *
  * Persistent storage using the local file system.
  * Good for local development and single-server deployments.
- * 
+ *
  * Features:
  * - Persistent across application restarts
  * - Configurable storage directory
  * - Atomic write operations
  * - Automatic directory creation
  */
-export class FileSystemBinaryStorage<
-  TDomain = Buffer,
-  TRuntime extends Buffer = Buffer
-> extends IStorage<string, TDomain, TRuntime> {
+export class FileSystemBinaryStorage extends IStorage {
   private storageDir: string;
 
-  constructor(storageDir: string = './data/binary-storage', codec?: StorageCodec<TDomain, TRuntime>) {
-    super(codec);
+  constructor(storageDir = './data/binary-storage') {
+    super();
     this.storageDir = resolve(storageDir);
     this._ensureDirectoryExists();
     console.log(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
   }
-
-  private async _ensureDirectoryExists(): Promise<void> {
+  async _ensureDirectoryExists() {
     try {
       await fs.mkdir(this.storageDir, { recursive: true });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error); // Inline normalization maintains sanitized errors
-      throw new Error(`Failed to create storage directory: ${message}`);
+    } catch (error) {
+      throw new Error(`Failed to create storage directory: ${error.message}`);
     }
   }
-
-  private _validateKey(key: string): void {
+  _validateKey(key) {
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('Key must be a non-empty string');
     }
@@ -331,74 +223,58 @@ export class FileSystemBinaryStorage<
       throw new Error('Key contains invalid characters for file system storage');
     }
   }
-
-  private _getFilePath(key: string): string {
+  _getFilePath(key) {
     // Hash the key to ensure safe file names and avoid conflicts
     const hash = createHash('sha256').update(key).digest('hex');
     return join(this.storageDir, `${hash}.bin`);
   }
-
-  override async save(key: string, data: TDomain): Promise<void> {
+  async save(key, data) {
     this._validateKey(key);
-
-    const encoded = this.encode(data);
-    if (!Buffer.isBuffer(encoded)) {
-      throw new Error('Storage codec must produce Buffer instances');
+    if (!Buffer.isBuffer(data)) {
+      throw new Error('Data must be a Buffer object');
     }
-
     const filePath = this._getFilePath(key);
     const tempPath = `${filePath}.tmp`;
-
     try {
       // Atomic write: write to temp file then rename
-      await fs.writeFile(tempPath, encoded);
+      await fs.writeFile(tempPath, data);
       await fs.rename(tempPath, filePath);
-      
       // Store key mapping for reverse lookup
       const metaPath = `${filePath}.meta`;
-      const metadata: FileMetadata = { 
-        key, 
-        size: encoded.length, 
-        created: new Date().toISOString() 
+      const metadata = {
+        key,
+        size: data.length,
+        created: new Date().toISOString(),
       };
       await fs.writeFile(metaPath, JSON.stringify(metadata));
-      
-      console.log(`Stored ${encoded.length} bytes at key '${key}' in file system`);
-    } catch (error: unknown) {
+      console.log(`Stored ${data.length} bytes at key '${key}' in file system`);
+    } catch (error) {
       // Clean up temp file if it exists
       try {
         await fs.unlink(tempPath);
-      } catch (cleanupError: unknown) {
+      } catch (cleanupError) {
         // Ignore cleanup errors
       }
-      const message = error instanceof Error ? error.message : String(error); // Inline sanitize failure detail for safe logging
-      throw new Error(`Failed to save data: ${message}`);
+      throw new Error(`Failed to save data: ${error.message}`);
     }
   }
-
-  override async get(key: string): Promise<TDomain | null> {
+  async get(key) {
     this._validateKey(key);
-    
     const filePath = this._getFilePath(key);
-    
     try {
       const data = await fs.readFile(filePath);
-      return this.decode(data as TRuntime);
-    } catch (error: unknown) {
-      if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'ENOENT') {
+      return data;
+    } catch (error) {
+      if (error.code === 'ENOENT') {
         return null; // File doesn't exist
       }
-      const message = error instanceof Error ? error.message : String(error); // Inline conversion keeps responses consistent
-      throw new Error(`Failed to read data: ${message}`);
+      throw new Error(`Failed to read data: ${error.message}`);
     }
   }
-
-  override async delete(key: string): Promise<void> {
+  async delete(key) {
     this._validateKey(key);
-    
     const filePath = this._getFilePath(key);
     const metaPath = `${filePath}.meta`;
-    
     try {
       await fs.unlink(filePath);
       try {
@@ -407,48 +283,39 @@ export class FileSystemBinaryStorage<
         // Meta file might not exist, ignore error
       }
       console.log(`Deleted data at key '${key}' from file system`);
-    } catch (error: unknown) {
-      if (!(typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'ENOENT')) {
-        const message = error instanceof Error ? error.message : String(error); // Inline message ensures sanitized error propagation
-        throw new Error(`Failed to delete data: ${message}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw new Error(`Failed to delete data: ${error.message}`);
       }
       // File doesn't exist, which is fine for delete operation
     }
   }
-
-  override async exists(key: string): Promise<boolean> {
+  async exists(key) {
     this._validateKey(key);
-    
     const filePath = this._getFilePath(key);
-    
     try {
       await fs.access(filePath);
       return true;
-    } catch (_error: unknown) {
+    } catch (error) {
       return false;
     }
   }
-
-  override async getStats(): Promise<StorageStats<string>> {
+  async getStats() {
     try {
       const files = await fs.readdir(this.storageDir);
       const dataFiles = files.filter(f => f.endsWith('.bin'));
-      
       let totalSize = 0;
-      const keys: string[] = [];
-      
+      const keys = [];
       for (const file of dataFiles) {
         const filePath = join(this.storageDir, file);
         const metaPath = `${filePath}.meta`;
-        
         try {
           const stats = await fs.stat(filePath);
           totalSize += stats.size;
-          
           // Try to read the original key from meta file
           try {
             const metaData = await fs.readFile(metaPath, 'utf8');
-            const meta = JSON.parse(metaData) as FileMetadata;
+            const meta = JSON.parse(metaData);
             keys.push(meta.key);
           } catch (metaError) {
             keys.push(file.replace('.bin', ''));
@@ -457,28 +324,26 @@ export class FileSystemBinaryStorage<
           // Skip files we can't read
         }
       }
-      
       return {
         type: 'filesystem',
         itemCount: dataFiles.length,
         totalSize,
         storageDir: this.storageDir,
-        keys
+        keys,
       };
-    } catch (error: unknown) {
+    } catch (error) {
       return {
         type: 'filesystem',
         itemCount: 0,
         totalSize: 0,
-        error: error instanceof Error ? error.message : String(error)
+        error: error.message,
       };
     }
   }
 }
-
 /**
  * Storage Factory
- * 
+ *
  * Creates the appropriate storage implementation based on environment
  * and configuration. Provides a unified way to get storage instances.
  */
@@ -488,46 +353,38 @@ export class StorageFactory {
    * @param options - Configuration options
    * @returns Storage implementation instance
    */
-  static createStorage<TKey extends string = string, TDomain = Buffer, TRuntime extends Buffer = Buffer>(
-    options: StorageOptions<TKey, TDomain, TRuntime> = {}
-  ): IStorage<TKey, TDomain, TRuntime> {
-    const { type = 'memory', config = {}, codec } = options;
-    const resolvedCodec = (codec ?? (defaultBufferCodec as StorageCodec<TDomain, TRuntime>));
-    const normalizedType = (type || 'memory').toLowerCase();
-
-    switch (normalizedType) {
+  static createStorage(options: StorageOptions = {}) {
+    const { type = 'memory', config = {} } = options;
+    switch (type.toLowerCase()) {
       case 'memory':
-        return new MemoryBinaryStorage<TKey, TDomain, TRuntime>(config.maxSize, resolvedCodec);
-
+        return new MemoryBinaryStorage(config.maxSize);
       case 'filesystem':
       case 'file':
-        return new FileSystemBinaryStorage<TDomain, TRuntime>(config.storageDir, resolvedCodec) as unknown as IStorage<TKey, TDomain, TRuntime>;
-
+        return new FileSystemBinaryStorage(config.storageDir);
       case 'object':
       case 'cloud':
-        if (ObjectStorageBinaryStorageClass) {
-          return new ObjectStorageBinaryStorageClass() as unknown as IStorage<TKey, TDomain, TRuntime>; // Optional dependency provides its own typing
+        if (ObjectStorageBinaryStorage) {
+          return new ObjectStorageBinaryStorage(); // Use optional object storage when the module loaded successfully
         }
         if (objectStorageImportError) {
-          console.warn(`Failed to initialize object storage: ${objectStorageImportError.message}, falling back to memory storage`);
+          console.warn(
+            `Failed to initialize object storage: ${objectStorageImportError.message}, falling back to memory storage`
+          );
         } else {
           console.warn('Object storage module unavailable, falling back to memory storage');
         }
-        return new MemoryBinaryStorage<TKey, TDomain, TRuntime>(config.maxSize, resolvedCodec);
-
+        return new MemoryBinaryStorage();
       default:
         console.warn(`Unknown storage type '${type}', falling back to memory storage`);
-        return new MemoryBinaryStorage<TKey, TDomain, TRuntime>(config.maxSize, resolvedCodec);
+        return new MemoryBinaryStorage();
     }
   }
-
   /**
    * Create storage based on environment variables
    */
-  static createFromEnvironment<TKey extends string = string, TDomain = Buffer, TRuntime extends Buffer = Buffer>(): IStorage<TKey, TDomain, TRuntime> {
+  static createFromEnvironment() {
     const storageType = process.env.BINARY_STORAGE_TYPE || 'memory';
-    const config: StorageConfig = {};
-
+    const config: { maxSize?: number; storageDir?: string; [key: string]: any } = {};
     if (storageType === 'filesystem') {
       const storageDir = process.env.BINARY_STORAGE_DIR;
       if (storageDir) {
@@ -539,19 +396,16 @@ export class StorageFactory {
         config.maxSize = parseInt(maxSizeStr);
       }
     }
-
-    return StorageFactory.createStorage<TKey, TDomain, TRuntime>({ type: storageType as any, config });
+    return StorageFactory.createStorage({ type: storageType, config });
   }
 }
-
 // Default storage instance for easy access
-let defaultStorage: IStorage<string, Buffer> | null = null;
-
+let defaultStorage = null;
 /**
  * Get the default storage instance
  * Creates one if it doesn't exist yet
  */
-export function getDefaultStorage(): IStorage<string, Buffer> {
+export function getDefaultStorage() {
   if (!defaultStorage) {
     defaultStorage = StorageFactory.createFromEnvironment();
   }

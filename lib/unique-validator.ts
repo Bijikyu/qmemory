@@ -16,12 +16,10 @@
  * - Data validation systems
  */
 
-import type {
-  FilterQuery,
-  LeanDocument,
-  Model,
-  Types,
-} from 'mongoose';
+import type { FilterQuery, Model, Types } from 'mongoose';
+
+// LeanDocument type alias for compatibility
+type LeanDocument<T> = T;
 import type { MongoServerError } from 'mongodb';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -63,21 +61,21 @@ export interface BatchCheckResults<TValue> {
 export interface UniqueValidator<TDoc extends DocumentShape> {
   validateCreate: (
     data: Partial<TDoc>,
-    fieldsToCheck?: Array<keyof TDoc & string>,
+    fieldsToCheck?: Array<keyof TDoc & string>
   ) => Promise<void>;
   validateUpdate: (
     id: MaybeObjectId,
     updateData: Partial<TDoc>,
-    fieldsToCheck?: Array<keyof TDoc & string>,
+    fieldsToCheck?: Array<keyof TDoc & string>
   ) => Promise<void>;
   isUnique: (
     fieldName: keyof TDoc & string,
     fieldValue: TDoc[keyof TDoc & string],
-    excludeId?: MaybeObjectId | null,
+    excludeId?: MaybeObjectId | null
   ) => Promise<boolean>;
   findExisting: (
     fieldName: keyof TDoc & string,
-    fieldValue: TDoc[keyof TDoc & string],
+    fieldValue: TDoc[keyof TDoc & string]
   ) => Promise<LeanDocument<TDoc> | null>;
 }
 
@@ -107,7 +105,7 @@ export async function checkDuplicateByField<
   fieldName: TField,
   fieldValue: TDoc[TField],
   excludeId: MaybeObjectId | null = null,
-  resourceType: string = 'resource', // kept for backward compatibility / logging
+  resourceType: string = 'resource' // kept for backward compatibility / logging
 ): Promise<LeanDocument<TDoc> | null> {
   if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
     return null;
@@ -143,19 +141,19 @@ export async function validateUniqueField<
   fieldName: TField,
   fieldValue: TDoc[TField],
   excludeId: MaybeObjectId | null = null,
-  resourceType: string = 'resource',
+  resourceType: string = 'resource'
 ): Promise<void> {
   const existing = await checkDuplicateByField(
     Model,
     fieldName,
     fieldValue,
     excludeId,
-    resourceType,
+    resourceType
   );
 
   if (existing) {
     const duplicateError = new Error(
-      `A ${resourceType} with this ${fieldName} already exists`,
+      `A ${resourceType} with this ${fieldName} already exists`
     ) as DuplicateError;
     duplicateError.code = 'DUPLICATE';
     duplicateError.status = 409;
@@ -177,7 +175,7 @@ export async function validateUniqueFields<TDoc extends DocumentShape>(
   Model: Model<TDoc>,
   fieldValueMap: FieldValueMap<TDoc>,
   excludeId: MaybeObjectId | null = null,
-  resourceType: string = 'resource',
+  resourceType: string = 'resource'
 ): Promise<void> {
   const validationPromises: Array<Promise<void>> = [];
 
@@ -189,8 +187,8 @@ export async function validateUniqueFields<TDoc extends DocumentShape>(
           fieldName as keyof TDoc & string,
           fieldValue as TDoc[keyof TDoc & string],
           excludeId,
-          resourceType,
-        ),
+          resourceType
+        )
       );
     }
   }
@@ -204,12 +202,12 @@ export async function validateUniqueFields<TDoc extends DocumentShape>(
 export function createUniqueValidator<TDoc extends DocumentShape>(
   Model: Model<TDoc>,
   resourceType: string,
-  uniqueField: keyof TDoc & string = 'name' as keyof TDoc & string,
+  uniqueField: keyof TDoc & string = 'name' as keyof TDoc & string
 ): UniqueValidator<TDoc> {
   return {
     async validateCreate(
       data: Partial<TDoc>,
-      fieldsToCheck: Array<keyof TDoc & string> = [uniqueField],
+      fieldsToCheck: Array<keyof TDoc & string> = [uniqueField]
     ): Promise<void> {
       const fieldValueMap: FieldValueMap<TDoc> = {};
 
@@ -228,7 +226,7 @@ export function createUniqueValidator<TDoc extends DocumentShape>(
     async validateUpdate(
       id: MaybeObjectId,
       updateData: Partial<TDoc>,
-      fieldsToCheck: Array<keyof TDoc & string> = [uniqueField],
+      fieldsToCheck: Array<keyof TDoc & string> = [uniqueField]
     ): Promise<void> {
       const fieldValueMap: FieldValueMap<TDoc> = {};
       for (const field of fieldsToCheck) {
@@ -246,35 +244,29 @@ export function createUniqueValidator<TDoc extends DocumentShape>(
     async isUnique(
       fieldName: keyof TDoc & string,
       fieldValue: TDoc[keyof TDoc & string],
-      excludeId: MaybeObjectId | null = null,
+      excludeId: MaybeObjectId | null = null
     ): Promise<boolean> {
       const existing = await checkDuplicateByField(
         Model,
         fieldName,
         fieldValue,
         excludeId,
-        resourceType,
+        resourceType
       );
       return existing === null;
     },
 
     async findExisting(
       fieldName: keyof TDoc & string,
-      fieldValue: TDoc[keyof TDoc & string],
+      fieldValue: TDoc[keyof TDoc & string]
     ): Promise<LeanDocument<TDoc> | null> {
-      return checkDuplicateByField(
-        Model,
-        fieldName,
-        fieldValue,
-        null,
-        resourceType,
-      );
+      return checkDuplicateByField(Model, fieldName, fieldValue, null, resourceType);
     },
   };
 }
 
 function isMongoDuplicateError(
-  error: unknown,
+  error: unknown
 ): error is MongoServerError & { keyValue: Record<string, unknown> } {
   if (!error || typeof error !== 'object') {
     return false;
@@ -288,16 +280,13 @@ function isMongoDuplicateError(
 /**
  * Handles MongoDB duplicate key errors (code 11000).
  */
-export function handleDuplicateKeyError(
-  error: unknown,
-  resourceType: string = 'resource',
-): Error {
+export function handleDuplicateKeyError(error: unknown, resourceType: string = 'resource'): Error {
   if (isMongoDuplicateError(error)) {
     const field = Object.keys(error.keyValue)[0];
 
     if (field) {
       const duplicateError = new Error(
-        `A ${resourceType} with this ${field} already exists`,
+        `A ${resourceType} with this ${field} already exists`
       ) as DuplicateError;
       duplicateError.code = 'DUPLICATE';
       duplicateError.status = 409;
@@ -317,12 +306,9 @@ export function handleDuplicateKeyError(
  */
 export function withDuplicateKeyHandling<TArgs extends unknown[], TResult>(
   fn: (...args: TArgs) => Promise<TResult>,
-  resourceType: string = 'resource',
+  resourceType: string = 'resource'
 ): (...args: TArgs) => Promise<TResult> {
-  return async function withDuplicateHandling(
-    this: unknown,
-    ...args: TArgs
-  ): Promise<TResult> {
+  return async function withDuplicateHandling(this: unknown, ...args: TArgs): Promise<TResult> {
     try {
       return await fn.apply(this, args);
     } catch (error) {
@@ -338,14 +324,14 @@ export function createUniqueFieldMiddleware<TDoc extends DocumentShape>(
   Model: Model<TDoc>,
   fieldName: keyof TDoc & string,
   resourceType: string,
-  options: MiddlewareOptions = {},
+  options: MiddlewareOptions = {}
 ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
   const { source = 'body', idParam = 'id' } = options;
 
   return async function uniqueFieldMiddleware(
     req: Request,
     res: Response,
-    next: NextFunction,
+    next: NextFunction
   ): Promise<void> {
     try {
       const payload = (req as unknown as Record<string, Record<string, unknown>>)[source];
@@ -369,7 +355,7 @@ export function createUniqueFieldMiddleware<TDoc extends DocumentShape>(
         fieldName,
         fieldValue as TDoc[typeof fieldName],
         excludeId,
-        resourceType,
+        resourceType
       );
       next();
     } catch (error) {
@@ -398,14 +384,14 @@ export function createUniqueFieldsMiddleware<TDoc extends DocumentShape>(
   Model: Model<TDoc>,
   fieldNames: Array<keyof TDoc & string>,
   resourceType: string,
-  options: MiddlewareOptions = {},
+  options: MiddlewareOptions = {}
 ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
   const { source = 'body', idParam = 'id' } = options;
 
   return async function uniqueFieldsMiddleware(
     req: Request,
     res: Response,
-    next: NextFunction,
+    next: NextFunction
   ): Promise<void> {
     try {
       const payload = (req as unknown as Record<string, Record<string, unknown>>)[source];
@@ -454,9 +440,7 @@ export function isDuplicateError(error: unknown): error is DuplicateError {
 
   const candidate = error as Partial<DuplicateError>;
   return (
-    candidate.code === 'DUPLICATE' ||
-    candidate.code === 11000 ||
-    candidate.isDuplicate === true
+    candidate.code === 'DUPLICATE' || candidate.code === 11000 || candidate.isDuplicate === true
   );
 }
 
@@ -469,7 +453,7 @@ export function createBatchUniqueChecker<
 >(
   Model: Model<TDoc>,
   fieldName: TField,
-  resourceType: string = 'resource',
+  resourceType: string = 'resource'
 ): BatchUniqueChecker<TDoc[TField]> {
   return {
     async checkMany(values: Array<TDoc[TField]>): Promise<BatchCheckResults<TDoc[TField]>> {
@@ -479,13 +463,7 @@ export function createBatchUniqueChecker<
       };
 
       for (const value of values) {
-        const existing = await checkDuplicateByField(
-          Model,
-          fieldName,
-          value,
-          null,
-          resourceType,
-        );
+        const existing = await checkDuplicateByField(Model, fieldName, value, null, resourceType);
         if (existing) {
           results.duplicates.push({ value, existingId: existing._id });
         } else {

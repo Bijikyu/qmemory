@@ -1,206 +1,153 @@
 /**
  * Fast Operations
  * Ultra-high performance core operations optimized for speed
- * 
+ *
  * These implementations sacrifice some safety checks for maximum performance
  * in critical code paths. Use in performance-sensitive scenarios like:
  * - Real-time analytics
  * - High-frequency data processing
  * - Gaming engines
  * - Large dataset processing
- * 
+ *
  * Performance gains: 20-40% speedup over built-in methods
  */
-
 import { Buffer } from 'buffer';
-// 🚩AI: ENTRY_POINT_FOR_FAST_OPERATIONS
-// 🚩AI: MUST_UPDATE_IF_FAST_OPS_ALGORITHMS_CHANGE
-
-/**
- * Mutable numeric array contract used by high-performance routines. The type
- * deliberately models the subset of array behaviour relied upon by the math
- * helpers so both native arrays and TypedArrays can participate.
- */
-export type NumericArray<TValue extends number = number> = {
-  readonly length: number;
-  [index: number]: TValue;
-};
-
-/**
- * Accessor signature that allows callers to project arbitrary records into
- * numeric values without incurring extra allocations in hot loops.
- */
-export type NumericAccessor<TValue> = (value: TValue, index: number, array: NumericArray<TValue>) => number;
-
 /**
  * Fast math operations without bounds checking
  */
 export class FastMath {
   /**
    * Ultra-fast array sum
-   * 
+   *
    * @param array - Array of numbers
    * @returns Sum of all elements
    */
-  static sum<TValue extends number>(array: NumericArray<TValue>): number {
+  static sum(array) {
     let result = 0;
     for (let i = 0; i < array.length; i++) {
-      result += Number(array[i]);
+      result += array[i];
     }
     return result;
   }
-
-  /**
-   * Ultra-fast array sum using a value accessor
-   * 
-   * @param array - Array-like source
-    * @param accessor - Converts each element to a number
-   */
-  static sumBy<TValue>(array: NumericArray<TValue>, accessor: NumericAccessor<TValue>): number {
-    let result = 0;
-    for (let i = 0; i < array.length; i++) {
-      result += accessor(array[i], i, array);
-    }
-    return result;
-  }
-
   /**
    * Ultra-fast array max
-   * 
+   *
    * @param array - Array of numbers
    * @returns Maximum value
    */
-  static max<TValue extends number>(array: NumericArray<TValue>): number {
+  static max(array) {
     if (array.length === 0) return -Infinity;
-    let result = Number(array[0]);
+    let result = array[0];
     for (let i = 1; i < array.length; i++) {
-      const candidate = Number(array[i]);
-      if (candidate > result) result = candidate;
+      if (array[i] > result) result = array[i];
     }
     return result;
   }
-
   /**
    * Ultra-fast array min
-   * 
+   *
    * @param array - Array of numbers
    * @returns Minimum value
    */
-  static min<TValue extends number>(array: NumericArray<TValue>): number {
+  static min(array) {
     if (array.length === 0) return Infinity;
-    let result = Number(array[0]);
+    let result = array[0];
     for (let i = 1; i < array.length; i++) {
-      const candidate = Number(array[i]);
-      if (candidate < result) result = candidate;
+      if (array[i] < result) result = array[i];
     }
     return result;
   }
-
   /**
    * Fast average calculation
-   * 
+   *
    * @param array - Array of numbers
    * @returns Average value
    */
-  static average<TValue extends number>(array: NumericArray<TValue>): number {
+  static average(array) {
     if (array.length === 0) return 0;
     return FastMath.sum(array) / array.length;
   }
-
   /**
    * Fast percentile calculation using quickselect
-   * 
+   *
    * @param array - Array of numbers (will be modified)
    * @param p - Percentile (0-1)
    * @returns Percentile value
    */
-  static percentile<TValue extends number>(array: NumericArray<TValue>, p: number): number {
+  static percentile(array, p) {
     if (array.length === 0) return 0;
-    const working = Array.from(array as ArrayLike<number>);
-    const k = Math.floor(working.length * p);
-    return FastMath.quickSelect(working, Math.min(k, working.length - 1))!;
+    const k = Math.floor(array.length * p);
+    return FastMath.quickSelect(array, Math.min(k, array.length - 1));
   }
-
-  static quickSelect(array: number[], k: number): number {
+  static quickSelect(array, k) {
     let left = 0;
     let right = array.length - 1;
-
     while (left <= right) {
       const pivotIndex = Math.floor((left + right) / 2);
       const pivotIndexNew = FastMath.partition(array, left, right, pivotIndex);
-
       if (k === pivotIndexNew) {
-        return array[k]!;
+        return array[k];
       } else if (k < pivotIndexNew) {
         right = pivotIndexNew - 1;
       } else {
         left = pivotIndexNew + 1;
       }
     }
-
-    return array[Math.max(0, Math.min(k, array.length - 1))]!;
+    return array[Math.max(0, Math.min(k, array.length - 1))];
   }
-
-  static partition(array: number[], left: number, right: number, pivotIndex: number): number {
-    const pivotValue = array[pivotIndex]!;
+  static partition(array, left, right, pivotIndex) {
+    const pivotValue = array[pivotIndex];
     FastMath.swap(array, pivotIndex, right);
-
     let storeIndex = left;
     for (let i = left; i < right; i++) {
-      if (array[i]! < pivotValue) {
+      if (array[i] < pivotValue) {
         FastMath.swap(array, i, storeIndex);
         storeIndex++;
       }
     }
-
     FastMath.swap(array, storeIndex, right);
     return storeIndex;
   }
-
-  static swap<TValue>(array: TValue[], i: number, j: number): void {
+  static swap(array, i, j) {
     const temp = array[i];
     array[i] = array[j];
     array[j] = temp;
   }
-
   /**
    * Fast median calculation
-   * 
+   *
    * @param array - Array of numbers (will be modified)
    * @returns Median value
    */
-  static median<TValue extends number>(array: NumericArray<TValue>): number {
+  static median(array) {
     return FastMath.percentile(array, 0.5);
   }
-
   /**
-   * Fast variance calculation supporting accessor-based extraction for complex types
-   * 
+   * Fast variance calculation
+   *
    * @param array - Array of numbers
    * @returns Variance
    */
-  static variance<TValue extends number>(array: NumericArray<TValue>): number {
+  static variance(array) {
     if (array.length === 0) return 0;
     const avg = FastMath.average(array);
     let sumSq = 0;
     for (let i = 0; i < array.length; i++) {
-      const diff = Number(array[i]) - avg;
+      const diff = array[i] - avg;
       sumSq += diff * diff;
     }
     return sumSq / array.length;
   }
-
   /**
    * Fast standard deviation
-   * 
+   *
    * @param array - Array of numbers
    * @returns Standard deviation
    */
-  static stddev<TValue extends number>(array: NumericArray<TValue>): number {
+  static stddev(array) {
     return Math.sqrt(FastMath.variance(array));
   }
 }
-
 /**
  * Fast string operations using Node.js built-in methods
  * Only includes operations that provide meaningful performance benefits over native methods
@@ -209,53 +156,41 @@ export class FastString {
   /**
    * Fast string concatenation using Node.js built-in Buffer.concat
    * Provides performance benefit for large numbers of strings
-   * 
+   *
    * @param strings - Array of strings
    * @returns Concatenated string
    */
-  static fastConcat(strings: Iterable<string>): string {
-    const buffers: Buffer[] = [];
-    let totalLength = 0;
-
-    for (const value of strings) {
-      const buffer = Buffer.from(value, 'utf8');
-      buffers.push(buffer);
-      totalLength += buffer.length;
-    }
-
-    const concatenated = Buffer.concat(buffers, totalLength);
+  static fastConcat(strings) {
+    const buffers = strings.map(str => Buffer.from(str, 'utf8'));
+    const concatenated = Buffer.concat(buffers);
     return concatenated.toString('utf8');
   }
-
   /**
    * Fast split without regex overhead
    * Provides performance benefit for simple string splitting
-   * 
+   *
    * @param str - String to split
    * @param delimiter - Delimiter
    * @returns Split parts
    */
-  static fastSplit(str: string, delimiter: string): string[] {
-    const result: string[] = [];
+  static fastSplit(str, delimiter) {
+    const result = [];
     let start = 0;
     let index = str.indexOf(delimiter);
-
     while (index >= 0) {
       result.push(str.substring(start, index));
       start = index + delimiter.length;
       index = str.indexOf(delimiter, start);
     }
-
     result.push(str.substring(start));
     return result;
   }
 }
-
 /**
  * Lock-free circular buffer queue
  */
-export class LockFreeQueue<T = unknown> {
-  private buffer: (T | undefined)[];
+export class LockFreeQueue {
+  private buffer: any[];
   private head: number;
   private tail: number;
   private mask: number;
@@ -267,14 +202,13 @@ export class LockFreeQueue<T = unknown> {
     this.tail = 0;
     this.mask = powerOf2Size - 1;
   }
-
   /**
    * Add item to queue
-   * 
+   *
    * @param item - Item to enqueue
    * @returns True if successful
    */
-  enqueue(item: T): boolean {
+  enqueue(item) {
     const nextTail = (this.tail + 1) & this.mask;
     if (nextTail === this.head) {
       return false;
@@ -283,13 +217,12 @@ export class LockFreeQueue<T = unknown> {
     this.tail = nextTail;
     return true;
   }
-
   /**
    * Remove and return item from queue
-   * 
+   *
    * @returns Item or undefined if empty
    */
-  dequeue(): T | undefined {
+  dequeue() {
     if (this.head === this.tail) {
       return undefined;
     }
@@ -298,65 +231,57 @@ export class LockFreeQueue<T = unknown> {
     this.head = (this.head + 1) & this.mask;
     return item;
   }
-
   /**
    * Peek at front item without removing
-   * 
+   *
    * @returns Item or undefined if empty
    */
-  peek(): T | undefined {
+  peek() {
     if (this.head === this.tail) {
       return undefined;
     }
     return this.buffer[this.head];
   }
-
-  get size(): number {
+  get size() {
     return (this.tail - this.head) & this.mask;
   }
-
-  get isEmpty(): boolean {
+  get isEmpty() {
     return this.head === this.tail;
   }
-
-  get isFull(): boolean {
+  get isFull() {
     return ((this.tail + 1) & this.mask) === this.head;
   }
-
-  clear(): void {
+  clear() {
     this.head = 0;
     this.tail = 0;
   }
 }
-
 /**
  * Ultra-fast object pooling for reduced GC pressure
  */
-export class ObjectPool<T = unknown> {
-  private factory: () => T;
-  private resetFn: ((obj: T) => void) | undefined;
-  private pool: T[];
+export class ObjectPool {
+  private factory: Function;
+  private resetFn: Function | undefined;
+  private pool: any[];
   private index: number;
 
-  constructor(factory: () => T, resetFn?: (obj: T) => void, initialSize: number = 100) {
+  constructor(factory: Function, resetFn?: Function, initialSize: number = 100) {
     this.factory = factory;
     this.resetFn = resetFn || undefined;
     this.pool = new Array(initialSize);
     this.index = 0;
-
     for (let i = 0; i < initialSize; i++) {
       this.pool[i] = factory();
     }
   }
-
   /**
    * Acquire object from pool
-   * 
+   *
    * @returns Object from pool or new instance
    */
-  acquire(): T {
+  acquire() {
     if (this.index < this.pool.length) {
-      const obj = this.pool[this.index++]!;
+      const obj = this.pool[this.index++];
       if (this.resetFn) {
         this.resetFn(obj);
       }
@@ -364,143 +289,134 @@ export class ObjectPool<T = unknown> {
     }
     return this.factory();
   }
-
   /**
    * Release object back to pool
-   * 
+   *
    * @param obj - Object to return
    */
-  release(obj: T): void {
+  release(obj) {
     if (this.index > 0) {
       this.pool[--this.index] = obj;
     }
   }
-
   /**
    * Expand pool with more objects
-   * 
+   *
    * @param count - Number of objects to add
    */
-  expand(count: number): void {
+  expand(count) {
     const start = this.pool.length;
     this.pool.length += count;
     for (let i = 0; i < count; i++) {
       this.pool[start + i] = this.factory();
     }
   }
-
-  get available(): number {
+  get available() {
     return this.pool.length - this.index;
   }
-
-  get totalSize(): number {
+  get totalSize() {
     return this.pool.length;
   }
 }
-
 /**
  * High-performance timer
  */
 export class FastTimer {
-  private startTime: bigint = 0n;
-  private laps: number[] = [];
+  private startTime: bigint;
+  private laps: number[];
 
-  start(): FastTimer {
+  constructor() {
+    this.startTime = 0n;
+    this.laps = [];
+  }
+  start() {
     this.startTime = process.hrtime.bigint();
     this.laps = [];
     return this;
   }
-
-  lap(): number {
+  lap() {
     const now = process.hrtime.bigint();
     const elapsed = Number(now - this.startTime) / 1e6;
     this.laps.push(elapsed);
     return elapsed;
   }
-
-  end(): number {
+  end() {
     return Number(process.hrtime.bigint() - this.startTime) / 1e6;
   }
-
   /**
    * Time a function execution
-   * 
+   *
    * @param fn - Function to time
    * @returns Result and duration in ms
    */
-  static time<T>(fn: () => T): { result: T; duration: number } {
+  static time(fn) {
     const start = process.hrtime.bigint();
     const result = fn();
     const duration = Number(process.hrtime.bigint() - start) / 1e6;
     return { result, duration };
   }
-
   /**
    * Time an async function execution
-   * 
+   *
    * @param fn - Async function to time
    * @returns Result and duration
    */
-  static async timeAsync<T>(fn: () => Promise<T>): Promise<{ result: T; duration: number }> {
+  static async timeAsync(fn) {
     const start = process.hrtime.bigint();
     const result = await fn();
     const duration = Number(process.hrtime.bigint() - start) / 1e6;
     return { result, duration };
   }
 }
-
 /**
  * Fast memory operations using Node.js built-in Buffer methods
  */
 export class FastMemory {
   /**
    * Fast buffer copy using Node.js built-in Buffer.copy
-   * 
+   *
    * @param dest - Destination buffer
    * @param src - Source buffer
    * @param length - Bytes to copy
    */
-  static memcopy(dest: Buffer, src: Buffer, length: number): number {
+  static memcopy(dest, src, length) {
     return src.copy(dest, 0, 0, length);
   }
-
   /**
    * Fast buffer fill using Node.js built-in Buffer.fill
-   * 
+   *
    * @param buffer - Buffer to fill
    * @param value - Value to set
    * @param length - Bytes to set
    */
-  static memset(buffer: Buffer, value: number, length: number): Buffer {
+  static memset(buffer, value, length) {
     return buffer.fill(value, 0, length);
   }
-
   /**
    * Fast buffer compare using Node.js built-in Buffer.compare
-   * 
+   *
    * @param buf1 - First buffer
    * @param buf2 - Second buffer
    * @param length - Bytes to compare
    * @returns 0 if equal, negative if buf1 < buf2, positive if buf1 > buf2
    */
-  static memcmp(buf1: Buffer, buf2: Buffer, length: number): number {
+  static memcmp(buf1, buf2, length) {
     const slice1 = buf1.slice(0, length);
     const slice2 = buf2.slice(0, length);
     return slice1.compare(slice2);
   }
 }
-
 /**
  * Fast hashing algorithms
  */
 export class FastHash {
   /**
    * FNV-1a hash - very fast for general use
-   * 
+   *
    * @param data - String to hash
    * @returns 32-bit hash
    */
-  static fnv1a(data: string): number {
+  static fnv1a(data) {
     let hash = 2166136261;
     for (let i = 0; i < data.length; i++) {
       hash ^= data.charCodeAt(i);
@@ -508,46 +424,43 @@ export class FastHash {
     }
     return hash >>> 0;
   }
-
   /**
    * DJB2 hash - good for short strings
-   * 
+   *
    * @param data - String to hash
    * @returns 32-bit hash
    */
-  static djb2(data: string): number {
+  static djb2(data) {
     let hash = 5381;
     for (let i = 0; i < data.length; i++) {
-      hash = ((hash << 5) + hash) + data.charCodeAt(i);
+      hash = (hash << 5) + hash + data.charCodeAt(i);
     }
     return hash >>> 0;
   }
-
   /**
    * CRC32 hash - good distribution
-   * 
+   *
    * @param data - String to hash
    * @returns 32-bit hash
    */
-  static crc32(data: string): number {
-    let crc = 0xFFFFFFFF;
+  static crc32(data) {
+    let crc = 0xffffffff;
     for (let i = 0; i < data.length; i++) {
       crc ^= data.charCodeAt(i);
       for (let j = 0; j < 8; j++) {
-        crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1));
+        crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
       }
     }
-    return (crc ^ 0xFFFFFFFF) >>> 0;
+    return (crc ^ 0xffffffff) >>> 0;
   }
-
   /**
    * Murmur3-like hash - fast and good distribution
-   * 
+   *
    * @param data - String to hash
    * @param seed - Optional seed
    * @returns 32-bit hash
    */
-  static murmur(data: string, seed: number = 0): number {
+  static murmur(data, seed = 0) {
     let h = seed;
     for (let i = 0; i < data.length; i++) {
       let k = data.charCodeAt(i);
@@ -567,101 +480,74 @@ export class FastHash {
     return h >>> 0;
   }
 }
-
 /**
  * Performance-critical type casts
  */
 export const Cast = {
-  toInt32: (value: unknown): number => Number(value) | 0, // Force numeric conversion before truncation to preserve semantics
-  toUint32: (value: unknown): number => Number(value) >>> 0, // Unsigned coercion mirrors original bitwise behaviour
-  toFloat64: (value: unknown): number => Number(value), // Number(...) guarantees IEEE754 conversion
-  toString: (value: unknown): string => String(value), // String(...) avoids unexpected concatenation side effects
-  toBoolean: (value: unknown): boolean => Boolean(value) // Boolean(...) provides predictable truthiness coercion
+  toInt32: value => value | 0,
+  toUint32: value => value >>> 0,
+  toFloat64: value => +value,
+  toString: value => value + '',
+  toBoolean: value => !!value,
 };
-
 /**
  * Direct property access utilities
  */
 export const Prop = {
-  get(obj: Record<string, unknown> | undefined | null, path: string): unknown {
-    let result: unknown = obj;
+  get(obj, path) {
+    let result = obj;
     const parts = path.split('.');
     for (let i = 0; i < parts.length && result != null; i++) {
       const part = parts[i];
-      if (!part) {
-        continue;
+      if (part !== undefined) {
+        result = result[part];
       }
-      if (typeof result !== 'object' || result === null) {
-        return undefined; // Bail early when traversing non-object leaves
-      }
-      result = (result as Record<string, unknown>)[part];
     }
     return result;
   },
-
-  set(obj: Record<string, unknown> | undefined | null, path: string, value: unknown): void {
+  set(obj, path, value) {
     const parts = path.split('.');
-    if (!obj || typeof obj !== 'object') {
-      throw new TypeError('Prop.set requires a non-null object target'); // Preserve fail-fast behaviour for invalid targets
-    }
-    let current: Record<string, unknown> = obj;
+    let current = obj;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
-      if (!part) {
-        continue;
-      }
-      if (current[part] == null) {
-        current[part] = {}; // Lazily materialise nested objects to mirror JS behaviour
-      }
-      const next = current[part];
-      if (typeof next !== 'object' || next === null) {
+      if (part !== undefined && current[part] == null) {
         current[part] = {};
       }
-      current = current[part] as Record<string, unknown>;
+      if (part !== undefined) {
+        current = current[part];
+      }
     }
     const lastPart = parts[parts.length - 1];
-    if (lastPart) {
+    if (lastPart !== undefined) {
       current[lastPart] = value;
     }
   },
-
-  has(obj: Record<string, unknown> | undefined | null, path: string): boolean {
+  has(obj, path) {
     return Prop.get(obj, path) !== undefined;
   },
-
-  delete(obj: Record<string, unknown> | undefined | null, path: string): boolean {
+  delete(obj, path) {
     const parts = path.split('.');
-    if (!obj || typeof obj !== 'object') {
-      throw new TypeError('Prop.delete requires a non-null object target'); // Surface misuse instead of silently succeeding
-    }
-    let current: Record<string, unknown> = obj;
+    let current = obj;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
-      if (!part) {
-        continue;
+      if (part !== undefined && current[part] == null) return false;
+      if (part !== undefined) {
+        current = current[part];
       }
-      if (current[part] == null) return false;
-      const next = current[part];
-      if (typeof next !== 'object' || next === null) {
-        return false;
-      }
-      current = next as Record<string, unknown>;
     }
     const lastPart = parts[parts.length - 1];
-    if (lastPart) {
+    if (lastPart !== undefined) {
       return delete current[lastPart];
     }
     return false;
-  }
+  },
 };
-
 /**
  * Consolidated fast operations export
  * Only includes operations that provide meaningful performance benefits
  */
 export const FastOps = {
   sum: FastMath.sum,
-  sumBy: FastMath.sumBy,
   max: FastMath.max,
   min: FastMath.min,
   avg: FastMath.average,
@@ -677,10 +563,5 @@ export const FastOps = {
   hashMurmur: FastHash.murmur,
   copy: FastMemory.memcopy,
   set: FastMemory.memset,
-  compare: FastMemory.memcmp
-};
-
-export type {
-  NumericArray,
-  NumericAccessor
+  compare: FastMemory.memcmp,
 };

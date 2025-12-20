@@ -9,6 +9,9 @@ declare module 'qgenutils' {
   export function generateUniqueId(): string;
   export function sanitizeResponseMessage(message: string, fallback: string): string;
   export function sanitizeContext(context: any): any;
+  export function getEnvVar(key: string): string | undefined;
+  export function requireEnvVars(keys: string[]): void;
+  export function gracefulShutdown(signal?: string): Promise<void>;
 }
 
 declare module 'qerrors' {

@@ -9,11 +9,13 @@ import {
   UpdateQuery,
   ProjectionType,
   QueryOptions,
-  LeanDocument,
   Types,
   AnyKeys,
   AnyObject,
 } from 'mongoose';
+
+// LeanDocument type alias for compatibility
+type LeanDocument<T> = T;
 import type { UpdateResult } from 'mongodb';
 import { safeDbOperation } from './database-utils.js';
 
@@ -29,8 +31,7 @@ const logger: Logger = {
     console.log(`ENTRY: ${functionName}`, data ?? ''),
   logDebug: (message: string, data?: Record<string, unknown>) =>
     console.log(`DEBUG: ${message}`, data ?? ''),
-  logError: (message: string, error: unknown) =>
-    console.error(`ERROR: ${message}`, error),
+  logError: (message: string, error: unknown) => console.error(`ERROR: ${message}`, error),
 };
 
 type AnyDocumentShape = AnyObject;
@@ -63,11 +64,7 @@ const findDocumentById = async <TSchema extends AnyDocumentShape>(
     throw new Error('Model is required');
   }
   logger.logFunctionEntry('findDocumentById', { model: model.modelName, id });
-  const result = await safeDbOperation(
-    () => model.findById(id).exec(),
-    null,
-    'findDocumentById'
-  );
+  const result = await safeDbOperation(() => model.findById(id).exec(), null, 'findDocumentById');
   logger.logDebug('findDocumentById returning result', { hasResult: Boolean(result) });
   return result;
 };
@@ -133,7 +130,7 @@ const deleteDocumentById = async <TSchema extends AnyDocumentShape>(
  */
 const cascadeDeleteDocument = async <
   TSchema extends AnyDocumentShape,
-  TRelatedSchema extends AnyDocumentShape
+  TRelatedSchema extends AnyDocumentShape,
 >(
   model: Model<TSchema>,
   id: DocumentId,
@@ -185,11 +182,7 @@ const createDocument = async <TSchema extends AnyDocumentShape>(
     model: model.modelName,
     dataFields: Object.keys((data as Record<string, unknown>) ?? {}),
   });
-  const result = await safeDbOperation(
-    () => model.create(data),
-    null,
-    'createDocument'
-  );
+  const result = await safeDbOperation(() => model.create(data), null, 'createDocument');
   logger.logDebug('createDocument returning result', { hasResult: Boolean(result) });
   return result;
 };

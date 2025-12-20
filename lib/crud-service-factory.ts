@@ -21,13 +21,7 @@
  * - Any application needing standardized data access
  */
 
-import type {
-  FilterQuery,
-  HydratedDocument,
-  Model,
-  QueryWithHelpers,
-  UpdateQuery,
-} from 'mongoose';
+import type { FilterQuery, HydratedDocument, Model, QueryWithHelpers, UpdateQuery } from 'mongoose';
 
 type DocumentShape = Record<string, unknown>;
 type SortDefinition = Record<string, 1 | -1>;
@@ -237,7 +231,7 @@ export function createCrudService<TDoc extends DocumentShape>(
   async function create(data: Partial<TDoc>): Promise<HydratedDocument<TDoc>> {
     const uniqueValue = data[uniqueField];
     if (uniqueValue !== undefined && uniqueValue !== null && uniqueValue !== '') {
-      const existing = await findByFieldIgnoreCase(Model, uniqueField, uniqueValue);
+      const existing = await findByFieldIgnoreCase(Model as any, uniqueField, uniqueValue);
       if (existing) {
         throw createDuplicateError(resourceType, uniqueField, uniqueValue);
       }
@@ -245,7 +239,7 @@ export function createCrudService<TDoc extends DocumentShape>(
 
     const processedData = beforeCreate ? await beforeCreate({ ...data }) : { ...data };
 
-    const item = new Model(processedData);
+    const item = new (Model as any)(processedData);
     const saved = await item.save(); // Persist via Mongoose so hooks and validation execute
 
     if (afterCreate) {
@@ -314,7 +308,7 @@ export function createCrudService<TDoc extends DocumentShape>(
       incomingValue !== '' &&
       existing[uniqueField] !== incomingValue
     ) {
-      const duplicate = await findByFieldIgnoreCase(Model, uniqueField, incomingValue);
+      const duplicate = await findByFieldIgnoreCase(Model as any, uniqueField, incomingValue);
       if (duplicate && String((duplicate as { _id: unknown })._id) !== id) {
         throw createDuplicateError(resourceType, uniqueField, incomingValue);
       }
