@@ -1,99 +1,158 @@
-# CURRENTPLAN — ESM TypeScript Migration
+# CSUP Analysis Plan for QMemory Library
 
-## Scope
-- Replace the remaining CommonJS/JavaScript source files that still sit in `lib/` and the Jest suites with the authoritative TypeScript+ESM implementations.
-- Ensure the compiled output in `dist/` remains the single JavaScript artifact; source roots should no longer carry parallel `.js` + `.ts` versions.
-- Update all test code to native ESM with TypeScript so `jest` no longer relies on the global `require` polyfill.
-- Keep focus on `lib/` and `test/` as requested; surface adjacent work only when it directly blocks the conversion.
+## Overview
 
-## Inventory — JavaScript Artifacts to Sunset
+This plan outlines the systematic analysis of the QMemory Node.js utility library using the Codex Swarm Usage Protocol (CSUP) workflow. The analysis will verify external API compliance, backend contracts, and frontend-backend wiring.
 
-### `lib/` duplicates (all have TypeScript counterparts already)
-| Current JS file | TypeScript source already present | Notes |
-| --- | --- | --- |
-| `lib/binary-storage.js` | `lib/binary-storage.ts` | JS file still exports runtime logic (top-level await, dynamic import). Need to confirm parity with the TS version before deleting JS. |
-| `lib/circuit-breaker-factory.js` | `lib/circuit-breaker-factory.ts` | Ensure the factory helper exports match the TS implementation that already uses generics. |
-| `lib/circuit-breaker.js` | `lib/circuit-breaker.ts` | Validate enum/object exports align; TS version adds stronger typing. |
-| `lib/email-utils.js` | `lib/email-utils.ts` | JS version lacks the richer validation types included in TS. |
-| `lib/fast-operations.js` | `lib/fast-operations.ts` | TS version adds typed generics; confirm helper names stay identical. |
-| `lib/health-check.js` | `lib/health-check.ts` | JS uses `require`-friendly Node builtins while TS already imports via `node:` specifiers. |
-| `lib/mongoose-mapper.js` | `lib/mongoose-mapper.ts` | TS file already references the schema helpers with `.js` extensions; check index barrel imports when removing JS. |
-| `lib/pagination-utils.js` | `lib/pagination-utils.ts` | TS version strengthens type guards. Ensure tests move to TS before dropping JS. |
-| `lib/performance-utils.js` | `lib/performance-utils.ts` | JS version re-exports monitoring classes; TS version brings type-safe singleton. Need parity diff. |
-| `lib/serialization-utils.js` | `lib/serialization-utils.ts` | TS version introduces `SerializedDocument` conditional types. |
-| `lib/streaming-json.js` | `lib/streaming-json.ts` | JS contains only the legacy safe helpers. TS adds streaming APIs that should become source of truth. |
-| `lib/test-memory-manager.js` | `lib/test-memory-manager.ts` | JS class lacks explicit typing; TS retains identical API. |
-| `lib/typeMap.js` | `lib/typeMap.ts` | Confirm TS exports (`typeMap`, `supportedTypes`, helpers) match runtime expectations. |
+## Task 1: External Third-Party API Compliance
 
-➡️ Action: Diff each pair to ensure TS is the superset, update TS where necessary, then delete JS artifacts once consumers/tests have shifted to TypeScript imports.
+### Scope
 
-### `test/` JavaScript suites (25 files)
-- `test/test-utils.js` — shared helpers using `module.exports`.
-- `test/unit/*.test.js` — 19 unit suites rely on `require(...)` (e.g. `test/unit/http-utils.test.js`).
-- `test/integration/*.test.js` — 4 files, include `jest.doMock` + `require('../../index')`.
-- `test/production/production-validation.test.js` — uses CommonJS + dynamic `require`.
-All tests need to migrate to `.ts` with native `import`/`export`, ESM-aware mocking, and `.js` suffixes in relative imports to match the ESM build output.
+Examine all external API integrations for compliance with official documentation and functional correctness.
 
-## Import/Export Issues to Fix
-- **CommonJS require/module.exports:** Present in every JS test (`test/test-utils.js`, `test/unit/serialization-utils.test.js`, etc.). Must become `import`/`export` with explicit `.js` suffixes for local modules.
-- **Jest mocks:** Patterns like `jest.mock('../../lib/database-utils', () => ...)` and `jest.doMock('mongoose', ...)` rely on CommonJS hoisting. Under ESM we need `jest.unstable_mockModule` + dynamic `await import(...)` or refactor to dependency injection in the tests.
-- **Global require polyfill:** `config/jest-require-polyfill.cjs` is only needed because of CommonJS tests. Plan to remove it after all suites are ESM.
-- **Extensionless imports in tests:** e.g. `require('../../lib/http-utils')` resolves today because Jest adds `.ts` to the resolver. ESM TypeScript requires the tests to reference `../../lib/http-utils.js`.
-- **Dynamic import targets:** `lib/binary-storage.ts` already uses `await import('./object-storage-binary.js')`. Confirm every path still resolves once source `.js` files disappear and the compiler emits `dist/lib/object-storage-binary.js`.
+### External APIs Identified
 
-## Configuration & Dependency Considerations
-- **Jest:** `jest.config.js` already sets `preset: 'ts-jest'` with `useESM: true`. After tests move to `.ts`, remove the `.js` patterns from `testMatch` and drop the moduleNameMapper rule that strips `.js`. Also delete the `setupFilesAfterEnv` polyfill when no CommonJS remains.
-- **TypeScript compiler:** `tsconfig.json` excludes `**/*.test.ts`. Keep that unless we want tests compiled to `dist`. Ensure `allowJs` can eventually be flipped off once JS sources are gone.
-- **ESLint:** `eslint.config.js` ignores `**/*.js`. After migration we can enable linting for `test/**/*.ts` and add a Jest environment override.
-- **qtests helper import:** `test/test-utils.js` currently does `require('qtests/lib/envUtils.js')`. Verify the package exposes ESM or dual mode; update to `import { ... } from 'qtests/lib/envUtils.js'` and confirm types (may need to add an ambient typing shim if the package lacks `.d.ts` on that deep path).
-- **Scripts:** Confirm `npm run dev` (`ts-node index.ts`) works in strict ESM mode (may need `ts-node --esm` or switch to `tsx`). Document in the plan to adjust if we hit loader errors during execution tests.
+1. **Redis v5.6.0** - Distributed caching and session storage
+   - Implementation file: `lib/cache-utils.ts`
+   - Usage: Connection management, client configuration, error handling
 
-## Actionable Work Plan
-1. **Baseline verification**
-   - Run `npm run type-check` and `npm test` to capture current passing state under mixed JS/TS.
-   - Snapshot coverage of the 13 JS files (use `rg`/`git diff` to ensure no untracked edits block deletions).
-2. **Audit TS ↔ JS parity in `lib/`**
-   - For each JS/TS pair, diff the implementations. Port any missing runtime behavior from JS into the TS source (e.g. logging, defensive checks).
-   - Update documentation/comments directly in the TS files so deleting JS does not drop inline rationale.
-   - Once parity is confirmed, adjust imports in dependent TS files/tests to target the TS modules (`./foo.js` after compilation).
-3. **Remove `lib/*.js` artifacts**
-   - Delete the JS files in a single commit after parity proof.
-   - Update any residual references (search for `.js` filenames in repo to confirm no consumer points to the soon-to-be-removed sources).
-   - Run `npm run build` to ensure `dist/` still contains generated `.js` output.
-4. **Convert shared test utilities**
-   - Rename `test/test-utils.js` → `test/test-utils.ts`.
-   - Replace `module.exports` with named ESM exports and type the helper return values (`MockModel`, etc.).
-   - Update downstream imports in every test file to reference the new named exports with `.js` suffix in paths (because compiled output from ts-jest expects it).
-5. **Migrate unit tests**
-   - Convert each `test/unit/*.test.js` to `.ts`.
-   - Replace `require` statements with `import` plus `.js` suffixes.
-   - Refactor `jest.mock` usage: prefer `jest.unstable_mockModule` with `await import` for ESM modules, or inject dependencies through wrappers when mocking becomes unwieldy.
-6. **Migrate integration & production tests**
-   - Apply the same ESM conversion patterns.
-   - Pay special attention to the double `jest.doMock` / `jest.mock` invocations in `test/integration/workflows.test.js` and `test/production/production-validation.test.js`; rewrite using async `beforeAll(async () => { ... await import(...) })`.
-7. **Jest configuration cleanup**
-   - Update `testMatch` to `['**/test/**/*.test.ts']`.
-   - Remove `.js` from `collectCoverageFrom` if the sources disappear.
-   - Drop the `moduleNameMapper` rule once all imports explicitly include `.js`.
-   - Delete `config/jest-require-polyfill.cjs` and its reference.
-8. **ESLint & tooling follow-up**
-   - Allow ESLint to lint `test/**/*.ts` with Jest-specific globals (`env: { jest: true }` override).
-   - Once JS sources are gone, set `"allowJs": false` (or keep temporarily if examples remain) and consider enabling `noImplicitAny` for tests if feasible.
-9. **Validation pass**
-   - Re-run `npm run type-check`, `npm run build`, `npm test`, and `node qtests-runner.mjs`.
-   - Confirm no `require` references remain via `rg -n "require\\("`.
-   - Ensure `dist/` folder contains compiled `.js` for each migrated module (`ls dist/lib | sort`).
+2. **Opossum v9.0.0** - Circuit breaker implementation
+   - Implementation file: `lib/circuit-breaker.ts`
+   - Usage: Fault tolerance, failure threshold management
 
-## Risks & Mitigations
-- **Jest ESM mocking friction:** Plan to prototype conversion on a single unit test (e.g. `test/unit/http-utils.test.js`) before bulk edits; document patterns for the rest of the suite.
-- **Third-party CommonJS packages:** If a dependency lacks ESM support (e.g. deep `qtests` path), use `createRequire` inside the TypeScript module or maintain a small CommonJS shim until upstream publishes ESM.
-- **Accidental loss of logic when deleting JS duplicates:** Require reviewed diffs between `.js` and `.ts`. Consider adding targeted regression tests before removal if coverage gaps exist.
+3. **@google-cloud/storage v7.16.0** - Binary object storage for production
+   - Implementation file: `server/objectStorage.ts`
+   - Usage: Replit sidecar integration, signed URL generation
 
-## Validation Checklist (post-migration)
-- `npm run type-check`
-- `npm run build`
-- `npm test`
-- `node qtests-runner.mjs`
-- Manual spot-check: `rg -n "module.exports"` and `rg -n "require\\("` should return no matches outside legacy configs/scripts.
+4. **Mongoose v8.15.1** - MongoDB ODM for database operations
+   - Implementation files: `lib/database-utils.ts`, `lib/document-helpers.ts`, `lib/document-ops.ts`
+   - Usage: Connection management, CRUD operations, error handling
 
-Document findings and any deviations in `/agentRecords` after each major phase.
+5. **Express.js v4.18.2** - Web framework (demo app and HTTP utilities)
+   - Implementation files: `demo-app.ts`, `lib/http-utils.ts`
+   - Usage: Server setup, middleware, response formatting
+
+### Compliance Issues to Verify
+
+- Redis client configuration and reconnection strategy
+- Opossum circuit breaker state management and event handling
+- Google Cloud Storage authentication and Replit sidecar integration
+- Mongoose connection patterns and error classification
+- Express.js middleware usage and response formatting
+
+## Task 2: Backend Contracts and Schema Validation
+
+### Scope
+
+Validate backend routes, API endpoints, and schema definitions against frontend requirements.
+
+### Backend Endpoints Identified
+
+1. **Core API Endpoints** (`demo-app.ts`)
+   - `GET /health` - Service health check
+   - `GET /` - API information and documentation
+   - `GET /users` - Paginated user listing
+   - `POST /users` - User creation
+   - `GET /users/:id` - User retrieval by ID
+   - `GET /users/by-username/:username` - User retrieval by username
+   - `PUT /users/:id` - User update
+   - `DELETE /users/:id` - User deletion
+   - `POST /users/clear` - Clear all users (development only)
+
+2. **HTTP Testing Endpoints**
+   - `GET /test/404` - Test 404 responses
+   - `POST /test/409` - Test 409 conflict responses
+   - `GET /test/500` - Test 500 server error responses
+   - `GET /test/503` - Test 503 service unavailable responses
+   - `POST /test/validation` - Test validation error responses
+   - `GET /test/auth` - Test authentication error responses
+
+### Schema Validation Requirements
+
+- User creation and update payload validation
+- Pagination parameter validation
+- Error response format consistency
+- Request/response type safety
+
+## Task 3: Frontend-Backend Wiring Verification
+
+### Scope
+
+Review frontend UI elements and their integration with backend endpoints.
+
+### Frontend Components Identified
+
+1. **HTML Demo Interface** (`demo.html`)
+   - Interactive testing interface with tabbed navigation
+   - Real-time server connectivity monitoring
+   - User management forms and operations
+   - API response visualization
+
+2. **JavaScript API Service** (`public/api-service.js`)
+   - Centralized API request handling
+   - Error management and response formatting
+   - Method coverage for all backend endpoints
+
+3. **Direct API Client** (`public/direct-api-client.js`)
+   - Basic fetch call examples
+   - Endpoint coverage verification
+
+### Integration Points to Verify
+
+- Server health check connectivity
+- User CRUD operations (Create, Read, Update, Delete)
+- Pagination functionality
+- Error response handling
+- Real-time statistics updates
+
+## Analysis Approach
+
+### Phase 1: External API Compliance (Task 1)
+
+1. Examine Redis client configuration against Redis v5.6.0 documentation
+2. Verify Opossum circuit breaker implementation patterns
+3. Check Google Cloud Storage Replit sidecar integration
+4. Validate Mongoose connection and error handling patterns
+5. Review Express.js middleware and response utilities
+
+### Phase 2: Backend Contracts (Task 2)
+
+1. Map all backend endpoints and their schemas
+2. Verify request/response format consistency
+3. Check parameter validation and error handling
+4. Validate pagination and sorting implementations
+5. Review authentication and authorization patterns
+
+### Phase 3: Frontend-Backend Wiring (Task 3)
+
+1. Map frontend UI elements to backend endpoints
+2. Verify API service method coverage
+3. Test error handling and user feedback
+4. Check real-time data flow and updates
+5. Validate form submissions and response handling
+
+## Success Criteria
+
+- All external API implementations comply with official documentation
+- Backend contracts are consistent and properly validated
+- Frontend UI elements are fully functional and properly wired
+- Error handling is comprehensive and user-friendly
+- Data flow is secure and efficient
+
+## Tools and Scripts
+
+- CSUP tmux agent workflow for parallel analysis
+- Static analysis tools for API compliance checking
+- Integration testing for endpoint verification
+- Frontend-backend integration testing
+- Error handling and edge case validation
+
+## Expected Deliverables
+
+1. External API compliance report with fixes
+2. Backend contracts validation report with schema improvements
+3. Frontend-backend wiring verification report with integration fixes
+4. Comprehensive test coverage for all identified issues
+5. Updated documentation for any API changes
+
+This plan ensures systematic coverage of all three CSUP tasks while maintaining focus on functional correctness and compliance with external API specifications.
