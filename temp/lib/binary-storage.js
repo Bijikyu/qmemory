@@ -16,6 +16,11 @@
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
+import {
+  BINARY_STORAGE_TYPE,
+  BINARY_STORAGE_DIR,
+  BINARY_STORAGE_MAX_SIZE,
+} from '../../config/localVars.js';
 /**
  * IStorage Interface Definition
  *
@@ -23,17 +28,17 @@ import { createHash } from 'crypto';
  * All implementations must provide these four core methods.
  */
 export class IStorage {
-    /**
-     * Get storage statistics (optional method for monitoring)
-     * @returns Storage usage statistics
-     */
-    async getStats() {
-        return {
-            type: 'unknown',
-            itemCount: 0,
-            totalSize: 0
-        };
-    }
+  /**
+   * Get storage statistics (optional method for monitoring)
+   * @returns Storage usage statistics
+   */
+  async getStats() {
+    return {
+      type: 'unknown',
+      itemCount: 0,
+      totalSize: 0,
+    };
+  }
 }
 /**
  * In-Memory Binary Storage Implementation
@@ -49,96 +54,100 @@ export class IStorage {
  * - Automatic cleanup capabilities
  */
 export class MemoryBinaryStorage extends IStorage {
-    constructor(maxSize = 100 * 1024 * 1024) {
-        super();
-        this.storage = new Map();
-        this.currentSize = 0;
-        this.maxSize = maxSize;
-        console.log(`Initialized MemoryBinaryStorage with ${maxSize} bytes limit`);
+  constructor(maxSize = 100 * 1024 * 1024) {
+    super();
+    this.storage = new Map();
+    this.currentSize = 0;
+    this.maxSize = maxSize;
+    console.log(`Initialized MemoryBinaryStorage with ${maxSize} bytes limit`);
+  }
+  /**
+   * Validate key format and ensure it's safe for storage
+   */
+  _validateKey(key) {
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error('Key must be a non-empty string');
     }
-    /**
-     * Validate key format and ensure it's safe for storage
-     */
-    _validateKey(key) {
-        if (typeof key !== 'string' || key.length === 0) {
-            throw new Error('Key must be a non-empty string');
-        }
-        if (key.length > 250) {
-            throw new Error('Key must be 250 characters or less');
-        }
-        // Prevent path traversal and ensure safe key format
-        if (key.includes('..') || key.includes('/') || key.includes('\\')) {
-            throw new Error('Key cannot contain path separators or relative paths');
-        }
+    if (key.length > 250) {
+      throw new Error('Key must be 250 characters or less');
     }
-    /**
-     * Validate data is a Buffer object
-     */
-    _validateData(data) {
-        if (!Buffer.isBuffer(data)) {
-            throw new Error('Data must be a Buffer object');
-        }
+    // Prevent path traversal and ensure safe key format
+    if (key.includes('..') || key.includes('/') || key.includes('\\')) {
+      throw new Error('Key cannot contain path separators or relative paths');
     }
-    /**
-     * Check if adding new data would exceed size limit
-     */
-    _checkSizeLimit(newDataSize) {
-        if (this.currentSize + newDataSize > this.maxSize) {
-            throw new Error(`Storage size limit exceeded. Current: ${this.currentSize}, New: ${newDataSize}, Limit: ${this.maxSize}`);
-        }
+  }
+  /**
+   * Validate data is a Buffer object
+   */
+  _validateData(data) {
+    if (!Buffer.isBuffer(data)) {
+      throw new Error('Data must be a Buffer object');
     }
-    async save(key, data) {
-        this._validateKey(key);
-        this._validateData(data);
-        // Calculate size difference for existing vs new data
-        const existingSize = this.storage.has(key) ? this.storage.get(key).length : 0;
-        const sizeDifference = data.length - existingSize;
-        this._checkSizeLimit(sizeDifference);
-        // Store the data and update size tracking
-        this.storage.set(key, Buffer.from(data)); // Create copy to prevent external mutations
-        this.currentSize += sizeDifference;
-        console.log(`Stored ${data.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`);
+  }
+  /**
+   * Check if adding new data would exceed size limit
+   */
+  _checkSizeLimit(newDataSize) {
+    if (this.currentSize + newDataSize > this.maxSize) {
+      throw new Error(
+        `Storage size limit exceeded. Current: ${this.currentSize}, New: ${newDataSize}, Limit: ${this.maxSize}`
+      );
     }
-    async get(key) {
-        this._validateKey(key);
-        const data = this.storage.get(key);
-        if (!data) {
-            return null;
-        }
-        // Return a copy to prevent external mutations
-        return Buffer.from(data);
+  }
+  async save(key, data) {
+    this._validateKey(key);
+    this._validateData(data);
+    // Calculate size difference for existing vs new data
+    const existingSize = this.storage.has(key) ? this.storage.get(key).length : 0;
+    const sizeDifference = data.length - existingSize;
+    this._checkSizeLimit(sizeDifference);
+    // Store the data and update size tracking
+    this.storage.set(key, Buffer.from(data)); // Create copy to prevent external mutations
+    this.currentSize += sizeDifference;
+    console.log(
+      `Stored ${data.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`
+    );
+  }
+  async get(key) {
+    this._validateKey(key);
+    const data = this.storage.get(key);
+    if (!data) {
+      return null;
     }
-    async delete(key) {
-        this._validateKey(key);
-        const data = this.storage.get(key);
-        if (data) {
-            this.currentSize -= data.length;
-            this.storage.delete(key);
-            console.log(`Deleted data at key '${key}'. Remaining storage: ${this.currentSize} bytes`);
-        }
+    // Return a copy to prevent external mutations
+    return Buffer.from(data);
+  }
+  async delete(key) {
+    this._validateKey(key);
+    const data = this.storage.get(key);
+    if (data) {
+      this.currentSize -= data.length;
+      this.storage.delete(key);
+      console.log(`Deleted data at key '${key}'. Remaining storage: ${this.currentSize} bytes`);
     }
-    async exists(key) {
-        this._validateKey(key);
-        return this.storage.has(key);
-    }
-    async getStats() {
-        return {
-            type: 'memory',
-            itemCount: this.storage.size,
-            totalSize: this.currentSize,
-            maxSize: this.maxSize,
-            utilizationPercent: Math.round((this.currentSize / this.maxSize) * 100),
-            keys: Array.from(this.storage.keys())
-        };
-    }
-    /**
-     * Clear all stored data (useful for testing)
-     */
-    async clear() {
-        this.storage.clear();
-        this.currentSize = 0;
-        console.log('Cleared all data from memory storage');
-    }
+  }
+  async exists(key) {
+    this._validateKey(key);
+    return this.storage.has(key);
+  }
+  async getStats() {
+    return {
+      type: 'memory',
+      itemCount: this.storage.size,
+      totalSize: this.currentSize,
+      maxSize: this.maxSize,
+      utilizationPercent: Math.round((this.currentSize / this.maxSize) * 100),
+      keys: Array.from(this.storage.keys()),
+    };
+  }
+  /**
+   * Clear all stored data (useful for testing)
+   */
+  async clear() {
+    this.storage.clear();
+    this.currentSize = 0;
+    console.log('Cleared all data from memory storage');
+  }
 }
 /**
  * File System Binary Storage Implementation
@@ -153,155 +162,145 @@ export class MemoryBinaryStorage extends IStorage {
  * - Automatic directory creation
  */
 export class FileSystemBinaryStorage extends IStorage {
-    constructor(storageDir = './data/binary-storage') {
-        super();
-        this.storageDir = resolve(storageDir);
-        this._ensureDirectoryExists();
-        console.log(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
+  constructor(storageDir = './data/binary-storage') {
+    super();
+    this.storageDir = resolve(storageDir);
+    this._ensureDirectoryExists();
+    console.log(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
+  }
+  async _ensureDirectoryExists() {
+    try {
+      await fs.mkdir(this.storageDir, { recursive: true });
+    } catch (error) {
+      throw new Error(`Failed to create storage directory: ${error.message}`);
     }
-    async _ensureDirectoryExists() {
-        try {
-            await fs.mkdir(this.storageDir, { recursive: true });
-        }
-        catch (error) {
-            throw new Error(`Failed to create storage directory: ${error.message}`);
-        }
+  }
+  _validateKey(key) {
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error('Key must be a non-empty string');
     }
-    _validateKey(key) {
-        if (typeof key !== 'string' || key.length === 0) {
-            throw new Error('Key must be a non-empty string');
-        }
-        // Ensure safe file names
-        if (key.includes('..') || key.includes('/') || key.includes('\\') || key.includes('\0')) {
-            throw new Error('Key contains invalid characters for file system storage');
-        }
+    // Ensure safe file names
+    if (key.includes('..') || key.includes('/') || key.includes('\\') || key.includes('\0')) {
+      throw new Error('Key contains invalid characters for file system storage');
     }
-    _getFilePath(key) {
-        // Hash the key to ensure safe file names and avoid conflicts
-        const hash = createHash('sha256').update(key).digest('hex');
-        return join(this.storageDir, `${hash}.bin`);
+  }
+  _getFilePath(key) {
+    // Hash the key to ensure safe file names and avoid conflicts
+    const hash = createHash('sha256').update(key).digest('hex');
+    return join(this.storageDir, `${hash}.bin`);
+  }
+  async save(key, data) {
+    this._validateKey(key);
+    if (!Buffer.isBuffer(data)) {
+      throw new Error('Data must be a Buffer object');
     }
-    async save(key, data) {
-        this._validateKey(key);
-        if (!Buffer.isBuffer(data)) {
-            throw new Error('Data must be a Buffer object');
-        }
-        const filePath = this._getFilePath(key);
-        const tempPath = `${filePath}.tmp`;
-        try {
-            // Atomic write: write to temp file then rename
-            await fs.writeFile(tempPath, data);
-            await fs.rename(tempPath, filePath);
-            // Store key mapping for reverse lookup
-            const metaPath = `${filePath}.meta`;
-            const metadata = {
-                key,
-                size: data.length,
-                created: new Date().toISOString()
-            };
-            await fs.writeFile(metaPath, JSON.stringify(metadata));
-            console.log(`Stored ${data.length} bytes at key '${key}' in file system`);
-        }
-        catch (error) {
-            // Clean up temp file if it exists
-            try {
-                await fs.unlink(tempPath);
-            }
-            catch (cleanupError) {
-                // Ignore cleanup errors
-            }
-            throw new Error(`Failed to save data: ${error.message}`);
-        }
+    const filePath = this._getFilePath(key);
+    const tempPath = `${filePath}.tmp`;
+    try {
+      // Atomic write: write to temp file then rename
+      await fs.writeFile(tempPath, data);
+      await fs.rename(tempPath, filePath);
+      // Store key mapping for reverse lookup
+      const metaPath = `${filePath}.meta`;
+      const metadata = {
+        key,
+        size: data.length,
+        created: new Date().toISOString(),
+      };
+      await fs.writeFile(metaPath, JSON.stringify(metadata));
+      console.log(`Stored ${data.length} bytes at key '${key}' in file system`);
+    } catch (error) {
+      // Clean up temp file if it exists
+      try {
+        await fs.unlink(tempPath);
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      throw new Error(`Failed to save data: ${error.message}`);
     }
-    async get(key) {
-        this._validateKey(key);
-        const filePath = this._getFilePath(key);
-        try {
-            const data = await fs.readFile(filePath);
-            return data;
-        }
-        catch (error) {
-            if (error.code === 'ENOENT') {
-                return null; // File doesn't exist
-            }
-            throw new Error(`Failed to read data: ${error.message}`);
-        }
+  }
+  async get(key) {
+    this._validateKey(key);
+    const filePath = this._getFilePath(key);
+    try {
+      const data = await fs.readFile(filePath);
+      return data;
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null; // File doesn't exist
+      }
+      throw new Error(`Failed to read data: ${error.message}`);
     }
-    async delete(key) {
-        this._validateKey(key);
-        const filePath = this._getFilePath(key);
+  }
+  async delete(key) {
+    this._validateKey(key);
+    const filePath = this._getFilePath(key);
+    const metaPath = `${filePath}.meta`;
+    try {
+      await fs.unlink(filePath);
+      try {
+        await fs.unlink(metaPath);
+      } catch (metaError) {
+        // Meta file might not exist, ignore error
+      }
+      console.log(`Deleted data at key '${key}' from file system`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw new Error(`Failed to delete data: ${error.message}`);
+      }
+      // File doesn't exist, which is fine for delete operation
+    }
+  }
+  async exists(key) {
+    this._validateKey(key);
+    const filePath = this._getFilePath(key);
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  async getStats() {
+    try {
+      const files = await fs.readdir(this.storageDir);
+      const dataFiles = files.filter(f => f.endsWith('.bin'));
+      let totalSize = 0;
+      const keys = [];
+      for (const file of dataFiles) {
+        const filePath = join(this.storageDir, file);
         const metaPath = `${filePath}.meta`;
         try {
-            await fs.unlink(filePath);
-            try {
-                await fs.unlink(metaPath);
-            }
-            catch (metaError) {
-                // Meta file might not exist, ignore error
-            }
-            console.log(`Deleted data at key '${key}' from file system`);
+          const stats = await fs.stat(filePath);
+          totalSize += stats.size;
+          // Try to read the original key from meta file
+          try {
+            const metaData = await fs.readFile(metaPath, 'utf8');
+            const meta = JSON.parse(metaData);
+            keys.push(meta.key);
+          } catch (metaError) {
+            keys.push(file.replace('.bin', ''));
+          }
+        } catch (statError) {
+          // Skip files we can't read
         }
-        catch (error) {
-            if (error.code !== 'ENOENT') {
-                throw new Error(`Failed to delete data: ${error.message}`);
-            }
-            // File doesn't exist, which is fine for delete operation
-        }
+      }
+      return {
+        type: 'filesystem',
+        itemCount: dataFiles.length,
+        totalSize,
+        storageDir: this.storageDir,
+        keys,
+      };
+    } catch (error) {
+      return {
+        type: 'filesystem',
+        itemCount: 0,
+        totalSize: 0,
+        error: error.message,
+      };
     }
-    async exists(key) {
-        this._validateKey(key);
-        const filePath = this._getFilePath(key);
-        try {
-            await fs.access(filePath);
-            return true;
-        }
-        catch (error) {
-            return false;
-        }
-    }
-    async getStats() {
-        try {
-            const files = await fs.readdir(this.storageDir);
-            const dataFiles = files.filter(f => f.endsWith('.bin'));
-            let totalSize = 0;
-            const keys = [];
-            for (const file of dataFiles) {
-                const filePath = join(this.storageDir, file);
-                const metaPath = `${filePath}.meta`;
-                try {
-                    const stats = await fs.stat(filePath);
-                    totalSize += stats.size;
-                    // Try to read the original key from meta file
-                    try {
-                        const metaData = await fs.readFile(metaPath, 'utf8');
-                        const meta = JSON.parse(metaData);
-                        keys.push(meta.key);
-                    }
-                    catch (metaError) {
-                        keys.push(file.replace('.bin', ''));
-                    }
-                }
-                catch (statError) {
-                    // Skip files we can't read
-                }
-            }
-            return {
-                type: 'filesystem',
-                itemCount: dataFiles.length,
-                totalSize,
-                storageDir: this.storageDir,
-                keys
-            };
-        }
-        catch (error) {
-            return {
-                type: 'filesystem',
-                itemCount: 0,
-                totalSize: 0,
-                error: error.message
-            };
-        }
-    }
+  }
 }
 /**
  * Storage Factory
@@ -310,56 +309,56 @@ export class FileSystemBinaryStorage extends IStorage {
  * and configuration. Provides a unified way to get storage instances.
  */
 export class StorageFactory {
-    /**
-     * Create a storage instance based on configuration
-     * @param options - Configuration options
-     * @returns Storage implementation instance
-     */
-    static createStorage(options = {}) {
-        const { type = 'memory', config = {} } = options;
-        switch (type.toLowerCase()) {
-            case 'memory':
-                return new MemoryBinaryStorage(config.maxSize);
-            case 'filesystem':
-            case 'file':
-                return new FileSystemBinaryStorage(config.storageDir);
-            case 'object':
-            case 'cloud':
-                try {
-                    // Dynamic import for optional dependency
-                    const objectStorageModule = require('./object-storage-binary.js');
-                    const { ObjectStorageBinaryStorage } = objectStorageModule;
-                    return new ObjectStorageBinaryStorage();
-                }
-                catch (error) {
-                    console.warn(`Failed to initialize object storage: ${error.message}, falling back to memory storage`);
-                    return new MemoryBinaryStorage();
-                }
-            default:
-                console.warn(`Unknown storage type '${type}', falling back to memory storage`);
-                return new MemoryBinaryStorage();
+  /**
+   * Create a storage instance based on configuration
+   * @param options - Configuration options
+   * @returns Storage implementation instance
+   */
+  static createStorage(options = {}) {
+    const { type = 'memory', config = {} } = options;
+    switch (type.toLowerCase()) {
+      case 'memory':
+        return new MemoryBinaryStorage(config.maxSize);
+      case 'filesystem':
+      case 'file':
+        return new FileSystemBinaryStorage(config.storageDir);
+      case 'object':
+      case 'cloud':
+        try {
+          // Dynamic import for optional dependency
+          const objectStorageModule = require('./object-storage-binary.js');
+          const { ObjectStorageBinaryStorage } = objectStorageModule;
+          return new ObjectStorageBinaryStorage();
+        } catch (error) {
+          console.warn(
+            `Failed to initialize object storage: ${error.message}, falling back to memory storage`
+          );
+          return new MemoryBinaryStorage();
         }
+      default:
+        console.warn(`Unknown storage type '${type}', falling back to memory storage`);
+        return new MemoryBinaryStorage();
     }
-    /**
-     * Create storage based on environment variables
-     */
-    static createFromEnvironment() {
-        const storageType = process.env.BINARY_STORAGE_TYPE || 'memory';
-        const config = {};
-        if (storageType === 'filesystem') {
-            const storageDir = process.env.BINARY_STORAGE_DIR;
-            if (storageDir) {
-                config.storageDir = storageDir;
-            }
-        }
-        else if (storageType === 'memory') {
-            const maxSizeStr = process.env.BINARY_STORAGE_MAX_SIZE;
-            if (maxSizeStr) {
-                config.maxSize = parseInt(maxSizeStr);
-            }
-        }
-        return StorageFactory.createStorage({ type: storageType, config });
+  }
+  /**
+   * Create storage based on environment variables
+   */
+  static createFromEnvironment() {
+    const storageType = BINARY_STORAGE_TYPE;
+    const config = {};
+    if (storageType === 'filesystem') {
+      const storageDir = BINARY_STORAGE_DIR;
+      if (storageDir) {
+        config.storageDir = storageDir;
+      }
+    } else if (storageType === 'memory') {
+      const maxSizeStr = BINARY_STORAGE_MAX_SIZE;
+      if (maxSizeStr) {
+        config.maxSize = parseInt(maxSizeStr);
+      }
     }
+    return StorageFactory.createStorage({ type: storageType, config });
+  }
 }
 // Default storage instance for easy access
 let defaultStorage = null;
@@ -368,8 +367,8 @@ let defaultStorage = null;
  * Creates one if it doesn't exist yet
  */
 export function getDefaultStorage() {
-    if (!defaultStorage) {
-        defaultStorage = StorageFactory.createFromEnvironment();
-    }
-    return defaultStorage;
+  if (!defaultStorage) {
+    defaultStorage = StorageFactory.createFromEnvironment();
+  }
+  return defaultStorage;
 }

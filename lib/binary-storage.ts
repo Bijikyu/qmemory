@@ -16,6 +16,11 @@
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
+import {
+  BINARY_STORAGE_TYPE,
+  BINARY_STORAGE_DIR,
+  BINARY_STORAGE_MAX_SIZE,
+} from '../config/localVars';
 
 interface StorageStats {
   type: string;
@@ -383,15 +388,15 @@ export class StorageFactory {
    * Create storage based on environment variables
    */
   static createFromEnvironment() {
-    const storageType = process.env.BINARY_STORAGE_TYPE || 'memory';
+    const storageType = BINARY_STORAGE_TYPE;
     const config: { maxSize?: number; storageDir?: string; [key: string]: any } = {};
     if (storageType === 'filesystem') {
-      const storageDir = process.env.BINARY_STORAGE_DIR;
+      const storageDir = BINARY_STORAGE_DIR;
       if (storageDir) {
         config.storageDir = storageDir;
       }
     } else if (storageType === 'memory') {
-      const maxSizeStr = process.env.BINARY_STORAGE_MAX_SIZE;
+      const maxSizeStr = BINARY_STORAGE_MAX_SIZE;
       if (maxSizeStr) {
         config.maxSize = parseInt(maxSizeStr);
       }

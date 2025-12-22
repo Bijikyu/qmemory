@@ -8,6 +8,7 @@ import {
   type RespVersions,
   type TypeMapping,
 } from 'redis';
+import { REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD } from '../config/localVars';
 
 type BaseRedisOptions = RedisClientOptions<
   RedisModules,
@@ -78,19 +79,17 @@ export function createRedisClient(
 
   const sanitizedSocket: SocketOverrides = {
     ...socketOverrides,
-    host: host ?? (socketOverrides.host as string | undefined) ?? process.env.REDIS_HOST ?? 'localhost',
+    host: host ?? (socketOverrides.host as string | undefined) ?? REDIS_HOST,
     port:
-      port ??
-      (socketOverrides.port as number | undefined) ??
-      asNumber(process.env.REDIS_PORT, 6379),
+      port ?? (socketOverrides.port as number | undefined) ?? asNumber(String(REDIS_PORT), 6379),
     reconnectStrategy: socketOverrides.reconnectStrategy ?? defaultReconnectStrategy,
   };
 
   const clientOptions: BaseRedisOptions & Record<string, unknown> = {
     ...(redisOptionOverrides as BaseRedisOptions),
     socket: sanitizedSocket as BaseRedisOptions['socket'],
-    database: db ?? database ?? asNumber(process.env.REDIS_DB, 0),
-    password: password ?? process.env.REDIS_PASSWORD,
+    database: db ?? database ?? asNumber(String(REDIS_DB), 0),
+    password: password ?? REDIS_PASSWORD,
     retryDelayOnFailover,
     maxRetriesPerRequest,
   };
@@ -101,7 +100,11 @@ export function createRedisClient(
     RedisScripts,
     RespVersions,
     TypeMapping
-  >(clientOptions as BaseRedisOptions) as RedisClientType<RedisModules, RedisFunctions, RedisScripts>;
+  >(clientOptions as BaseRedisOptions) as RedisClientType<
+    RedisModules,
+    RedisFunctions,
+    RedisScripts
+  >;
 }
 
 // Re-export redis module for advanced usage

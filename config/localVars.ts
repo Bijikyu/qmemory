@@ -96,6 +96,15 @@ export const CIRCUIT_BREAKER_RESET_TIMEOUT = process.env.CIRCUIT_BREAKER_RESET_T
  */
 export const DEFAULT_MAX_USERS = process.env.MAX_MEMORY_STORAGE_USERS || 10000;
 
+// ==================== BINARY STORAGE CONFIGURATION ====================
+
+/**
+ * Binary Storage Settings
+ */
+export const BINARY_STORAGE_TYPE = process.env.BINARY_STORAGE_TYPE || 'memory';
+export const BINARY_STORAGE_DIR = process.env.BINARY_STORAGE_DIR || null;
+export const BINARY_STORAGE_MAX_SIZE = process.env.BINARY_STORAGE_MAX_SIZE || null;
+
 // ==================== HEALTH CHECK CONFIGURATION ====================
 
 /**
