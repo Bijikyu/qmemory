@@ -1,10 +1,10 @@
 /**
  * Object Storage Binary Implementation
- * 
+ *
  * Provides cloud-based binary storage using Replit's Object Storage service.
  * This implementation extends the IStorage interface to work with Google Cloud Storage
  * through Replit's object storage infrastructure.
- * 
+ *
  * Features:
  * - Cloud persistence with high availability
  * - Scalable storage with no local size limits
@@ -41,7 +41,7 @@ interface ObjectPath {
 
 /**
  * Object Storage Binary Implementation
- * 
+ *
  * Uses Replit's Object Storage service for persistent, scalable binary data storage.
  * Perfect for production environments requiring reliable, cloud-based storage.
  */
@@ -89,7 +89,7 @@ class ObjectStorageBinaryStorage extends IStorage {
     return `${objectPath}.meta`;
   }
 
-  override async save(key: string, data: Buffer): Promise<void> {
+  async save(key: string, data: Buffer): Promise<void> {
     this._validateKey(key);
     if (!Buffer.isBuffer(data)) {
       throw new Error('Data must be a Buffer object');
@@ -98,21 +98,21 @@ class ObjectStorageBinaryStorage extends IStorage {
     try {
       const objectPath = this._getObjectPath(key);
       const privateDir = this.objectStorageService.getPrivateObjectDir();
-      
+
       // Construct full object path for storage
       const fullObjectPath = `${privateDir}/${objectPath}`;
-      
+
       // Get upload URL for the binary data
       const uploadUrl = await this._getUploadUrl(fullObjectPath);
-      
+
       // Upload the binary data
       const response = await fetch(uploadUrl, {
         method: 'PUT',
         body: data,
         headers: {
           'Content-Type': 'application/octet-stream',
-          'Content-Length': data.length.toString()
-        }
+          'Content-Length': data.length.toString(),
+        },
       });
 
       if (!response.ok) {
@@ -125,19 +125,19 @@ class ObjectStorageBinaryStorage extends IStorage {
         size: data.length,
         contentType: 'application/octet-stream',
         created: new Date().toISOString(),
-        objectPath: fullObjectPath
+        objectPath: fullObjectPath,
       };
 
       const metadataPath = this._getMetadataPath(key);
       const fullMetadataPath = `${privateDir}/${metadataPath}`;
       const metadataUploadUrl = await this._getUploadUrl(fullMetadataPath);
-      
+
       const metadataResponse = await fetch(metadataUploadUrl, {
         method: 'PUT',
         body: JSON.stringify(metadata),
         headers: {
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!metadataResponse.ok) {
@@ -150,14 +150,14 @@ class ObjectStorageBinaryStorage extends IStorage {
     }
   }
 
-  override async get(key: string): Promise<Buffer | null> {
+  async get(key: string): Promise<Buffer | null> {
     this._validateKey(key);
 
     try {
       const objectPath = this._getObjectPath(key);
       const privateDir = this.objectStorageService.getPrivateObjectDir();
       const fullObjectPath = `${privateDir}/${objectPath}`;
-      
+
       // Get the object file reference
       const { bucketName, objectName } = this._parseObjectPath(fullObjectPath);
       const bucket = this.objectStorageService.objectStorageClient.bucket(bucketName);
@@ -180,40 +180,40 @@ class ObjectStorageBinaryStorage extends IStorage {
     }
   }
 
-  override async delete(key: string): Promise<void> {
+  async delete(key: string): Promise<void> {
     this._validateKey(key);
 
     try {
       const objectPath = this._getObjectPath(key);
       const metadataPath = this._getMetadataPath(key);
       const privateDir = this.objectStorageService.getPrivateObjectDir();
-      
+
       // Delete both the binary data and metadata
       const fullObjectPath = `${privateDir}/${objectPath}`;
       const fullMetadataPath = `${privateDir}/${metadataPath}`;
-      
-      await Promise.all([
-        this._deleteObject(fullObjectPath),
-        this._deleteObject(fullMetadataPath)
-      ]);
+
+      await Promise.all([this._deleteObject(fullObjectPath), this._deleteObject(fullMetadataPath)]);
 
       console.log(`Deleted data at key '${key}' from object storage`);
     } catch (error) {
       // If object doesn't exist, that's fine for delete operation
-      if (!(error as Error).message.includes('not found') && !(error as Error).message.includes('404')) {
+      if (
+        !(error as Error).message.includes('not found') &&
+        !(error as Error).message.includes('404')
+      ) {
         throw new Error(`Failed to delete from object storage: ${(error as Error).message}`);
       }
     }
   }
 
-  override async exists(key: string): Promise<boolean> {
+  async exists(key: string): Promise<boolean> {
     this._validateKey(key);
 
     try {
       const objectPath = this._getObjectPath(key);
       const privateDir = this.objectStorageService.getPrivateObjectDir();
       const fullObjectPath = `${privateDir}/${objectPath}`;
-      
+
       const { bucketName, objectName } = this._parseObjectPath(fullObjectPath);
       const bucket = this.objectStorageService.objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
@@ -230,11 +230,11 @@ class ObjectStorageBinaryStorage extends IStorage {
       const privateDir = this.objectStorageService.getPrivateObjectDir();
       const { bucketName } = this._parseObjectPath(privateDir);
       const bucket = this.objectStorageService.objectStorageClient.bucket(bucketName);
-      
+
       // List files with our binary data prefix
       const [files] = await bucket.getFiles({
         prefix: `${this.storagePrefix}`,
-        delimiter: '/'
+        delimiter: '/',
       });
 
       let totalSize = 0;
@@ -247,7 +247,7 @@ class ObjectStorageBinaryStorage extends IStorage {
           const [metadata] = await file.getMetadata();
           totalSize += parseInt((metadata as any).size || 0);
           itemCount++;
-          
+
           // Try to get original key from metadata
           try {
             const metadataFile = bucket.file(`${file.name}.meta`);
@@ -271,14 +271,14 @@ class ObjectStorageBinaryStorage extends IStorage {
         totalSize,
         bucketName,
         storagePrefix: this.storagePrefix,
-        keys
+        keys,
       };
     } catch (error) {
       return {
         type: 'object-storage',
         itemCount: 0,
         totalSize: 0,
-        error: (error as Error).message
+        error: (error as Error).message,
       };
     }
   }
@@ -303,7 +303,7 @@ class ObjectStorageBinaryStorage extends IStorage {
       const { bucketName, objectName } = this._parseObjectPath(objectPath);
       const bucket = this.objectStorageService.objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
-      
+
       await file.delete();
     } catch (error) {
       if ((error as any).code !== 404) {
@@ -332,6 +332,4 @@ class ObjectStorageBinaryStorage extends IStorage {
   }
 }
 
-export {
-  ObjectStorageBinaryStorage
-};
+export { ObjectStorageBinaryStorage };

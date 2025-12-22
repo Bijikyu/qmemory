@@ -42,7 +42,7 @@ interface ErrorEnvelope {
  * @param res - Candidate Express response.
  * @throws Returns typed validation errors when methods are missing to keep callers honest.
  */
-const validateResponseObject = (res: unknown): asserts res is Response => {
+function validateResponseObject(res: unknown): asserts res is Response {
   if (!res || typeof res !== 'object') {
     throw createTypedError(
       'Invalid response object: must be an object',
@@ -50,36 +50,29 @@ const validateResponseObject = (res: unknown): asserts res is Response => {
       'INVALID_RESPONSE_OBJECT'
     ); // Guard against undefined or primitives to prevent runtime crashes
   }
-  if (typeof (res as Response).status !== 'function') {
+  const responseObj = res as Response;
+  if (typeof responseObj.status !== 'function') {
     throw createTypedError(
       'Invalid response object: missing status() method',
       ErrorTypes.VALIDATION,
       'MISSING_STATUS_METHOD'
     ); // We rely on status for HTTP status codes, so fail fast
   }
-  if (typeof (res as Response).json !== 'function') {
+  if (typeof responseObj.json !== 'function') {
     throw createTypedError(
       'Invalid response object: missing json() method',
       ErrorTypes.VALIDATION,
       'MISSING_JSON_METHOD'
-    ); // JSON transport is required for deterministic responses
+    ); // We need json for response formatting, so validate presence
   }
-};
-
-/**
- * Narrowing helper for legacy callers that expect a basic runtime check.
- * @param res - Candidate Express response.
- * @throws Throws generic Error for compatibility with older code paths.
- */
-const validateExpressResponse = (res: unknown): asserts res is Response => {
-  if (
-    !res ||
-    typeof (res as Response).status !== 'function' ||
-    typeof (res as Response).json !== 'function'
-  ) {
-    throw new Error('Invalid Express response object provided'); // Maintain backward compatibility with plain Error consumers
+  if (typeof responseObj.send !== 'function') {
+    throw createTypedError(
+      'Invalid response object: missing send() method',
+      ErrorTypes.VALIDATION,
+      'MISSING_SEND_METHOD'
+    ); // We use send for error responses, so ensure availability
   }
-};
+}
 
 /**
  * Sends a structured error response with consistent formatting.
@@ -304,7 +297,7 @@ export {
   sendValidationError,
   sendAuthError,
   validateResponseObject,
-  validateExpressResponse,
+  validateResponseObject as validateExpressResponse,
   sendErrorResponse,
   sanitizeResponseMessage,
   getTimestamp,

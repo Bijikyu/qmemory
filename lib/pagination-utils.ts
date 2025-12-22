@@ -27,20 +27,32 @@
  * - Maintains the same parameter validation approach used throughout the library
  */
 // Import existing HTTP utilities to maintain consistency with library patterns
-import { sendInternalServerError, validateExpressResponse, sendErrorResponse } from './http-utils.js';
+import {
+  sendInternalServerError,
+  validateExpressResponse,
+  sendErrorResponse,
+} from './http-utils.js';
 import { logFunctionEntry } from './logging-utils.js';
 const parseIntegerParam = (paramValue, paramName) => {
-    const paramStr = String(paramValue).trim();
-    const paramNum = parseInt(paramStr, 10);
-    // Check if input is a valid integer string (no decimals, no non-numeric chars)
-    if (isNaN(paramNum) || paramStr.includes('.') || !/^\d+$/.test(paramStr)) {
-        return { isValid: false, value: null, error: `${paramName} must be a positive integer starting from 1` };
-    }
-    // Check if the parsed number is positive (>= 1)
-    if (paramNum < 1) {
-        return { isValid: false, value: null, error: `${paramName} must be a positive integer starting from 1` };
-    }
-    return { isValid: true, value: paramNum, error: null };
+  const paramStr = String(paramValue).trim();
+  const paramNum = parseInt(paramStr, 10);
+  // Check if input is a valid integer string (no decimals, no non-numeric chars)
+  if (isNaN(paramNum) || paramStr.includes('.') || !/^\d+$/.test(paramStr)) {
+    return {
+      isValid: false,
+      value: null,
+      error: `${paramName} must be a positive integer starting from 1`,
+    };
+  }
+  // Check if the parsed number is positive (>= 1)
+  if (paramNum < 1) {
+    return {
+      isValid: false,
+      value: null,
+      error: `${paramName} must be a positive integer starting from 1`,
+    };
+  }
+  return { isValid: true, value: paramNum, error: null };
 };
 /**
  * Validates and extracts pagination parameters from request query string
@@ -77,84 +89,88 @@ const parseIntegerParam = (paramValue, paramName) => {
  * @param options.maxLimit - Maximum allowed records per page (default: 100)
  * @returns Pagination parameters object with page, limit, skip, or null if validation fails
  */
-function validatePagination(req, res, options = {}) {
-    // Validate Express response object using shared utility
-    validateExpressResponse(res);
-    // Validate request object
-    if (!req) {
-        throw new Error('Invalid Express request object provided');
-    }
-    logFunctionEntry('validatePagination', { query: req.query });
-    try {
-        // Set default configuration values with reasonable limits
-        // These defaults balance usability with performance considerations
-        const { defaultPage = 1, // Start with first page for intuitive user experience
-        defaultLimit = 50, // 50 records balances performance with usability
-        maxLimit = 100 // Prevent resource exhaustion while allowing flexibility
-         } = options;
-        // Ensure query object exists to prevent property access errors
-        // Defensive programming prevents crashes when query is undefined
-        req.query = req.query || {};
-        // Extract and convert pagination parameters with proper validation
-        // Handle string inputs and check for valid numeric values
-        let page = defaultPage;
-        let limit = defaultLimit;
-        // Parse page parameter if provided - validate for proper integer format
-        if (req.query.page !== undefined) {
-            const pageResult = parseIntegerParam(req.query.page, 'Page');
-            if (!pageResult.isValid) {
-                console.log(`validatePagination is returning null due to invalid page: ${req.query.page}`);
-                sendErrorResponse(res, 400, pageResult.error);
-                return null;
-            }
-            page = pageResult.value;
-        }
-        // Parse limit parameter if provided - validate for proper integer format
-        if (req.query.limit !== undefined) {
-            const limitResult = parseIntegerParam(req.query.limit, 'Limit');
-            if (!limitResult.isValid) {
-                console.log(`validatePagination is returning null due to invalid limit: ${req.query.limit}`);
-                sendErrorResponse(res, 400, limitResult.error);
-                return null;
-            }
-            limit = limitResult.value;
-        }
-        // Validate page parameter using same validation pattern as other library modules
-        // Page must be positive integer starting from 1 for user-friendly URLs
-        if (page < 1 || !Number.isInteger(page)) {
-            console.log(`validatePagination is returning null due to invalid page: ${page}`);
-            sendErrorResponse(res, 400, 'Page must be a positive integer starting from 1');
-            return null;
-        }
-        // Validate limit parameter to prevent invalid page sizes
-        // Limit must be positive integer starting from 1 to ensure meaningful results
-        if (limit < 1 || !Number.isInteger(limit)) {
-            console.log(`validatePagination is returning null due to invalid limit: ${limit}`);
-            sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
-            return null;
-        }
-        // Enforce maximum limit to prevent resource exhaustion and maintain performance
-        // This protects against both accidental and malicious large page size requests
-        if (limit > maxLimit) {
-            console.log(`validatePagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`);
-            sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
-            return null;
-        }
-        // Calculate database skip offset for efficient query performance
-        // Convert 1-based page numbering to 0-based database offset
-        const skip = (page - 1) * limit;
-        // Return validated pagination parameters ready for database queries
-        const pagination = { page, limit, skip };
-        console.log(`validatePagination is returning: ${JSON.stringify(pagination)}`);
-        return pagination;
-    }
-    catch (error) {
-        // Handle unexpected errors using existing HTTP utility for consistency
-        // This maintains the same error handling patterns used throughout the library
-        console.error('Pagination validation error:', error);
-        sendInternalServerError(res, 'Internal server error during pagination validation');
+function validatePagination(req: any, res: any, options: any = {}) {
+  // Validate Express response object using shared utility
+  validateExpressResponse(res);
+  // Validate request object
+  if (!req) {
+    throw new Error('Invalid Express request object provided');
+  }
+  logFunctionEntry('validatePagination', { query: req.query });
+  try {
+    // Set default configuration values with reasonable limits
+    // These defaults balance usability with performance considerations
+    const {
+      defaultPage = 1, // Start with first page for intuitive user experience
+      defaultLimit = 50, // 50 records balances performance with usability
+      maxLimit = 100, // Prevent resource exhaustion while allowing flexibility
+    } = options;
+    // Ensure query object exists to prevent property access errors
+    // Defensive programming prevents crashes when query is undefined
+    req.query = req.query || {};
+    // Extract and convert pagination parameters with proper validation
+    // Handle string inputs and check for valid numeric values
+    let page = defaultPage;
+    let limit = defaultLimit;
+    // Parse page parameter if provided - validate for proper integer format
+    if (req.query.page !== undefined) {
+      const pageResult = parseIntegerParam(req.query.page, 'Page');
+      if (!pageResult.isValid) {
+        console.log(`validatePagination is returning null due to invalid page: ${req.query.page}`);
+        sendErrorResponse(res, 400, pageResult.error);
         return null;
+      }
+      page = pageResult.value;
     }
+    // Parse limit parameter if provided - validate for proper integer format
+    if (req.query.limit !== undefined) {
+      const limitResult = parseIntegerParam(req.query.limit, 'Limit');
+      if (!limitResult.isValid) {
+        console.log(
+          `validatePagination is returning null due to invalid limit: ${req.query.limit}`
+        );
+        sendErrorResponse(res, 400, limitResult.error);
+        return null;
+      }
+      limit = limitResult.value;
+    }
+    // Validate page parameter using same validation pattern as other library modules
+    // Page must be positive integer starting from 1 for user-friendly URLs
+    if (page < 1 || !Number.isInteger(page)) {
+      console.log(`validatePagination is returning null due to invalid page: ${page}`);
+      sendErrorResponse(res, 400, 'Page must be a positive integer starting from 1');
+      return null;
+    }
+    // Validate limit parameter to prevent invalid page sizes
+    // Limit must be positive integer starting from 1 to ensure meaningful results
+    if (limit < 1 || !Number.isInteger(limit)) {
+      console.log(`validatePagination is returning null due to invalid limit: ${limit}`);
+      sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
+      return null;
+    }
+    // Enforce maximum limit to prevent resource exhaustion and maintain performance
+    // This protects against both accidental and malicious large page size requests
+    if (limit > maxLimit) {
+      console.log(
+        `validatePagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`
+      );
+      sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
+      return null;
+    }
+    // Calculate database skip offset for efficient query performance
+    // Convert 1-based page numbering to 0-based database offset
+    const skip = (page - 1) * limit;
+    // Return validated pagination parameters ready for database queries
+    const pagination = { page, limit, skip };
+    console.log(`validatePagination is returning: ${JSON.stringify(pagination)}`);
+    return pagination;
+  } catch (error) {
+    // Handle unexpected errors using existing HTTP utility for consistency
+    // This maintains the same error handling patterns used throughout the library
+    console.error('Pagination validation error:', error);
+    sendInternalServerError(res, 'Internal server error during pagination validation');
+    return null;
+  }
 }
 /**
  * Creates comprehensive pagination metadata for API responses
@@ -187,25 +203,25 @@ function validatePagination(req, res, options = {}) {
  * @returns Comprehensive pagination metadata object for API responses
  */
 function createPaginationMeta(page, limit, totalRecords) {
-    // Calculate total pages with proper ceiling division to handle partial pages
-    // Math.ceil ensures that any remainder creates an additional page
-    const totalPages = Math.ceil(totalRecords / limit);
-    // Calculate navigation state flags for client-side button state management
-    // These boolean flags simplify client logic for enabling/disabling navigation
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-    // Return comprehensive metadata object with all navigation information
-    // Structure designed for easy consumption by various client implementations
-    return {
-        currentPage: page, // Current page for highlighting in navigation
-        totalPages, // Total pages for "X of Y" displays
-        totalRecords, // Total records for result count displays
-        recordsPerPage: limit, // Records per page for consistency validation
-        hasNextPage, // Boolean flag for next button state
-        hasPrevPage, // Boolean flag for previous button state
-        nextPage: hasNextPage ? page + 1 : null, // Next page number or null for conditional rendering
-        prevPage: hasPrevPage ? page - 1 : null // Previous page number or null for conditional rendering
-    };
+  // Calculate total pages with proper ceiling division to handle partial pages
+  // Math.ceil ensures that any remainder creates an additional page
+  const totalPages = Math.ceil(totalRecords / limit);
+  // Calculate navigation state flags for client-side button state management
+  // These boolean flags simplify client logic for enabling/disabling navigation
+  const hasNextPage = page < totalPages;
+  const hasPrevPage = page > 1;
+  // Return comprehensive metadata object with all navigation information
+  // Structure designed for easy consumption by various client implementations
+  return {
+    currentPage: page, // Current page for highlighting in navigation
+    totalPages, // Total pages for "X of Y" displays
+    totalRecords, // Total records for result count displays
+    recordsPerPage: limit, // Records per page for consistency validation
+    hasNextPage, // Boolean flag for next button state
+    hasPrevPage, // Boolean flag for previous button state
+    nextPage: hasNextPage ? page + 1 : null, // Next page number or null for conditional rendering
+    prevPage: hasPrevPage ? page - 1 : null, // Previous page number or null for conditional rendering
+  };
 }
 /**
  * Creates a paginated response object with data and metadata
@@ -232,11 +248,11 @@ function createPaginationMeta(page, limit, totalRecords) {
  * @returns Complete paginated response with data and metadata
  */
 function createPaginatedResponse(data, page, limit, totalRecords) {
-    return {
-        data, // Current page results
-        pagination: createPaginationMeta(page, limit, totalRecords), // Navigation metadata
-        timestamp: new Date().toISOString() // Response timestamp for consistency
-    };
+  return {
+    data, // Current page results
+    pagination: createPaginationMeta(page, limit, totalRecords), // Navigation metadata
+    timestamp: new Date().toISOString(), // Response timestamp for consistency
+  };
 }
 /**
  * Validates and extracts cursor-based pagination parameters from request query
@@ -264,81 +280,87 @@ function createPaginatedResponse(data, page, limit, totalRecords) {
  * @param options.defaultSort - Default sort field (default: 'id')
  * @returns Cursor pagination object or null if validation fails
  */
-function validateCursorPagination(req, res, options = {}) {
-    logFunctionEntry('validateCursorPagination', { query: req.query });
-    // Validate Express response object using shared utility
-    validateExpressResponse(res);
-    // Validate request object
-    if (!req) {
-        throw new Error('Invalid Express request object provided');
-    }
-    try {
-        // Set default configuration values for cursor pagination
-        const { defaultLimit = 50, maxLimit = 100, defaultSort = 'id' } = options;
-        // Ensure query object exists to prevent property access errors
-        req.query = req.query || {};
-        // Extract cursor pagination parameters
-        let limit = defaultLimit;
-        const cursor = req.query.cursor || null;
-        const direction = req.query.direction || 'next'; // 'next' or 'prev'
-        const sort = req.query.sort || defaultSort;
-        // Parse limit parameter if provided
-        if (req.query.limit !== undefined) {
-            const limitResult = parseIntegerParam(req.query.limit, 'Limit');
-            if (!limitResult.isValid) {
-                console.log(`validateCursorPagination is returning null due to invalid limit: ${req.query.limit}`);
-                sendErrorResponse(res, 400, limitResult.error);
-                return null;
-            }
-            limit = limitResult.value;
-        }
-        // Validate limit parameter range
-        if (limit < 1 || !Number.isInteger(limit)) {
-            console.log(`validateCursorPagination is returning null due to invalid limit: ${limit}`);
-            sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
-            return null;
-        }
-        // Enforce maximum limit to prevent resource exhaustion
-        if (limit > maxLimit) {
-            console.log(`validateCursorPagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`);
-            sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
-            return null;
-        }
-        // Validate direction parameter
-        if (!['next', 'prev'].includes(direction)) {
-            console.log(`validateCursorPagination is returning null due to invalid direction: ${direction}`);
-            sendErrorResponse(res, 400, 'Direction must be either "next" or "prev"');
-            return null;
-        }
-        // Parse cursor if provided
-        let decodedCursor = null;
-        if (cursor) {
-            try {
-                const cursorJson = Buffer.from(cursor, 'base64').toString('utf-8');
-                decodedCursor = JSON.parse(cursorJson);
-                console.log(`validateCursorPagination decoded cursor:`, decodedCursor);
-            }
-            catch (error) {
-                console.log(`validateCursorPagination is returning null due to invalid cursor: ${error.message}`);
-                sendErrorResponse(res, 400, 'Invalid cursor format');
-                return null;
-            }
-        }
-        const pagination = {
-            limit,
-            cursor: decodedCursor,
-            direction: direction,
-            sort,
-            rawCursor: cursor
-        };
-        console.log(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
-        return pagination;
-    }
-    catch (error) {
-        console.error('Cursor pagination validation error:', error);
-        sendInternalServerError(res, 'Internal server error during cursor pagination validation');
+function validateCursorPagination(req: any, res: any, options: any = {}) {
+  logFunctionEntry('validateCursorPagination', { query: req.query });
+  // Validate Express response object using shared utility
+  validateExpressResponse(res);
+  // Validate request object
+  if (!req) {
+    throw new Error('Invalid Express request object provided');
+  }
+  try {
+    // Set default configuration values for cursor pagination
+    const { defaultLimit = 50, maxLimit = 100, defaultSort = 'id' } = options;
+    // Ensure query object exists to prevent property access errors
+    req.query = req.query || {};
+    // Extract cursor pagination parameters
+    let limit = defaultLimit;
+    const cursor = req.query.cursor || null;
+    const direction = req.query.direction || 'next'; // 'next' or 'prev'
+    const sort = req.query.sort || defaultSort;
+    // Parse limit parameter if provided
+    if (req.query.limit !== undefined) {
+      const limitResult = parseIntegerParam(req.query.limit, 'Limit');
+      if (!limitResult.isValid) {
+        console.log(
+          `validateCursorPagination is returning null due to invalid limit: ${req.query.limit}`
+        );
+        sendErrorResponse(res, 400, limitResult.error);
         return null;
+      }
+      limit = limitResult.value;
     }
+    // Validate limit parameter range
+    if (limit < 1 || !Number.isInteger(limit)) {
+      console.log(`validateCursorPagination is returning null due to invalid limit: ${limit}`);
+      sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
+      return null;
+    }
+    // Enforce maximum limit to prevent resource exhaustion
+    if (limit > maxLimit) {
+      console.log(
+        `validateCursorPagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`
+      );
+      sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
+      return null;
+    }
+    // Validate direction parameter
+    if (!['next', 'prev'].includes(direction)) {
+      console.log(
+        `validateCursorPagination is returning null due to invalid direction: ${direction}`
+      );
+      sendErrorResponse(res, 400, 'Direction must be either "next" or "prev"');
+      return null;
+    }
+    // Parse cursor if provided
+    let decodedCursor = null;
+    if (cursor) {
+      try {
+        const cursorJson = Buffer.from(cursor, 'base64').toString('utf-8');
+        decodedCursor = JSON.parse(cursorJson);
+        console.log(`validateCursorPagination decoded cursor:`, decodedCursor);
+      } catch (error) {
+        console.log(
+          `validateCursorPagination is returning null due to invalid cursor: ${error.message}`
+        );
+        sendErrorResponse(res, 400, 'Invalid cursor format');
+        return null;
+      }
+    }
+    const pagination = {
+      limit,
+      cursor: decodedCursor,
+      direction: direction,
+      sort,
+      rawCursor: cursor,
+    };
+    console.log(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
+    return pagination;
+  } catch (error) {
+    console.error('Cursor pagination validation error:', error);
+    sendInternalServerError(res, 'Internal server error during cursor pagination validation');
+    return null;
+  }
 }
 /**
  * Creates encoded cursor for cursor-based pagination
@@ -357,17 +379,18 @@ function validateCursorPagination(req, res, options = {}) {
  * @returns Base64 encoded cursor string
  */
 function createCursor(record, sortField = 'id') {
-    if (!record)
-        return null;
-    const cursorData = {
-        [sortField]: record[sortField],
-        id: record.id || record._id, // Support both SQL and MongoDB style IDs
-        timestamp: new Date().toISOString()
-    };
-    const cursorJson = JSON.stringify(cursorData);
-    const encodedCursor = Buffer.from(cursorJson, 'utf-8').toString('base64');
-    console.log(`createCursor generated cursor for ${sortField}=${record[sortField]}: ${encodedCursor}`);
-    return encodedCursor;
+  if (!record) return null;
+  const cursorData = {
+    [sortField]: record[sortField],
+    id: record.id || record._id, // Support both SQL and MongoDB style IDs
+    timestamp: new Date().toISOString(),
+  };
+  const cursorJson = JSON.stringify(cursorData);
+  const encodedCursor = Buffer.from(cursorJson, 'utf-8').toString('base64');
+  console.log(
+    `createCursor generated cursor for ${sortField}=${record[sortField]}: ${encodedCursor}`
+  );
+  return encodedCursor;
 }
 /**
  * Creates cursor-based pagination metadata for API responses
@@ -383,31 +406,35 @@ function createCursor(record, sortField = 'id') {
  * @param sortField - Field used for sorting and cursor generation
  * @returns Cursor pagination metadata object
  */
-function createCursorPaginationMeta(data, pagination, hasMore, sortField = 'id') {
-    const meta = {
-        limit: pagination.limit,
-        direction: pagination.direction,
-        sort: pagination.sort,
-        hasMore,
-        cursors: {}
-    };
-    // Generate cursors for navigation if data exists
-    if (data && data.length > 0) {
-        if (pagination.direction === 'next') {
-            meta.cursors.next = hasMore ? createCursor(data[data.length - 1], sortField) : null;
-            meta.cursors.prev = createCursor(data[0], sortField);
-        }
-        else {
-            meta.cursors.next = createCursor(data[data.length - 1], sortField);
-            meta.cursors.prev = hasMore ? createCursor(data[0], sortField) : null;
-        }
+function createCursorPaginationMeta(
+  data: any,
+  pagination: any,
+  hasMore: boolean,
+  sortField = 'id'
+) {
+  const meta: any = {
+    limit: pagination.limit,
+    direction: pagination.direction,
+    sort: pagination.sort,
+    hasMore,
+    cursors: {},
+  };
+  // Generate cursors for navigation if data exists
+  if (data && data.length > 0) {
+    if (pagination.direction === 'next') {
+      meta.cursors.next = hasMore ? createCursor(data[data.length - 1], sortField) : null;
+      meta.cursors.prev = createCursor(data[0], sortField);
+    } else {
+      meta.cursors.next = createCursor(data[data.length - 1], sortField);
+      meta.cursors.prev = hasMore ? createCursor(data[0], sortField) : null;
     }
-    // Add current cursor for reference
-    if (pagination.rawCursor) {
-        meta.cursors.current = pagination.rawCursor;
-    }
-    console.log(`createCursorPaginationMeta generated metadata:`, meta);
-    return meta;
+  }
+  // Add current cursor for reference
+  if (pagination.rawCursor) {
+    meta.cursors.current = pagination.rawCursor;
+  }
+  console.log(`createCursorPaginationMeta generated metadata:`, meta);
+  return meta;
 }
 /**
  * Validates and extracts sorting parameters from request query
@@ -434,63 +461,71 @@ function createCursorPaginationMeta(data, pagination, hasMore, sortField = 'id')
  * @param options.maxSortFields - Maximum number of sort fields allowed
  * @returns Sort configuration object or null if validation fails
  */
-function validateSorting(req, res, options = {}) {
-    logFunctionEntry('validateSorting', { query: req.query });
-    // Validate Express response object using shared utility
-    validateExpressResponse(res);
-    // Validate request object
-    if (!req) {
-        throw new Error('Invalid Express request object provided');
+function validateSorting(req: any, res: any, options: any = {}) {
+  logFunctionEntry('validateSorting', { query: req.query });
+  // Validate Express response object using shared utility
+  validateExpressResponse(res);
+  // Validate request object
+  if (!req) {
+    throw new Error('Invalid Express request object provided');
+  }
+  try {
+    const { allowedFields = [], defaultSort = 'id', maxSortFields = 3 } = options;
+    // Validate that allowed fields are provided
+    if (!Array.isArray(allowedFields) || allowedFields.length === 0) {
+      throw new Error('allowedFields must be provided and cannot be empty');
     }
-    try {
-        const { allowedFields = [], defaultSort = 'id', maxSortFields = 3 } = options;
-        // Validate that allowed fields are provided
-        if (!Array.isArray(allowedFields) || allowedFields.length === 0) {
-            throw new Error('allowedFields must be provided and cannot be empty');
-        }
-        req.query = req.query || {};
-        // Extract sort parameter
-        const sortParam = req.query.sort || defaultSort;
-        // Parse sort fields and directions
-        const sortFields = sortParam.split(',').map(field => field.trim()).filter(Boolean);
-        // Validate number of sort fields
-        if (sortFields.length > maxSortFields) {
-            console.log(`validateSorting is returning null due to too many sort fields: ${sortFields.length} > ${maxSortFields}`);
-            sendErrorResponse(res, 400, `Cannot sort by more than ${maxSortFields} fields`);
-            return null;
-        }
-        // Parse and validate each sort field
-        const sortConfig = [];
-        for (const fieldSpec of sortFields) {
-            const direction = fieldSpec.startsWith('-') ? 'desc' : 'asc';
-            const fieldName = fieldSpec.replace(/^[+-]/, '');
-            // Validate field name format (alphanumeric and underscore only)
-            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(fieldName)) {
-                console.log(`validateSorting is returning null due to invalid field format: ${fieldName}`);
-                sendErrorResponse(res, 400, `Invalid field name format: ${fieldName}`);
-                return null;
-            }
-            // Validate field name against allowlist
-            if (!allowedFields.includes(fieldName)) {
-                console.log(`validateSorting is returning null due to invalid field: ${fieldName}`);
-                sendErrorResponse(res, 400, `Invalid sort field: ${fieldName}. Allowed fields: ${allowedFields.join(', ')}`);
-                return null;
-            }
-            sortConfig.push({ field: fieldName, direction });
-        }
-        const result = {
-            sortConfig,
-            sortString: sortParam,
-            primarySort: sortConfig[0] // First sort field for cursor pagination
-        };
-        console.log(`validateSorting is returning: ${JSON.stringify(result)}`);
-        return result;
+    req.query = req.query || {};
+    // Extract sort parameter
+    const sortParam = req.query.sort || defaultSort;
+    // Parse sort fields and directions
+    const sortFields = sortParam
+      .split(',')
+      .map(field => field.trim())
+      .filter(Boolean);
+    // Validate number of sort fields
+    if (sortFields.length > maxSortFields) {
+      console.log(
+        `validateSorting is returning null due to too many sort fields: ${sortFields.length} > ${maxSortFields}`
+      );
+      sendErrorResponse(res, 400, `Cannot sort by more than ${maxSortFields} fields`);
+      return null;
     }
-    catch (error) {
-        console.error('Sorting validation error:', error);
-        sendInternalServerError(res, 'Internal server error during sorting validation');
+    // Parse and validate each sort field
+    const sortConfig = [];
+    for (const fieldSpec of sortFields) {
+      const direction = fieldSpec.startsWith('-') ? 'desc' : 'asc';
+      const fieldName = fieldSpec.replace(/^[+-]/, '');
+      // Validate field name format (alphanumeric and underscore only)
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(fieldName)) {
+        console.log(`validateSorting is returning null due to invalid field format: ${fieldName}`);
+        sendErrorResponse(res, 400, `Invalid field name format: ${fieldName}`);
         return null;
+      }
+      // Validate field name against allowlist
+      if (!allowedFields.includes(fieldName)) {
+        console.log(`validateSorting is returning null due to invalid field: ${fieldName}`);
+        sendErrorResponse(
+          res,
+          400,
+          `Invalid sort field: ${fieldName}. Allowed fields: ${allowedFields.join(', ')}`
+        );
+        return null;
+      }
+      sortConfig.push({ field: fieldName, direction });
     }
+    const result = {
+      sortConfig,
+      sortString: sortParam,
+      primarySort: sortConfig[0], // First sort field for cursor pagination
+    };
+    console.log(`validateSorting is returning: ${JSON.stringify(result)}`);
+    return result;
+  } catch (error) {
+    console.error('Sorting validation error:', error);
+    sendInternalServerError(res, 'Internal server error during sorting validation');
+    return null;
+  }
 }
 /**
  * Creates complete cursor-based paginated response
@@ -506,20 +541,21 @@ function validateSorting(req, res, options = {}) {
  * @returns Complete cursor-based paginated response
  */
 function createCursorPaginatedResponse(data, pagination, hasMore, sortField = 'id') {
-    return {
-        data,
-        pagination: createCursorPaginationMeta(data, pagination, hasMore, sortField),
-        timestamp: new Date().toISOString()
-    };
+  return {
+    data,
+    pagination: createCursorPaginationMeta(data, pagination, hasMore, sortField),
+    timestamp: new Date().toISOString(),
+  };
 }
 // Export pagination utilities using consistent module pattern
 // This follows the same export structure used throughout the library
-export { validatePagination, // Parameter validation and extraction
-createPaginationMeta, // Metadata generation for responses
-createPaginatedResponse, // Complete response structure creation
-validateCursorPagination, // Cursor-based pagination validation
-createCursor, // Cursor encoding for navigation
-createCursorPaginationMeta, // Cursor pagination metadata
-createCursorPaginatedResponse, // Complete cursor response structure
-validateSorting // Sorting parameter validation
- };
+export {
+  validatePagination, // Parameter validation and extraction
+  createPaginationMeta, // Metadata generation for responses
+  createPaginatedResponse, // Complete response structure creation
+  validateCursorPagination, // Cursor-based pagination validation
+  createCursor, // Cursor encoding for navigation
+  createCursorPaginationMeta, // Cursor pagination metadata
+  createCursorPaginatedResponse, // Complete cursor response structure
+  validateSorting, // Sorting parameter validation
+};

@@ -8,7 +8,7 @@ import {
   type RespVersions,
   type TypeMapping,
 } from 'redis';
-import { REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD } from '../config/localVars';
+import { REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD } from '../config/localVars.js';
 
 type BaseRedisOptions = RedisClientOptions<
   RedisModules,

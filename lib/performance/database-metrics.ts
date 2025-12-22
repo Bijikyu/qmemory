@@ -239,7 +239,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
     eventName: K,
     listener: (...args: DatabaseMetricsEvents[K]) => void
   ): this {
-    return super.on(eventName, listener);
+    return super.on(eventName as any, listener as any);
   }
 
   /**
@@ -249,7 +249,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
     eventName: K,
     listener: (...args: DatabaseMetricsEvents[K]) => void
   ): this {
-    return super.once(eventName, listener);
+    return super.once(eventName as any, listener as any) as this;
   }
 
   /**
@@ -259,6 +259,6 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
     eventName: K,
     ...args: DatabaseMetricsEvents[K]
   ): boolean {
-    return super.emit(eventName, ...args);
+    return super.emit(eventName as any, ...(args as any));
   }
 }

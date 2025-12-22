@@ -267,7 +267,7 @@ const bulkUpdateDocuments = async <TSchema extends AnyDocumentShape>(
     const results = await Promise.all(
       updates.map(updateInstruction => {
         const { filter, data, options = {} } = updateInstruction;
-        return model.updateMany(filter, data, options).exec();
+        return model.updateMany(filter, data, options as any).exec();
       })
     );
     logger.logDebug('bulkUpdateDocuments returning batch results', { count: results.length });

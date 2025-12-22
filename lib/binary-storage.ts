@@ -20,7 +20,7 @@ import {
   BINARY_STORAGE_TYPE,
   BINARY_STORAGE_DIR,
   BINARY_STORAGE_MAX_SIZE,
-} from '../config/localVars';
+} from '../config/localVars.js';
 
 interface StorageStats {
   type: string;

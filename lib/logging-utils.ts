@@ -316,8 +316,8 @@ export const logFunctionError = (
         name: error.name,
         message: sanitizedMessage,
         stack: error.stack,
-        code: (error as Record<string, unknown>).code,
-        statusCode: (error as Record<string, unknown>).statusCode,
+        code: (error as unknown as Record<string, unknown>).code,
+        statusCode: (error as unknown as Record<string, unknown>).statusCode,
       },
       duration: `${duration}ms`,
       performance,
@@ -378,14 +378,16 @@ export const logAuditEvent = (
   action: string,
   context: AuditContext = {},
   options: AuditOptions = {}
-): (AuditContext & {
-  action: string;
-  timestamp: string;
-  risk: AuditOptions['risk'];
-  category: string;
-  metadata: Record<string, unknown>;
-  result: unknown;
-}) | null => {
+):
+  | (AuditContext & {
+      action: string;
+      timestamp: string;
+      risk: AuditOptions['risk'];
+      category: string;
+      metadata: Record<string, unknown>;
+      result: unknown;
+    })
+  | null => {
   try {
     const auditEntry = {
       action,
