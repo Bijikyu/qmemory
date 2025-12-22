@@ -11,8 +11,8 @@ const localVars = require('../config/localVars');
 
 // Create a performance monitor instance for comprehensive tracking
 const perfMonitor = new qmemory.PerformanceMonitor({
-  database: { slowQueryThreshold: localVars.DEFAULT_SLOW_QUERY_THRESHOLD }, // Use centralized threshold
-  system: { collectionInterval: localVars.DEFAULT_SYSTEM_COLLECTION_INTERVAL }, // Use centralized interval
+  database: { slowQueryThreshold: localVars.SLOW_QUERY_THRESHOLD }, // Use centralized threshold
+  system: { collectionInterval: localVars.MEMORY_CHECK_INTERVAL }, // Use centralized interval
 });
 
 // Simulate Express-like objects for demonstration
