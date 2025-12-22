@@ -6,6 +6,11 @@
  * exhaustion scenarios and supports capacity planning decisions.
  */
 
+import {
+  DEFAULT_SYSTEM_COLLECTION_INTERVAL,
+  DEFAULT_MAX_HISTORY_POINTS,
+} from '../../config/localVars.js';
+
 interface SystemMetricsOptions {
   collectionInterval?: number;
   maxHistoryPoints?: number;
@@ -53,8 +58,9 @@ export default class SystemMetrics {
 
   constructor(options: SystemMetricsOptions = {}) {
     // Configuration with production-appropriate defaults
-    this.collectionInterval = options.collectionInterval || 30000; // 30 seconds default
-    this.maxHistoryPoints = options.maxHistoryPoints || 2880; // 24 hours at 30s intervals
+    this.collectionInterval =
+      options.collectionInterval || Number(DEFAULT_SYSTEM_COLLECTION_INTERVAL); // 30 seconds default
+    this.maxHistoryPoints = options.maxHistoryPoints || Number(DEFAULT_MAX_HISTORY_POINTS); // 24 hours at 30s intervals
     // Historical data storage with bounded memory usage
     this.memoryHistory = []; // chronological memory usage snapshots
     this.cpuHistory = []; // chronological CPU utilization measurements

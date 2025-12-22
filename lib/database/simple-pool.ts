@@ -20,6 +20,18 @@
 /// <reference path="./types.d.ts" />
 import { createClient as createRedisClient } from 'redis';
 import { MongoClient } from 'mongodb';
+import {
+  DEFAULT_POOL_MAX_CONNECTIONS,
+  DEFAULT_POOL_MIN_CONNECTIONS,
+  DEFAULT_POOL_ACQUIRE_TIMEOUT,
+  DEFAULT_POOL_IDLE_TIMEOUT,
+  DEFAULT_POOL_HEALTH_CHECK_INTERVAL,
+  DEFAULT_POOL_MAX_QUERY_TIME,
+  DEFAULT_POOL_RETRY_ATTEMPTS,
+  DEFAULT_POOL_RETRY_DELAY,
+  DEFAULT_DB_CONNECT_TIMEOUT,
+  DEFAULT_DB_SOCKET_TIMEOUT,
+} from '../../config/localVars.js';
 class SimpleDatabasePool {
   private connections: any[] = [];
   private waitingQueue: any[] = [];
@@ -46,14 +58,14 @@ class SimpleDatabasePool {
     this.databaseUrl = databaseUrl;
     this.dbType = this.getDatabaseType(databaseUrl);
     this.config = {
-      maxConnections: config.maxConnections ?? 20,
-      minConnections: config.minConnections ?? 5,
-      acquireTimeout: config.acquireTimeout ?? 10000,
-      idleTimeout: config.idleTimeout ?? 300000,
-      healthCheckInterval: config.healthCheckInterval ?? 60000,
-      maxQueryTime: config.maxQueryTime ?? 30000,
-      retryAttempts: config.retryAttempts ?? 3,
-      retryDelay: config.retryDelay ?? 1000,
+      maxConnections: config.maxConnections ?? Number(DEFAULT_POOL_MAX_CONNECTIONS),
+      minConnections: config.minConnections ?? Number(DEFAULT_POOL_MIN_CONNECTIONS),
+      acquireTimeout: config.acquireTimeout ?? Number(DEFAULT_POOL_ACQUIRE_TIMEOUT),
+      idleTimeout: config.idleTimeout ?? Number(DEFAULT_POOL_IDLE_TIMEOUT),
+      healthCheckInterval: config.healthCheckInterval ?? Number(DEFAULT_POOL_HEALTH_CHECK_INTERVAL),
+      maxQueryTime: config.maxQueryTime ?? Number(DEFAULT_POOL_MAX_QUERY_TIME),
+      retryAttempts: config.retryAttempts ?? Number(DEFAULT_POOL_RETRY_ATTEMPTS),
+      retryDelay: config.retryDelay ?? Number(DEFAULT_POOL_RETRY_DELAY),
     };
   }
   async initialize() {
@@ -93,7 +105,7 @@ class SimpleDatabasePool {
         const client = createRedisClient({
           url: this.databaseUrl,
           socket: {
-            connectTimeout: 10000,
+            connectTimeout: Number(DEFAULT_DB_CONNECT_TIMEOUT),
           },
         });
         await client.connect();
@@ -104,8 +116,8 @@ class SimpleDatabasePool {
         const pool = new pg.Pool({
           connectionString: this.databaseUrl,
           max: 1,
-          idleTimeoutMillis: 300000,
-          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: Number(DEFAULT_POOL_IDLE_TIMEOUT),
+          connectionTimeoutMillis: Number(DEFAULT_DB_CONNECT_TIMEOUT),
         });
         return pool;
       }
@@ -113,7 +125,7 @@ class SimpleDatabasePool {
         const mysql = await import('mysql2/promise');
         return await mysql.default.createConnection({
           uri: this.databaseUrl,
-          connectTimeout: 10000,
+          connectTimeout: Number(DEFAULT_DB_CONNECT_TIMEOUT),
         });
       }
       case 'mysql': {
@@ -126,8 +138,8 @@ class SimpleDatabasePool {
       case 'mongodb': {
         return await MongoClient.connect(this.databaseUrl, {
           maxPoolSize: 1,
-          serverSelectionTimeoutMS: 10000,
-          socketTimeoutMS: 30000,
+          serverSelectionTimeoutMS: Number(DEFAULT_DB_CONNECT_TIMEOUT),
+          socketTimeoutMS: Number(DEFAULT_DB_SOCKET_TIMEOUT),
         });
       }
       default:

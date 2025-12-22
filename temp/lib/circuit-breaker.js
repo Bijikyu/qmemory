@@ -4,8 +4,9 @@ import {
   DEFAULT_CIRCUIT_BREAKER_ERROR_THRESHOLD,
   DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT,
   DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+  CIRCUIT_BREAKER_STATES,
 } from '../../config/localVars.js';
-export const STATES = { CLOSED: 'closed', OPEN: 'open', HALF_OPEN: 'half-open' };
+export const STATES = CIRCUIT_BREAKER_STATES;
 export class CircuitBreakerWrapper {
   constructor(options = {}) {
     this.currentOperation = null;

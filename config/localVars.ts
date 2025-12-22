@@ -154,3 +154,74 @@ export const DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT =
   process.env.CIRCUIT_BREAKER_RESET_TIMEOUT || 60000;
 export const DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD =
   process.env.CIRCUIT_BREAKER_FAILURE_THRESHOLD || 5;
+
+// ==================== PERFORMANCE MONITORING CONFIGURATION ====================
+
+/**
+ * Database Performance Metrics Settings
+ */
+export const DEFAULT_SLOW_QUERY_THRESHOLD = process.env.DEFAULT_SLOW_QUERY_THRESHOLD || 100;
+export const DEFAULT_MAX_SLOW_QUERIES = process.env.DEFAULT_MAX_SLOW_QUERIES || 100;
+export const DEFAULT_MAX_RECENT_TIMES = process.env.DEFAULT_MAX_RECENT_TIMES || 100;
+
+/**
+ * System Resource Monitoring Settings
+ */
+export const DEFAULT_SYSTEM_COLLECTION_INTERVAL =
+  process.env.DEFAULT_SYSTEM_COLLECTION_INTERVAL || 30000;
+export const DEFAULT_MAX_HISTORY_POINTS = process.env.DEFAULT_MAX_HISTORY_POINTS || 2880;
+
+// ==================== DATABASE POOL CONFIGURATION ====================
+
+/**
+ * Database Connection Pool Settings
+ */
+export const DEFAULT_POOL_MAX_CONNECTIONS = process.env.DEFAULT_POOL_MAX_CONNECTIONS || 20;
+export const DEFAULT_POOL_MIN_CONNECTIONS = process.env.DEFAULT_POOL_MIN_CONNECTIONS || 5;
+export const DEFAULT_POOL_ACQUIRE_TIMEOUT = process.env.DEFAULT_POOL_ACQUIRE_TIMEOUT || 10000;
+export const DEFAULT_POOL_IDLE_TIMEOUT = process.env.DEFAULT_POOL_IDLE_TIMEOUT || 300000;
+export const DEFAULT_POOL_HEALTH_CHECK_INTERVAL =
+  process.env.DEFAULT_POOL_HEALTH_CHECK_INTERVAL || 60000;
+export const DEFAULT_POOL_MAX_QUERY_TIME = process.env.DEFAULT_POOL_MAX_QUERY_TIME || 30000;
+export const DEFAULT_POOL_RETRY_ATTEMPTS = process.env.DEFAULT_POOL_RETRY_ATTEMPTS || 3;
+export const DEFAULT_POOL_RETRY_DELAY = process.env.DEFAULT_POOL_RETRY_DELAY || 1000;
+export const DEFAULT_DB_CONNECT_TIMEOUT = process.env.DEFAULT_DB_CONNECT_TIMEOUT || 10000;
+export const DEFAULT_DB_SOCKET_TIMEOUT = process.env.DEFAULT_DB_SOCKET_TIMEOUT || 30000;
+
+// ==================== PAGINATION CONFIGURATION ====================
+
+/**
+ * Pagination Default Settings
+ */
+export const DEFAULT_PAGINATION_PAGE = process.env.DEFAULT_PAGINATION_PAGE || 1;
+export const DEFAULT_PAGINATION_LIMIT = process.env.DEFAULT_PAGINATION_LIMIT || 50;
+export const DEFAULT_PAGINATION_MAX_LIMIT = process.env.DEFAULT_PAGINATION_MAX_LIMIT || 100;
+export const DEFAULT_CURSOR_PAGINATION_LIMIT = process.env.DEFAULT_CURSOR_PAGINATION_LIMIT || 50;
+export const DEFAULT_CURSOR_PAGINATION_MAX_LIMIT =
+  process.env.DEFAULT_CURSOR_PAGINATION_MAX_LIMIT || 100;
+export const DEFAULT_CURSOR_PAGINATION_SORT = process.env.DEFAULT_CURSOR_PAGINATION_SORT || 'id';
+export const DEFAULT_MAX_SORT_FIELDS = process.env.DEFAULT_MAX_SORT_FIELDS || 3;
+
+// ==================== HEALTH CHECK CONFIGURATION ====================
+
+/**
+ * Health Check Threshold Settings
+ */
+export const DEFAULT_MEMORY_WARNING_THRESHOLD = process.env.DEFAULT_MEMORY_WARNING_THRESHOLD || 90;
+export const DEFAULT_MEMORY_CRITICAL_THRESHOLD =
+  process.env.DEFAULT_MEMORY_CRITICAL_THRESHOLD || 75;
+export const DEFAULT_CPU_WARNING_THRESHOLD = process.env.DEFAULT_CPU_WARNING_THRESHOLD || 2;
+export const DEFAULT_CPU_CRITICAL_THRESHOLD = process.env.DEFAULT_CPU_CRITICAL_THRESHOLD || 1;
+export const DEFAULT_ERROR_RATE_WARNING_THRESHOLD =
+  process.env.DEFAULT_ERROR_RATE_WARNING_THRESHOLD || 10;
+export const DEFAULT_ERROR_RATE_CRITICAL_THRESHOLD =
+  process.env.DEFAULT_ERROR_RATE_CRITICAL_THRESHOLD || 50;
+export const DEFAULT_HEALTH_CHECK_TIMEOUT = process.env.DEFAULT_HEALTH_CHECK_TIMEOUT || 5000;
+export const DEFAULT_HEALTH_CHECK_INTERVAL = process.env.DEFAULT_HEALTH_CHECK_INTERVAL || 10000;
+
+// ==================== CIRCUIT BREAKER STATES ====================
+
+/**
+ * Circuit Breaker State Constants
+ */
+export const CIRCUIT_BREAKER_STATES = { CLOSED: 'closed', OPEN: 'open', HALF_OPEN: 'half-open' };

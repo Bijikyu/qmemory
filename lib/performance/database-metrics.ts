@@ -6,6 +6,11 @@
  * index tuning, and query performance analysis.
  */
 import { EventEmitter } from 'node:events';
+import {
+  DEFAULT_SLOW_QUERY_THRESHOLD,
+  DEFAULT_MAX_SLOW_QUERIES,
+  DEFAULT_MAX_RECENT_TIMES,
+} from '../../config/localVars.js';
 
 // Type definitions
 interface DatabaseMetricsOptions {
@@ -74,9 +79,9 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
   constructor(options: DatabaseMetricsOptions = {}) {
     super();
     // Configuration with sensible defaults for production environments
-    this.slowQueryThreshold = options.slowQueryThreshold || 100; // milliseconds
-    this.maxSlowQueries = options.maxSlowQueries || 100; // bounded history size
-    this.maxRecentTimes = options.maxRecentTimes || 100; // rolling window size
+    this.slowQueryThreshold = options.slowQueryThreshold || Number(DEFAULT_SLOW_QUERY_THRESHOLD); // milliseconds
+    this.maxSlowQueries = options.maxSlowQueries || Number(DEFAULT_MAX_SLOW_QUERIES); // bounded history size
+    this.maxRecentTimes = options.maxRecentTimes || Number(DEFAULT_MAX_RECENT_TIMES); // rolling window size
     // Core metrics storage optimized for performance and memory efficiency
     this.queryTimes = new Map(); // query performance statistics by operation type
     this.slowQueries = []; // chronological history of slow queries with context

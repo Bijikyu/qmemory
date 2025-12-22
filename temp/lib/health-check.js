@@ -23,20 +23,21 @@
  */
 import { promises as fs } from 'fs';
 import { createTerminus } from '@godaddy/terminus';
+import localVars from '../../config/localVars.js';
 let totalRequests = 0;
 let totalResponseTime = 0;
 let totalErrors = 0;
 let activeRequests = 0;
 const updateMetrics = (responseTime, isError = false) => {
-    totalRequests++;
-    totalResponseTime += responseTime;
-    isError && totalErrors++;
+  totalRequests++;
+  totalResponseTime += responseTime;
+  isError && totalErrors++;
 };
 const incrementActiveRequests = () => {
-    activeRequests++;
+  activeRequests++;
 };
 const decrementActiveRequests = () => {
-    activeRequests = Math.max(0, activeRequests - 1);
+  activeRequests = Math.max(0, activeRequests - 1);
 };
 /**
  * Get memory usage information
@@ -44,20 +45,21 @@ const decrementActiveRequests = () => {
  * @returns {MemoryUsage} Memory usage statistics
  */
 const getMemoryUsage = () => {
-    const memUsage = process.memoryUsage();
-    const totalMem = require('os').totalmem();
-    const freeMem = require('os').freemem();
-    return {
-        rss: memUsage.rss,
-        heapTotal: memUsage.heapTotal,
-        heapUsed: memUsage.heapUsed,
-        external: memUsage.external,
-        arrayBuffers: memUsage.arrayBuffers,
-        systemTotal: totalMem,
-        systemFree: freeMem,
-        systemUsed: totalMem - freeMem,
-        systemUsagePercent: totalMem > 0 ? ((totalMem - freeMem) / totalMem * 100).toFixed(2) : '0.00'
-    };
+  const memUsage = process.memoryUsage();
+  const totalMem = require('os').totalmem();
+  const freeMem = require('os').freemem();
+  return {
+    rss: memUsage.rss,
+    heapTotal: memUsage.heapTotal,
+    heapUsed: memUsage.heapUsed,
+    external: memUsage.external,
+    arrayBuffers: memUsage.arrayBuffers,
+    systemTotal: totalMem,
+    systemFree: freeMem,
+    systemUsed: totalMem - freeMem,
+    systemUsagePercent:
+      totalMem > 0 ? (((totalMem - freeMem) / totalMem) * 100).toFixed(2) : '0.00',
+  };
 };
 /**
  * Get CPU usage information
@@ -65,18 +67,18 @@ const getMemoryUsage = () => {
  * @returns {CpuUsage} CPU usage statistics
  */
 const getCpuUsage = () => {
-    const cpus = require('os').cpus();
-    const loadAvg = require('os').loadavg();
-    return {
-        model: cpus.length > 0 ? (cpus[0]?.model || 'unknown') : 'unknown',
-        speed: cpus.length > 0 ? (cpus[0]?.speed || 0) : 0,
-        cores: cpus.length,
-        loadAverage: {
-            '1min': loadAvg[0] || 0,
-            '5min': loadAvg[1] || 0,
-            '15min': loadAvg[2] || 0
-        }
-    };
+  const cpus = require('os').cpus();
+  const loadAvg = require('os').loadavg();
+  return {
+    model: cpus.length > 0 ? cpus[0]?.model || 'unknown' : 'unknown',
+    speed: cpus.length > 0 ? cpus[0]?.speed || 0 : 0,
+    cores: cpus.length,
+    loadAverage: {
+      '1min': loadAvg[0] || 0,
+      '5min': loadAvg[1] || 0,
+      '15min': loadAvg[2] || 0,
+    },
+  };
 };
 /**
  * Get filesystem usage information
@@ -84,13 +86,12 @@ const getCpuUsage = () => {
  * @returns {FilesystemUsage} Filesystem usage statistics
  */
 const getFilesystemUsage = async () => {
-    try {
-        await fs.stat('.');
-        return { status: 'pass', message: 'Filesystem accessible' };
-    }
-    catch (error) {
-        return { status: 'fail', message: `Filesystem error: ${error.message}` };
-    }
+  try {
+    await fs.stat('.');
+    return { status: 'pass', message: 'Filesystem accessible' };
+  } catch (error) {
+    return { status: 'fail', message: `Filesystem error: ${error.message}` };
+  }
 };
 /**
  * Get request metrics
@@ -98,15 +99,15 @@ const getFilesystemUsage = async () => {
  * @returns {RequestMetrics} Request statistics
  */
 function getRequestMetrics() {
-    const avgResponseTime = totalRequests > 0 ? totalResponseTime / totalRequests : 0;
-    const errorRate = totalRequests > 0 ? (totalErrors / totalRequests * 100) : 0;
-    return {
-        totalRequests,
-        totalErrors,
-        activeRequests,
-        averageResponseTime: parseFloat(avgResponseTime.toFixed(2)),
-        errorRate: parseFloat(errorRate.toFixed(2))
-    };
+  const avgResponseTime = totalRequests > 0 ? totalResponseTime / totalRequests : 0;
+  const errorRate = totalRequests > 0 ? (totalErrors / totalRequests) * 100 : 0;
+  return {
+    totalRequests,
+    totalErrors,
+    activeRequests,
+    averageResponseTime: parseFloat(avgResponseTime.toFixed(2)),
+    errorRate: parseFloat(errorRate.toFixed(2)),
+  };
 }
 /**
  * Perform comprehensive health check
@@ -114,75 +115,79 @@ function getRequestMetrics() {
  * @returns {Promise<HealthCheckResult>} Health check results
  */
 async function performHealthCheck() {
-    const memUsage = getMemoryUsage();
-    const cpuUsage = getCpuUsage();
-    const fsUsage = await getFilesystemUsage();
-    const requestMetrics = getRequestMetrics();
-    // Determine overall health status
-    const memoryUsagePercent = parseFloat(memUsage.systemUsagePercent);
-    const load1Min = cpuUsage.loadAverage['1min'];
-    const errorRate = requestMetrics.errorRate;
-    let overallStatus = 'pass';
-    const checks = [];
-    let hasFailed = false;
-    // Memory check
-    if (memoryUsagePercent > 90) {
-        overallStatus = 'fail';
-        hasFailed = true;
-        checks.push({ name: 'memory', status: 'fail', message: `Memory usage: ${memoryUsagePercent}%` });
+  const memUsage = getMemoryUsage();
+  const cpuUsage = getCpuUsage();
+  const fsUsage = await getFilesystemUsage();
+  const requestMetrics = getRequestMetrics();
+  // Determine overall health status
+  const memoryUsagePercent = parseFloat(memUsage.systemUsagePercent);
+  const load1Min = cpuUsage.loadAverage['1min'];
+  const errorRate = requestMetrics.errorRate;
+  let overallStatus = 'pass';
+  const checks = [];
+  let hasFailed = false;
+  // Memory check
+  if (memoryUsagePercent > localVars.DEFAULT_MEMORY_CRITICAL_THRESHOLD) {
+    overallStatus = 'fail';
+    hasFailed = true;
+    checks.push({
+      name: 'memory',
+      status: 'fail',
+      message: `Memory usage: ${memoryUsagePercent}%`,
+    });
+  } else if (memoryUsagePercent > localVars.DEFAULT_MEMORY_WARNING_THRESHOLD) {
+    if (!hasFailed) {
+      overallStatus = 'warn';
     }
-    else if (memoryUsagePercent > 75) {
-        if (!hasFailed) {
-            overallStatus = 'warn';
-        }
-        checks.push({ name: 'memory', status: 'warn', message: `Memory usage: ${memoryUsagePercent}%` });
+    checks.push({
+      name: 'memory',
+      status: 'warn',
+      message: `Memory usage: ${memoryUsagePercent}%`,
+    });
+  } else {
+    checks.push({
+      name: 'memory',
+      status: 'pass',
+      message: `Memory usage: ${memoryUsagePercent}%`,
+    });
+  }
+  // CPU check
+  if (load1Min > cpuUsage.cores * localVars.DEFAULT_CPU_WARNING_THRESHOLD) {
+    overallStatus = 'fail';
+    checks.push({ name: 'cpu', status: 'fail', message: `Load average: ${load1Min.toFixed(2)}` });
+  } else if (load1Min > cpuUsage.cores * localVars.DEFAULT_CPU_CRITICAL_THRESHOLD) {
+    overallStatus = overallStatus === 'fail' ? 'fail' : 'warn';
+    checks.push({ name: 'cpu', status: 'warn', message: `Load average: ${load1Min.toFixed(2)}` });
+  }
+  // Filesystem check
+  checks.push({ name: 'filesystem', status: fsUsage.status, message: fsUsage.message });
+  if (fsUsage.status === 'fail') {
+    overallStatus = 'fail';
+    hasFailed = true;
+  }
+  // Error rate check
+  if (errorRate > localVars.DEFAULT_ERROR_RATE_CRITICAL_THRESHOLD) {
+    overallStatus = 'fail';
+    checks.push({ name: 'error_rate', status: 'fail', message: `Error rate: ${errorRate}%` });
+  } else if (errorRate > localVars.DEFAULT_ERROR_RATE_WARNING_THRESHOLD) {
+    if (!hasFailed) {
+      overallStatus = 'warn';
     }
-    else {
-        checks.push({ name: 'memory', status: 'pass', message: `Memory usage: ${memoryUsagePercent}%` });
-    }
-    // CPU check
-    if (load1Min > cpuUsage.cores * 2) {
-        overallStatus = 'fail';
-        checks.push({ name: 'cpu', status: 'fail', message: `Load average: ${load1Min.toFixed(2)}` });
-    }
-    else if (load1Min > cpuUsage.cores) {
-        overallStatus = overallStatus === 'fail' ? 'fail' : 'warn';
-        checks.push({ name: 'cpu', status: 'warn', message: `Load average: ${load1Min.toFixed(2)}` });
-    }
-    else {
-        checks.push({ name: 'cpu', status: 'pass', message: `Load average: ${load1Min.toFixed(2)}` });
-    }
-    // Filesystem check
-    checks.push({ name: 'filesystem', status: fsUsage.status, message: fsUsage.message });
-    if (fsUsage.status === 'fail') {
-        overallStatus = 'fail';
-        hasFailed = true;
-    }
-    // Error rate check
-    if (errorRate > 50) {
-        overallStatus = 'fail';
-        checks.push({ name: 'error_rate', status: 'fail', message: `Error rate: ${errorRate}%` });
-    }
-    else if (errorRate > 10) {
-        if (!hasFailed) {
-            overallStatus = 'warn';
-        }
-        checks.push({ name: 'error_rate', status: 'warn', message: `Error rate: ${errorRate}%` });
-    }
-    else {
-        checks.push({ name: 'error_rate', status: 'pass', message: `Error rate: ${errorRate}%` });
-    }
-    return {
-        status: overallStatus,
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        checks,
-        metrics: {
-            memory: memUsage,
-            cpu: cpuUsage,
-            requests: requestMetrics
-        }
-    };
+    checks.push({ name: 'error_rate', status: 'warn', message: `Error rate: ${errorRate}%` });
+  } else {
+    checks.push({ name: 'error_rate', status: 'pass', message: `Error rate: ${errorRate}%` });
+  }
+  return {
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks,
+    metrics: {
+      memory: memUsage,
+      cpu: cpuUsage,
+      requests: requestMetrics,
+    },
+  };
 }
 /**
  * Create liveness health check function for Kubernetes
@@ -193,19 +198,22 @@ async function performHealthCheck() {
  * @returns {Function} Liveness check function
  */
 function createLivenessCheck() {
-    return async () => {
-        const health = await performHealthCheck();
-        // For liveness, we only care if the process is responsive
-        // Critical failures only
-        if (health.status === 'fail' && health.checks.some(check => check.name === 'filesystem' && check.status === 'fail')) {
-            throw new Error('Application is not in a recoverable state');
-        }
-        return {
-            status: 'ok',
-            timestamp: health.timestamp,
-            uptime: health.uptime
-        };
+  return async () => {
+    const health = await performHealthCheck();
+    // For liveness, we only care if the process is responsive
+    // Critical failures only
+    if (
+      health.status === 'fail' &&
+      health.checks.some(check => check.name === 'filesystem' && check.status === 'fail')
+    ) {
+      throw new Error('Application is not in a recoverable state');
+    }
+    return {
+      status: 'ok',
+      timestamp: health.timestamp,
+      uptime: health.uptime,
     };
+  };
 }
 /**
  * Create readiness health check function for Kubernetes
@@ -215,23 +223,29 @@ function createLivenessCheck() {
  * @returns {Function} Readiness check function
  */
 function createReadinessCheck() {
-    return async () => {
-        const health = await performHealthCheck();
-        // For readiness, we check if we can handle traffic
-        // High memory usage or high error rates make us not ready
-        if (health.status === 'fail') {
-            throw new Error('Application is not ready to serve traffic');
-        }
-        if (health.status === 'warn' && health.checks.some(check => (check.name === 'memory' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 85) ||
-            (check.name === 'error_rate' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 20))) {
-            throw new Error('Application is degraded and not ready for full traffic');
-        }
-        return {
-            status: 'ok',
-            timestamp: health.timestamp,
-            uptime: health.uptime
-        };
+  return async () => {
+    const health = await performHealthCheck();
+    // For readiness, we check if we can handle traffic
+    // High memory usage or high error rates make us not ready
+    if (health.status === 'fail') {
+      throw new Error('Application is not ready to serve traffic');
+    }
+    if (
+      health.status === 'warn' &&
+      health.checks.some(
+        check =>
+          (check.name === 'memory' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 85) ||
+          (check.name === 'error_rate' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 20)
+      )
+    ) {
+      throw new Error('Application is degraded and not ready for full traffic');
+    }
+    return {
+      status: 'ok',
+      timestamp: health.timestamp,
+      uptime: health.uptime,
     };
+  };
 }
 /**
  * Custom health check function for terminus
@@ -239,12 +253,12 @@ function createReadinessCheck() {
  * @returns {Promise<HealthCheckResult>} Health check result
  */
 const healthCheck = async () => {
-    const health = await performHealthCheck();
-    // Convert to terminus format
-    if (health.status === 'fail') {
-        throw new Error('Health check failed');
-    }
-    return health;
+  const health = await performHealthCheck();
+  // Convert to terminus format
+  if (health.status === 'fail') {
+    throw new Error('Health check failed');
+  }
+  return health;
 };
 /**
  * Graceful shutdown handler
@@ -253,13 +267,13 @@ const healthCheck = async () => {
  * @returns {Function} Terminus onSignal handler
  */
 function createOnSignal(onSignal) {
-    return async () => {
-        console.log('Received signal, starting graceful shutdown...');
-        if (typeof onSignal === 'function') {
-            await onSignal();
-        }
-        console.log('Graceful shutdown completed');
-    };
+  return async () => {
+    console.log('Received signal, starting graceful shutdown...');
+    if (typeof onSignal === 'function') {
+      await onSignal();
+    }
+    console.log('Graceful shutdown completed');
+  };
 }
 /**
  * Create health check middleware for Express
@@ -269,22 +283,22 @@ function createOnSignal(onSignal) {
  * @returns {any} Terminus configuration
  */
 function setupHealthChecks(server, options = {}) {
-    const terminusOptions = {
-        healthChecks: {
-            '/health': healthCheck,
-            '/live': createLivenessCheck(),
-            '/ready': createReadinessCheck()
-        },
-        onSignal: createOnSignal(options.onSignal),
-        logger: options.logger || console.log,
-        timeout: options.timeout || 5000,
-        interval: options.interval || 10000,
-        beforeShutdown: options.beforeShutdown
-    };
-    if (options.onShutdown) {
-        terminusOptions.onShutdown = options.onShutdown;
-    }
-    return createTerminus(server, terminusOptions);
+  const terminusOptions = {
+    healthChecks: {
+      '/health': healthCheck,
+      '/live': createLivenessCheck(),
+      '/ready': createReadinessCheck(),
+    },
+    onSignal: createOnSignal(options.onSignal),
+    logger: options.logger || console.log,
+    timeout: options.timeout || localVars.DEFAULT_HEALTH_CHECK_TIMEOUT,
+    interval: options.interval || localVars.DEFAULT_HEALTH_CHECK_INTERVAL,
+    beforeShutdown: options.beforeShutdown,
+  };
+  if (options.onShutdown) {
+    terminusOptions.onShutdown = options.onShutdown;
+  }
+  return createTerminus(server, terminusOptions);
 }
 // Legacy compatibility functions
 /**
@@ -294,11 +308,10 @@ function setupHealthChecks(server, options = {}) {
  * @param {any} res - Express response object
  */
 function createHealthEndpoint(req, res) {
-    performHealthCheck().then(health => {
-        const statusCode = health.status === 'pass' ? 200 :
-            health.status === 'warn' ? 200 : 503;
-        res.status(statusCode).json(health);
-    });
+  performHealthCheck().then(health => {
+    const statusCode = health.status === 'pass' ? 200 : health.status === 'warn' ? 200 : 503;
+    res.status(statusCode).json(health);
+  });
 }
 /**
  * Create liveness endpoint (legacy compatibility)
@@ -307,12 +320,14 @@ function createHealthEndpoint(req, res) {
  * @param {any} res - Express response object
  */
 function createLivenessEndpoint(req, res) {
-    createLivenessCheck()()
-        .then(result => res.json(result))
-        .catch((error) => res.status(503).json({
+  createLivenessCheck()()
+    .then(result => res.json(result))
+    .catch(error =>
+      res.status(503).json({
         status: 'error',
-        message: error.message
-    }));
+        message: error.message,
+      })
+    );
 }
 /**
  * Create readiness endpoint (legacy compatibility)
@@ -321,14 +336,31 @@ function createLivenessEndpoint(req, res) {
  * @param {any} res - Express response object
  */
 function createReadinessEndpoint(req, res) {
-    createReadinessCheck()()
-        .then(result => res.json(result))
-        .catch((error) => res.status(503).json({
+  createReadinessCheck()()
+    .then(result => res.json(result))
+    .catch(error =>
+      res.status(503).json({
         status: 'error',
-        message: error.message
-    }));
+        message: error.message,
+      })
+    );
 }
 // Export all functions
-export { updateMetrics, incrementActiveRequests, decrementActiveRequests, getMemoryUsage, getCpuUsage, getFilesystemUsage, getRequestMetrics, performHealthCheck, createLivenessCheck, createReadinessCheck, createOnSignal, setupHealthChecks, 
-// Legacy compatibility
-createHealthEndpoint, createLivenessEndpoint, createReadinessEndpoint };
+export {
+  updateMetrics,
+  incrementActiveRequests,
+  decrementActiveRequests,
+  getMemoryUsage,
+  getCpuUsage,
+  getFilesystemUsage,
+  getRequestMetrics,
+  performHealthCheck,
+  createLivenessCheck,
+  createReadinessCheck,
+  createOnSignal,
+  setupHealthChecks,
+  // Legacy compatibility
+  createHealthEndpoint,
+  createLivenessEndpoint,
+  createReadinessEndpoint,
+};
