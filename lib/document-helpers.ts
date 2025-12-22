@@ -223,7 +223,7 @@ const findDocuments = async <TSchema extends AnyDocumentShape>(
   logger.logDebug('findDocuments returning documents', {
     count: Array.isArray(result) ? result.length : 0,
   });
-  return result ?? [];
+  return (result ?? []) as TSchema[];
 };
 
 /**
@@ -243,7 +243,7 @@ const findOneDocument = async <TSchema extends AnyDocumentShape>(
     'findOneDocument'
   );
   logger.logDebug('findOneDocument returning result', { hasResult: Boolean(result) });
-  return result;
+  return result as LeanDocument<TSchema> | null;
 };
 
 /**
@@ -267,7 +267,7 @@ const bulkUpdateDocuments = async <TSchema extends AnyDocumentShape>(
     const results = await Promise.all(
       updates.map(updateInstruction => {
         const { filter, data, options = {} } = updateInstruction;
-        return model.updateMany(filter, data, { ...options, new: true }).exec();
+        return model.updateMany(filter, data, options).exec();
       })
     );
     logger.logDebug('bulkUpdateDocuments returning batch results', { count: results.length });
