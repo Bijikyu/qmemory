@@ -33,12 +33,12 @@ import {
   requireEnvVars,
   gracefulShutdown,
 } from './lib/qgenutils-wrapper.js';
-import { DEFAULT_PORT, NODE_ENV } from '../../config/localVars.js';
+import localVars from '../../config/localVars.js';
 const app = express();
 // Prefer typed/env-aware port retrieval via qgenutils
-const port = getEnvVar('PORT', DEFAULT_PORT, 'number');
+const port = getEnvVar('PORT', localVars.DEFAULT_PORT, 'number');
 // Optional: enforce required env vars in production
-if (NODE_ENV === 'production') {
+if (localVars.NODE_ENV === 'production') {
   try {
     requireEnvVars(['PORT']);
   } catch (err) {
@@ -244,7 +244,7 @@ app.delete('/users/:id', async (req, res) => {
 });
 app.post('/users/clear', async (req, res) => {
   // wipe storage when testing
-  if (NODE_ENV === 'production') {
+  if (localVars.NODE_ENV === 'production') {
     return sendBadRequest(res, 'Clear operation not allowed in production'); // protect production data
   }
   try {
@@ -283,9 +283,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   server = app.listen(port, '0.0.0.0', () => {
     // bind to all interfaces for demo usage
     logInfo(`QMemory Demo App listening on port ${port}`); // log startup details for monitoring
-    logInfo('Environment:', NODE_ENV || 'development'); // log running mode for clarity
+    logInfo('Environment:', localVars.NODE_ENV || 'development'); // log running mode for clarity
     // Create some sample data in development
-    if (NODE_ENV !== 'production') {
+    if (localVars.NODE_ENV !== 'production') {
       // avoid polluting production DB
       storage
         .createUser({ username: 'demo', displayName: 'Demo User' }) // sample uses displayName to match route

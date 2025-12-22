@@ -2,9 +2,9 @@
  * Storage Implementations
  * Various storage mechanisms for user data
  */
-import { DEFAULT_MAX_USERS } from '../../config/localVars.js';
+import localVars from '../../config/localVars.js';
 class MemStorage {
-  constructor(maxUsers = DEFAULT_MAX_USERS) {
+  constructor(maxUsers = localVars.DEFAULT_MAX_USERS) {
     this.getUser = async id => (typeof id !== 'number' || id < 1 ? undefined : this.users.get(id)); // direct Map lookup for performance
     this.getUserByUsername = async username =>
       typeof username !== 'string' || !username.trim().length
