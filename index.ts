@@ -189,6 +189,8 @@ import {
 import { createRedisClient, redisCreateClient } from './lib/cache-utils.js';
 // LRU cache
 import { LRUCache } from './lib/lru-cache.js';
+// Bounded collections
+import { BoundedQueue, BoundedMap } from './lib/bounded-collections.js';
 // Performance metrics
 import {
   incCacheHit,
@@ -401,6 +403,9 @@ export {
   redisCreateClient,
   // LRU cache
   LRUCache,
+  // Bounded collections
+  BoundedQueue,
+  BoundedMap,
   // Performance metrics
   incCacheHit,
   incCacheMiss,

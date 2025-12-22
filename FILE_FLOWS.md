@@ -171,6 +171,10 @@ This document describes the data flow, file organization, and module relationshi
   - Classes: `FastMath`, `FastString`, `LockFreeQueue`, `ObjectPool`, `FastTimer`, `FastMemory`, `FastHash`
   - Utilities: `FastOps`, `Cast`, `Prop`
 
+- **`bounded-collections.ts`** - Memory-safe bounded data structures with LRU semantics
+  - Classes: `BoundedQueue<T>` (circular buffer with overflow), `BoundedMap<K,V>` (LRU cache map)
+  - Features: Fixed capacity, automatic eviction, iterator support, power-of-2 optimization for queue
+
 - **`streaming-json.js`** - Safe JSON processing
   - Functions: `safeJsonStringify()`, `safeJsonParse()`
   - Enhanced JSON object with error handling

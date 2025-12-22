@@ -1,0 +1,139 @@
+bounded-collections
+Purpose: Expose memory-safe bounded queue and map data structures that guard against runaway arrays while providing LRU eviction semantics. Explanation:
+Keeping arbitrary collections under a fixed cap is essential for caches, telemetry buffers, and rate-limited stores in both backend and edge services. This module provides a circular BoundedQueue for buffering entries in order and an LRU-style BoundedMap for key-value caches; both throw when initialized with a non-positive capacity, expose helpers such as peek, isFull, and toArray, and keep their internal storage as small as possible so memory consumption stays predictable.
+Because the map evicts the oldest entry on overflow and also moves recently accessed entries to the back, it plugs straight into caching layers or queue-backed log collectors without additional coordination logic.
+
+// Bounded Circular Buffer Implementation
+// Replaces unbounded arrays with fixed-size circular buffers to prevent memory leaks
+export class BoundedQueue<T> {
+  private buffer: T[];
+  private head: number = 0;
+  private tail: number = 0;
+  private size: number = 0;
+  constructor(private maxSize: number) {
+    if (maxSize <= 0) {
+      throw new Error('Max size must be greater than 0');
+    }
+    this.buffer = new Array(maxSize);
+  }
+  push(item: T): void {
+    this.buffer[this.tail] = item;
+    this.tail = (this.tail + 1) % this.maxSize;
+    
+    if (this.size < this.maxSize) {
+      this.size++;
+    } else {
+      // Buffer is full, advance head (overwrites oldest)
+      this.head = (this.head + 1) % this.maxSize;
+    }
+  }
+  shift(): T | undefined {
+    if (this.size === 0) {
+      return undefined;
+    }
+    
+    const item = this.buffer[this.head];
+    this.buffer[this.head] = undefined as any; // Clear reference
+    this.head = (this.head + 1) % this.maxSize;
+    this.size--;
+    
+    return item;
+  }
+  peek(): T | undefined {
+    if (this.size === 0) {
+      return undefined;
+    }
+    return this.buffer[this.head];
+  }
+  clear(): void {
+    this.head = 0;
+    this.tail = 0;
+    this.size = 0;
+    // Clear all references to help garbage collection
+    for (let i = 0; i < this.buffer.length; i++) {
+      this.buffer[i] = undefined as any;
+    }
+  }
+  get length(): number {
+    return this.size;
+  }
+  get isEmpty(): boolean {
+    return this.size === 0;
+  }
+  get isFull(): boolean {
+    return this.size === this.maxSize;
+  }
+  // Get all items in order (oldest to newest) without removing them
+  toArray(): T[] {
+    const result: T[] = [];
+    for (let i = 0; i < this.size; i++) {
+      const index = (this.head + i) % this.maxSize;
+      result.push(this.buffer[index]);
+    }
+    return result;
+  }
+  // Iterator for for...of loops
+  *[Symbol.iterator](): Iterator<T> {
+    for (let i = 0; i < this.size; i++) {
+      const index = (this.head + i) % this.maxSize;
+      yield this.buffer[index];
+    }
+  }
+}
+// Memory-efficient bounded map with LRU eviction
+export class BoundedMap<K, V> {
+  private map: Map<K, V>;
+  private maxSize: number;
+  constructor(maxSize: number) {
+    if (maxSize <= 0) {
+      throw new Error('Max size must be greater than 0');
+    }
+    this.map = new Map();
+    this.maxSize = maxSize;
+  }
+  set(key: K, value: V): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    } else if (this.map.size >= this.maxSize) {
+      // Delete first (oldest) entry
+      const firstKey = this.map.keys().next().value;
+      if (firstKey !== undefined) {
+        this.map.delete(firstKey);
+      }
+    }
+    this.map.set(key, value);
+  }
+  get(key: K): V | undefined {
+    const value = this.map.get(key);
+    if (value !== undefined) {
+      // Move to end (most recently used)
+      this.map.delete(key);
+      this.map.set(key, value);
+    }
+    return value;
+  }
+  has(key: K): boolean {
+    return this.map.has(key);
+  }
+  delete(key: K): boolean {
+    return this.map.delete(key);
+  }
+  clear(): void {
+    this.map.clear();
+  }
+  get size(): number {
+    return this.map.size;
+  }
+  get isEmpty(): boolean {
+    return this.map.size === 0;
+  }
+  keys(): IterableIterator<K> {
+    return this.map.keys();
+  }
+  values(): IterableIterator<V> {
+    return this.map.values();
+  }
+  entries(): IterableIterator<[K, V]> {
+    return this.map.entries();
+  }
+}
