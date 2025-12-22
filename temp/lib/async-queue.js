@@ -1,10 +1,6 @@
 import BeeQueue from 'bee-queue';
 import { EventEmitter } from 'events';
-import {
-  DEFAULT_REDIS_HOST,
-  DEFAULT_REDIS_PORT,
-  DEFAULT_QUEUE_PREFIX,
-} from '../../config/localVars.js';
+import localVars from '../../config/localVars.js';
 // Simplified wrapper that doesn't try to enforce strict typing on bee-queue
 export class AsyncQueueWrapper extends EventEmitter {
   constructor(options = {}) {
@@ -18,17 +14,17 @@ export class AsyncQueueWrapper extends EventEmitter {
     this.activeJobs = new Set();
     this.beeOptions = {
       redis: options.redis || {
-        host: DEFAULT_REDIS_HOST,
-        port: DEFAULT_REDIS_PORT,
+        host: localVars.DEFAULT_REDIS_HOST,
+        port: localVars.DEFAULT_REDIS_PORT,
       },
-      prefix: options.prefix || DEFAULT_QUEUE_PREFIX,
-      stallInterval: options.stallInterval || 5000,
-      nearActivatedWindow: options.nearActivatedWindow || 30 * 60 * 1000,
-      delayedDebounce: options.delayedDebounce || 1000,
-      maxDelayed: options.maxDelayed || 10000,
+      prefix: options.prefix || localVars.DEFAULT_QUEUE_PREFIX,
+      stallInterval: options.stallInterval || localVars.BEE_QUEUE_STALL_INTERVAL,
+      nearActivatedWindow: options.nearActivatedWindow || localVars.BEE_QUEUE_NEAR_ACTIVATED_WINDOW,
+      delayedDebounce: options.delayedDebounce || localVars.BEE_QUEUE_DELAYED_DEBOUNCE,
+      maxDelayed: options.maxDelayed || localVars.BEE_QUEUE_MAX_DELAYED,
       removeOnSuccess: options.removeOnSuccess !== false,
       removeOnFailure: options.removeOnFailure !== false,
-      redisScanCount: options.redisScanCount || 100,
+      redisScanCount: options.redisScanCount || localVars.BEE_QUEUE_REDIS_SCAN_COUNT,
       getEvents: options.getEvents !== false,
       sendEvents: options.sendEvents !== false,
       storeJobs: options.storeJobs !== false,
@@ -37,9 +33,11 @@ export class AsyncQueueWrapper extends EventEmitter {
       isWorker: options.isWorker !== false,
       catchExceptions: options.catchExceptions !== false,
       settings: {
-        stalledInterval: options.settings?.stalledInterval || 30000,
-        maxStalledCount: options.settings?.maxStalledCount || 1,
-        visibility: options.settings?.visibility || 30,
+        stalledInterval:
+          options.settings?.stalledInterval || localVars.BEE_QUEUE_SETTINGS_STALLED_INTERVAL,
+        maxStalledCount:
+          options.settings?.maxStalledCount || localVars.BEE_QUEUE_SETTINGS_MAX_STALLED_COUNT,
+        visibility: options.settings?.visibility || localVars.BEE_QUEUE_SETTINGS_VISIBILITY,
         processConcurrency: options.settings?.processConcurrency,
       },
     };

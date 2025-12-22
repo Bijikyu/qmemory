@@ -1,20 +1,14 @@
 import CircuitBreakerBase from 'opossum';
-import {
-  DEFAULT_CIRCUIT_BREAKER_TIMEOUT,
-  DEFAULT_CIRCUIT_BREAKER_ERROR_THRESHOLD,
-  DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT,
-  DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD,
-  CIRCUIT_BREAKER_STATES,
-} from '../../config/localVars.js';
-export const STATES = CIRCUIT_BREAKER_STATES;
+import localVars from '../../config/localVars.js';
+export const STATES = localVars.CIRCUIT_BREAKER_STATES;
 export class CircuitBreakerWrapper {
   constructor(options = {}) {
     this.currentOperation = null;
     const opossumOptions = {
-      timeout: options.timeout || DEFAULT_CIRCUIT_BREAKER_TIMEOUT,
+      timeout: options.timeout || localVars.DEFAULT_CIRCUIT_BREAKER_TIMEOUT,
       errorThresholdPercentage:
-        options.errorThresholdPercentage || DEFAULT_CIRCUIT_BREAKER_ERROR_THRESHOLD,
-      resetTimeout: options.resetTimeout || DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT,
+        options.errorThresholdPercentage || localVars.DEFAULT_CIRCUIT_BREAKER_ERROR_THRESHOLD,
+      resetTimeout: options.resetTimeout || localVars.DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT,
       rollingCountTimeout: options.rollingCountTimeout || 10000,
       rollingCountBuckets: options.rollingCountBuckets || 10,
       minimumNumberOfCalls: options.minimumNumberOfCalls || 5,
@@ -24,8 +18,9 @@ export class CircuitBreakerWrapper {
       maxRetries: options.maxRetries || 0,
       retryDelay: options.retryDelay || 100,
     };
-    this.failureThreshold = options.failureThreshold || DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD;
-    this.resetTimeout = options.resetTimeout || DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT;
+    this.failureThreshold =
+      options.failureThreshold || localVars.DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD;
+    this.resetTimeout = options.resetTimeout || localVars.DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT;
     this.opossumBreaker = new CircuitBreakerBase(async (...args) => {
       if (!this.currentOperation) throw new Error('No operation set. Use execute() method.');
       return await this.currentOperation(...args);
