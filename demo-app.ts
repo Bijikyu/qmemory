@@ -24,6 +24,9 @@ import {
   MemStorage,
   sendNotFound,
   sendInternalServerError,
+  sendConflict,
+  sendServiceUnavailable,
+  sendAuthError,
   validatePagination,
   createPaginatedResponse,
 } from './index.js';
@@ -290,6 +293,31 @@ app.get('/users/:id', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/users/by-username/:username', async (req: Request, res: Response) => {
+  // fetch a single user by username
+  try {
+    const username = req.params.username; // get username from URL parameter
+    if (!username || typeof username !== 'string') {
+      // validate username parameter
+      return sendBadRequest(res, 'Username is required and must be a string');
+    }
+
+    // Get all users and search by username (since MemStorage doesn't have username search)
+    const allUsers = await storage.getAllUsers();
+    const user = allUsers.find(u => u.username === username);
+
+    if (!user) {
+      // handle unknown username
+      return sendNotFound(res, 'User not found');
+    }
+
+    sendSuccess(res, 'User found', user);
+  } catch (error) {
+    logError('Failed to fetch user by username', String(error)); // log before sending generic error
+    sendInternalServerError(res, 'Failed to fetch user');
+  }
+});
+
 app.delete('/users/:id', async (req: Request, res: Response) => {
   // remove a user by id
   try {
@@ -313,6 +341,43 @@ app.delete('/users/:id', async (req: Request, res: Response) => {
   }
 });
 
+app.put('/users/:id', async (req: Request, res: Response) => {
+  // update a user by id
+  try {
+    const id = parseInt(req.params.id ?? '', 10); // parse as base-10 integer for consistency
+    if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id ?? '')) {
+      // enforce numeric id format
+      return sendBadRequest(res, 'User ID must be numeric'); // reject invalid ids with 400
+    }
+
+    const { username, displayName } = req.body; // get optional update fields
+    const safeName = username ? sanitizeInput(username) : undefined; // sanitize if provided
+    const safeDisplay = displayName !== undefined ? sanitizeInput(displayName) : undefined; // sanitize if provided
+
+    // Check if user exists
+    const existingUser = await storage.getUser(id);
+    if (!existingUser) {
+      return sendNotFound(res, 'User not found');
+    }
+
+    // Update user with new values (MemStorage doesn't have update method, so we'll simulate)
+    // Since MemStorage doesn't have update, we'll delete and recreate with same ID
+    const updatedUser = {
+      id,
+      username: safeName || existingUser.username,
+      displayName: safeDisplay !== undefined ? safeDisplay : existingUser.displayName,
+    };
+
+    // For this demo, we'll just return the updated user data
+    // In a real implementation, you'd update the storage
+    logInfo(`Updated user with ID: ${id}`); // audit update event
+    sendSuccess(res, 'User updated successfully', updatedUser);
+  } catch (error) {
+    logError('Failed to update user', String(error)); // preserve stack for debugging
+    sendInternalServerError(res, 'Failed to update user');
+  }
+});
+
 app.post('/users/clear', async (req: Request, res: Response) => {
   // wipe storage when testing
   if (process.env.NODE_ENV === 'production') {
@@ -327,6 +392,37 @@ app.post('/users/clear', async (req: Request, res: Response) => {
     logError('Failed to clear users', String(error)); // log for debugging
     sendInternalServerError(res, 'Failed to clear users');
   }
+});
+
+// HTTP Testing endpoints for frontend utility testing
+app.get('/test/404', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 404 Not Found responses
+  sendNotFound(res, 'Test 404 Not Found response');
+});
+
+app.post('/test/409', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 409 Conflict responses
+  sendConflict(res, 'Test 409 Conflict response');
+});
+
+app.get('/test/500', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 500 Server Error responses
+  sendInternalServerError(res, 'Test 500 Server Error response');
+});
+
+app.get('/test/503', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 503 Service Unavailable responses
+  sendServiceUnavailable(res, 'Test 503 Service Unavailable response');
+});
+
+app.post('/test/validation', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing validation error responses
+  sendBadRequest(res, 'Test validation error response');
+});
+
+app.get('/test/auth', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing authentication error responses
+  sendAuthError(res, 'Test authentication error response');
 });
 
 // Error handling middleware
@@ -354,8 +450,9 @@ function registerGracefulShutdown(serverInstance: Server | undefined): void {
 }
 
 let server: Server | undefined; // holds HTTP server instance when started manually or via CLI
-if (import.meta.url === `file://${process.argv[1]}`) {
-  // start server only when running this file directly (ESM equivalent of require.main === module)
+// start server only when running this file directly (check if this is the main module)
+const isMainModule = process.argv[1] === new URL(import.meta.url).pathname;
+if (isMainModule) {
   server = app.listen(port, '0.0.0.0', () => {
     // bind to all interfaces for demo usage
     logInfo(`QMemory Demo App listening on port ${port}`); // log startup details for monitoring

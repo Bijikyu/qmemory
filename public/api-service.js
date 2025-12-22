@@ -81,6 +81,46 @@ class ApiService {
       method: 'POST',
     });
   }
+
+  async getUserByUsername(username) {
+    return this.request(`/users/by-username/${username}`);
+  }
+
+  async updateUser(id, userData) {
+    return this.request(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  // HTTP testing endpoints
+  async test404() {
+    return this.request('/test/404');
+  }
+
+  async test409() {
+    return this.request('/test/409', {
+      method: 'POST',
+    });
+  }
+
+  async test500() {
+    return this.request('/test/500');
+  }
+
+  async test503() {
+    return this.request('/test/503');
+  }
+
+  async testValidation() {
+    return this.request('/test/validation', {
+      method: 'POST',
+    });
+  }
+
+  async testAuth() {
+    return this.request('/test/auth');
+  }
 }
 
 // Export singleton instance

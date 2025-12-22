@@ -4,7 +4,14 @@
  */
 // 🚩AI: ENTRY_POINT_FOR_HTTP_RESPONSE_HANDLING
 import type { Response } from 'express'; // Ensure we leverage Express typings for runtime safety guarantees
-import { sanitizeString, createPerformanceTimer, generateUniqueId, createTypedError, ErrorTypes, ErrorFactory } from './qgenutils-wrapper.js';
+import {
+  sanitizeString,
+  createPerformanceTimer,
+  generateUniqueId,
+  createTypedError,
+  ErrorTypes,
+  ErrorFactory,
+} from './qgenutils-wrapper.js';
 
 type HttpErrorType =
   | 'BAD_REQUEST'
@@ -37,13 +44,25 @@ interface ErrorEnvelope {
  */
 const validateResponseObject = (res: unknown): asserts res is Response => {
   if (!res || typeof res !== 'object') {
-    throw createTypedError('Invalid response object: must be an object', ErrorTypes.VALIDATION, 'INVALID_RESPONSE_OBJECT'); // Guard against undefined or primitives to prevent runtime crashes
+    throw createTypedError(
+      'Invalid response object: must be an object',
+      ErrorTypes.VALIDATION,
+      'INVALID_RESPONSE_OBJECT'
+    ); // Guard against undefined or primitives to prevent runtime crashes
   }
   if (typeof (res as Response).status !== 'function') {
-    throw createTypedError('Invalid response object: missing status() method', ErrorTypes.VALIDATION, 'MISSING_STATUS_METHOD'); // We rely on status for HTTP status codes, so fail fast
+    throw createTypedError(
+      'Invalid response object: missing status() method',
+      ErrorTypes.VALIDATION,
+      'MISSING_STATUS_METHOD'
+    ); // We rely on status for HTTP status codes, so fail fast
   }
   if (typeof (res as Response).json !== 'function') {
-    throw createTypedError('Invalid response object: missing json() method', ErrorTypes.VALIDATION, 'MISSING_JSON_METHOD'); // JSON transport is required for deterministic responses
+    throw createTypedError(
+      'Invalid response object: missing json() method',
+      ErrorTypes.VALIDATION,
+      'MISSING_JSON_METHOD'
+    ); // JSON transport is required for deterministic responses
   }
 };
 
@@ -53,7 +72,11 @@ const validateResponseObject = (res: unknown): asserts res is Response => {
  * @throws Throws generic Error for compatibility with older code paths.
  */
 const validateExpressResponse = (res: unknown): asserts res is Response => {
-  if (!res || typeof (res as Response).status !== 'function' || typeof (res as Response).json !== 'function') {
+  if (
+    !res ||
+    typeof (res as Response).status !== 'function' ||
+    typeof (res as Response).json !== 'function'
+  ) {
     throw new Error('Invalid Express response object provided'); // Maintain backward compatibility with plain Error consumers
   }
 };
@@ -70,7 +93,7 @@ const sendErrorResponse = (
   res: Response,
   statusCode: KnownStatusCode,
   message: unknown,
-  error: Error | null = null,
+  error: Error | null = null
 ): Response<ErrorEnvelope> => {
   const requestId = generateRequestId(); // Generate deterministic request id so downstream logs correlate
   try {
@@ -207,12 +230,19 @@ const sendServiceUnavailable = (res: Response, message?: unknown): Response<Erro
 };
 
 /**
+ * Sends a 400 bad request payload with consistent formatting.
+ */
+const sendBadRequest = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
+  return sendErrorResponse(res, 400, message ?? 'Bad request'); // Provide clear feedback for malformed requests
+};
+
+/**
  * Sends a 400 validation error payload including optional details.
  */
 const sendValidationError = (
   res: Response,
   message: unknown,
-  details?: unknown,
+  details?: unknown
 ): Response<ErrorEnvelope> => {
   const response: ErrorEnvelope = {
     error: {
@@ -236,7 +266,10 @@ const sendAuthError = (res: Response, message?: unknown): Response<ErrorEnvelope
     const response: ErrorEnvelope = {
       error: {
         type: 'AUTHENTICATION_ERROR',
-        message: sanitizeResponseMessage(message ?? 'Authentication required', 'Authentication required'),
+        message: sanitizeResponseMessage(
+          message ?? 'Authentication required',
+          'Authentication required'
+        ),
         timestamp: getTimestamp(),
         requestId,
       },
@@ -267,6 +300,7 @@ export {
   sendConflict,
   sendInternalServerError,
   sendServiceUnavailable,
+  sendBadRequest,
   sendValidationError,
   sendAuthError,
   validateResponseObject,
