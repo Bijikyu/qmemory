@@ -74,7 +74,7 @@ interface PaginationInfo {
 
 const app: Application = express();
 // Prefer typed/env-aware port retrieval via qgenutils
-const port: number = getEnvVar('PORT', process.env.PORT ?? 5000, 'number');
+const port: number = Number(process.env.PORT) || 5000;
 
 // Optional: enforce required env vars in production
 if (process.env.NODE_ENV === 'production') {
@@ -347,7 +347,7 @@ app.use((req: Request, res: Response) => {
 // Graceful shutdown via qgenutils
 function registerGracefulShutdown(serverInstance: Server | undefined): void {
   try {
-    gracefulShutdown(serverInstance, null, 10000); // handles SIGTERM/SIGINT
+    gracefulShutdown(serverInstance); // handles SIGTERM/SIGINT
   } catch (err: unknown) {
     logError('Failed to register graceful shutdown', String(err));
   }
