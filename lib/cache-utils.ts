@@ -40,18 +40,64 @@ export type RedisClient = RedisClientType<RedisModules, RedisFunctions, RedisScr
 
 /**
  * Computes a resilient reconnect strategy that caps delay escalation.
+ * Configurable via environment variables for different deployment scenarios.
  */
 const defaultReconnectStrategy = (retries: number): number | Error => {
-  if (retries > 10) return new Error('Redis reconnection failed after 10 attempts');
-  return Math.min(retries * 50, 1000);
+  const maxRetries = Number(process.env.REDIS_MAX_RETRIES) || 10;
+  const baseDelay = Number(process.env.REDIS_BASE_DELAY) || 50;
+  const maxDelay = Number(process.env.REDIS_MAX_DELAY) || 1000;
+
+  if (retries > maxRetries) {
+    return new Error(`Redis reconnection failed after ${maxRetries} attempts`);
+  }
+
+  return Math.min(retries * baseDelay, maxDelay);
 };
 
 /**
- * Normalizes numeric configuration values.
+ * Normalizes numeric configuration values with validation.
  */
 const asNumber = (value: unknown, fallback: number): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+/**
+ * Validates Redis connection parameters to ensure compliance with Redis client requirements.
+ */
+const validateRedisConfig = (options: RedisOptions): void => {
+  if (options.host && typeof options.host !== 'string') {
+    throw new Error('Redis host must be a string');
+  }
+
+  if (
+    options.port &&
+    (!Number.isInteger(options.port) || options.port < 1 || options.port > 65535)
+  ) {
+    throw new Error('Redis port must be an integer between 1 and 65535');
+  }
+
+  if (options.db && (!Number.isInteger(options.db) || options.db < 0)) {
+    throw new Error('Redis database must be a non-negative integer');
+  }
+
+  if (options.password && typeof options.password !== 'string') {
+    throw new Error('Redis password must be a string');
+  }
+
+  if (
+    options.retryDelayOnFailover &&
+    (!Number.isInteger(options.retryDelayOnFailover) || options.retryDelayOnFailover < 0)
+  ) {
+    throw new Error('Redis retry delay on failover must be a non-negative integer');
+  }
+
+  if (
+    options.maxRetriesPerRequest &&
+    (!Number.isInteger(options.maxRetriesPerRequest) || options.maxRetriesPerRequest < 0)
+  ) {
+    throw new Error('Redis max retries per request must be a non-negative integer');
+  }
 };
 
 /**
@@ -63,6 +109,9 @@ const asNumber = (value: unknown, fallback: number): number => {
 export function createRedisClient(
   options: RedisOptions = {}
 ): RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
+  // Validate configuration before creating client
+  validateRedisConfig(options);
+
   const {
     host,
     port,

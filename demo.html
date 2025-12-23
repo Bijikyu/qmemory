@@ -1126,13 +1126,6 @@ console.log(data.data.pagination); // Pagination info</pre
         showResponse('addResponse', { result: sum, operation: `${a} + ${b} = ${sum}` }, 'success');
       }
 
-        showResponse(
-          'addResponse',
-          { result: a + b, operation: `${a} + ${b} = ${a + b}` },
-          'success'
-        );
-      }
-
       async function testEven() {
         const num = parseInt(document.getElementById('evenNum').value);
 
@@ -1143,14 +1136,6 @@ console.log(data.data.pagination); // Pagination info</pre
 
         const isEvenResult = num % 2 === 0;
         showResponse('evenResponse', { number: num, isEven: isEvenResult, message: `${num} is ${isEvenResult ? 'even' : 'odd'}` }, 'success');
-      }
-
-        const isEven = num % 2 === 0;
-        showResponse(
-          'evenResponse',
-          { number: num, isEven: isEven, message: `${num} is ${isEven ? 'even' : 'odd'}` },
-          'success'
-        );
       }
 
       async function testDedupe() {
@@ -1317,23 +1302,6 @@ console.log(data.data.pagination); // Pagination info</pre
           showResponse('batchResponse', { error: error.message }, 'error');
         }
       }
-            }
-
-            showResponse(
-              'batchResponse',
-              {
-                operation: 'Batch User Deletion',
-                results: deleteResults,
-                deleted: deleteResults.filter(r => r.deleted).length,
-              },
-              'success'
-            );
-
-            refreshStats();
-          }
-        } catch (error) {
-          showResponse('batchResponse', { error: error.message }, 'error');
-        }
       }
 
       async function runPerformanceTest() {

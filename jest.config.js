@@ -34,10 +34,7 @@ export default {
     'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue|qerrors|lru-cache|redis|mongoose)/)',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
-  modulePathIgnorePatterns: [
-    '<rootDir>/.cache/',
-    '<rootDir>/cache/',
-  ],
+  modulePathIgnorePatterns: ['<rootDir>/.cache/', '<rootDir>/cache/'],
   haste: {
     throwOnModuleCollision: false,
   },
@@ -53,5 +50,8 @@ export default {
   resolver: undefined,
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '<rootDir>/$1',
+    '^qgenutils$': '<rootDir>/node_modules/qgenutils',
+    '^qerrors$': '<rootDir>/node_modules/qerrors',
+    '^@/(.*)$': '<rootDir>/$1',
   },
 };
