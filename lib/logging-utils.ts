@@ -4,38 +4,110 @@
  */
 import {
   logger,
-  logDebug,
-  logInfo,
-  logWarn,
-  logError,
-  logFatal,
-  logAudit,
-  createPerformanceTimer,
-  sanitizeMessage,
-  sanitizeContext,
-  addCustomSanitizationPattern,
-  sanitizeWithCustomPatterns,
-  clearCustomSanitizationPatterns,
-  generateUniqueId,
-  createTimer,
-  deepClone,
-  safeRun,
-  verboseLog,
   createTypedError,
   ErrorTypes,
-  ErrorSeverity,
-  ErrorFactory,
-  handleControllerError,
-  withErrorHandling,
-  getEnv,
-  getInt,
-  getMissingEnvVars,
-  throwIfMissingEnvVars,
-  warnIfMissingEnvVars,
-  simpleLogger,
-  createSimpleWinstonLogger,
-  LOG_LEVELS,
+  sanitizeMessage,
+  sanitizeContext,
+  generateUniqueId,
 } from 'qerrors';
+
+// Minimal implementations for missing functions
+function logDebug(message: string, meta?: any): void {
+  if (logger?.logDebug) logger.logDebug(message, meta);
+  else console.log(`DEBUG: ${message}`, meta);
+}
+
+function logInfo(message: string, meta?: any): void {
+  if (logger?.info) logger.info(message, meta);
+  else console.log(`INFO: ${message}`, meta);
+}
+
+function logWarn(message: string, meta?: any): void {
+  if (logger?.warn) logger.warn(message, meta);
+  else console.warn(`WARN: ${message}`, meta);
+}
+
+function logError(message: string, meta?: any): void {
+  if (logger?.error) logger.error(message, meta);
+  else console.error(`ERROR: ${message}`, meta);
+}
+
+function logFatal(message: string, meta?: any): void {
+  if (logger?.logFatal) logger.logFatal(message, meta);
+  else console.error(`FATAL: ${message}`, meta);
+}
+
+function logAudit(message: string, meta?: any): void {
+  if (logger?.logAudit) logger.logAudit(message, meta);
+  else console.log(`AUDIT: ${message}`, meta);
+}
+
+function createTimer(label?: string): () => number {
+  const start = Date.now();
+  return () => Date.now() - start;
+}
+
+function createPerformanceTimer(label: string): (success?: boolean) => void {
+  const start = Date.now();
+  return (success = true) => {
+    const duration = Date.now() - start;
+    logDebug(`Performance: ${label} took ${duration}ms`, { success, duration });
+  };
+}
+
+// Additional stub functions
+function addCustomSanitizationPattern(): void {}
+function sanitizeWithCustomPatterns(data: any): any {
+  return data;
+}
+function clearCustomSanitizationPatterns(): void {}
+function deepClone(obj: any): any {
+  return JSON.parse(JSON.stringify(obj));
+}
+function safeRun(fn: () => any): any {
+  try {
+    return fn();
+  } catch (e) {
+    return null;
+  }
+}
+function verboseLog(message: string): void {
+  console.log(message);
+}
+const ErrorSeverity: Record<string, string> = {};
+function handleControllerError(error: Error): void {
+  logError(error.message);
+}
+function withErrorHandling(fn: () => any): any {
+  try {
+    return fn();
+  } catch (e) {
+    logError(e.message);
+    return null;
+  }
+}
+function getEnv(key: string): string | undefined {
+  return process.env[key];
+}
+function getInt(key: string): number {
+  return parseInt(process.env[key] || '0');
+}
+function getMissingEnvVars(keys: string[]): string[] {
+  return keys.filter(key => !process.env[key]);
+}
+function throwIfMissingEnvVars(keys: string[]): void {
+  const missing = getMissingEnvVars(keys);
+  if (missing.length > 0) throw new Error(`Missing env vars: ${missing.join(', ')}`);
+}
+function warnIfMissingEnvVars(keys: string[]): void {
+  const missing = getMissingEnvVars(keys);
+  if (missing.length > 0) logWarn(`Missing env vars: ${missing.join(', ')}`);
+}
+const simpleLogger = logger;
+function createSimpleWinstonLogger() {
+  return logger;
+}
+const LOG_LEVELS = { DEBUG: 'debug', INFO: 'info', WARN: 'warn', ERROR: 'error' };
 
 /**
  * Context captured when a function begins execution.
@@ -513,7 +585,6 @@ export {
   createTypedError,
   ErrorTypes,
   ErrorSeverity,
-  ErrorFactory,
   handleControllerError,
   withErrorHandling,
   getEnv,

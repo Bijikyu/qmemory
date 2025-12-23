@@ -54,6 +54,26 @@ class ApiService {
     return this.request('/');
   }
 
+  async getValidationRules() {
+    return this.request('/validation/rules');
+  }
+
+  // Utility endpoints
+  async greet(name) {
+    return this.request(`/utils/greet?name=${encodeURIComponent(name)}`);
+  }
+
+  async math(a, b, operation = 'add') {
+    return this.request('/utils/math', {
+      method: 'POST',
+      body: JSON.stringify({ a, b, operation }),
+    });
+  }
+
+  async isEven(num) {
+    return this.request(`/utils/even/${num}`);
+  }
+
   // User management endpoints
   async getUsers(page = 1, limit = 10) {
     return this.request(`/users?page=${page}&limit=${limit}`);

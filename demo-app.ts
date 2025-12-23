@@ -473,6 +473,64 @@ app.get('/test/auth', (req: Request, res: Response) => {
   sendAuthError(res, 'Test authentication error response');
 });
 
+// Utility endpoints for frontend integration
+app.get('/utils/greet', (req: Request, res: Response) => {
+  try {
+    const name = (req.query.name as string) || 'World';
+    const safeName = sanitizeInput(name);
+    sendSuccess(res, 'Greeting generated', { greeting: `Hello, ${safeName}!` });
+  } catch (error) {
+    logError('Failed to generate greeting', String(error));
+    sendInternalServerError(res, 'Failed to generate greeting');
+  }
+});
+
+app.post('/utils/math', (req: Request, res: Response) => {
+  try {
+    const { a, b, operation } = req.body;
+
+    if (operation === 'add') {
+      const numA = parseFloat(a);
+      const numB = parseFloat(b);
+
+      if (isNaN(numA) || isNaN(numB) || !isFinite(numA) || !isFinite(numB)) {
+        return sendBadRequest(res, 'Please enter valid finite numbers');
+      }
+
+      const sum = numA + numB;
+      sendSuccess(res, 'Math operation completed', {
+        result: sum,
+        operation: `${numA} + ${numB} = ${sum}`,
+      });
+    } else {
+      sendBadRequest(res, 'Unsupported operation');
+    }
+  } catch (error) {
+    logError('Failed to perform math operation', String(error));
+    sendInternalServerError(res, 'Failed to perform math operation');
+  }
+});
+
+app.get('/utils/even/:num', (req: Request, res: Response) => {
+  try {
+    const num = parseInt(req.params.num);
+
+    if (isNaN(num) || !isFinite(num)) {
+      return sendBadRequest(res, 'Please enter a valid integer');
+    }
+
+    const isEvenResult = num % 2 === 0;
+    sendSuccess(res, 'Even check completed', {
+      number: num,
+      isEven: isEvenResult,
+      message: `${num} is ${isEvenResult ? 'even' : 'odd'}`,
+    });
+  } catch (error) {
+    logError('Failed to check even/odd', String(error));
+    sendInternalServerError(res, 'Failed to check even/odd');
+  }
+});
+
 // Error handling middleware
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
   logError('Unhandled error:', error.message); // capture unexpected issues

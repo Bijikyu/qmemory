@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 
 /**
  * Object storage endpoint used by the Replit sidecar service.
- * Keeping the URL in a constant ensures a single source of truth.
+ * Configurable via environment variable for flexibility.
  */
-const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
+const REPLIT_SIDECAR_ENDPOINT = process.env.REPLIT_SIDECAR_ENDPOINT || 'http://127.0.0.1:1106';
 
 /**
  * Shared Google Cloud Storage client configured for the Replit sidecar.
@@ -35,10 +35,13 @@ try {
     throw new Error('Invalid external account credentials: missing required URLs');
   }
 
-  objectStorageClient = new Storage({
+  // Properly typed StorageOptions configuration
+  const storageOptions: StorageOptions = {
     credentials: externalAccountCredentials,
-    projectId: '',
-  });
+    projectId: process.env.GCS_PROJECT_ID || 'replit-default',
+  };
+
+  objectStorageClient = new Storage(storageOptions);
 } catch (error) {
   console.error('Failed to initialize Google Cloud Storage client:', error);
   throw new Error(

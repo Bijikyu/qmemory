@@ -68,7 +68,7 @@ export const ensureMongoDB = (res: Response): boolean => {
     readyState: mongoose.connection.readyState,
   });
   try {
-    const isReady = mongoose.connection.readyState === mongoose.connection.states.connected;
+    const isReady = mongoose.connection.readyState === 1; // 1 = connected state in Mongoose
     if (!isReady) {
       sendServiceUnavailable(res, 'Database functionality unavailable');
       logger.warn('Database connection not ready when ensureMongoDB executed');

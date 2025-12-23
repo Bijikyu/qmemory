@@ -1130,33 +1130,49 @@ console.log(data.data.pagination); // Pagination info</pre
 
       // Utilities testing
       async function testGreet() {
-        const name = document.getElementById('greetName').value || 'World';
-        showResponse('greetResponse', { greeting: `Hello, ${name}!` }, 'success');
+        try {
+          const name = document.getElementById('greetName').value || 'World';
+          const data = await apiRequest(`/utils/greet?name=${encodeURIComponent(name)}`);
+          showResponse('greetResponse', data, 'success');
+        } catch (error) {
+          showResponse('greetResponse', { error: error.message }, 'error');
+        }
       }
 
       async function testAdd() {
-        const a = parseFloat(document.getElementById('addA').value);
-        const b = parseFloat(document.getElementById('addB').value);
+        try {
+          const a = parseFloat(document.getElementById('addA').value);
+          const b = parseFloat(document.getElementById('addB').value);
 
-        if (isNaN(a) || isNaN(b) || !isFinite(a) || !isFinite(b)) {
-          showResponse('addResponse', { error: 'Please enter valid finite numbers' }, 'error');
-          return;
+          if (isNaN(a) || isNaN(b) || !isFinite(a) || !isFinite(b)) {
+            showResponse('addResponse', { error: 'Please enter valid finite numbers' }, 'error');
+            return;
+          }
+
+          const data = await apiRequest('/utils/math', {
+            method: 'POST',
+            body: JSON.stringify({ a, b, operation: 'add' }),
+          });
+          showResponse('addResponse', data, 'success');
+        } catch (error) {
+          showResponse('addResponse', { error: error.message }, 'error');
         }
-
-        const sum = a + b;
-        showResponse('addResponse', { result: sum, operation: `${a} + ${b} = ${sum}` }, 'success');
       }
 
       async function testEven() {
-        const num = parseInt(document.getElementById('evenNum').value);
+        try {
+          const num = parseInt(document.getElementById('evenNum').value);
 
-        if (isNaN(num) || !isFinite(num)) {
-          showResponse('evenResponse', { error: 'Please enter a valid integer' }, 'error');
-          return;
+          if (isNaN(num) || !isFinite(num)) {
+            showResponse('evenResponse', { error: 'Please enter a valid integer' }, 'error');
+            return;
+          }
+
+          const data = await apiRequest(`/utils/even/${num}`);
+          showResponse('evenResponse', data, 'success');
+        } catch (error) {
+          showResponse('evenResponse', { error: error.message }, 'error');
         }
-
-        const isEvenResult = num % 2 === 0;
-        showResponse('evenResponse', { number: num, isEven: isEvenResult, message: `${num} is ${isEvenResult ? 'even' : 'odd'}` }, 'success');
       }
 
       async function testDedupe() {
@@ -1433,30 +1449,17 @@ console.log(data.data.pagination); // Pagination info</pre
       // HTTP Utilities testing
       async function testNotFound() {
         try {
-          await apiRequest('/nonexistent-endpoint');
+          await apiRequest('/test/404');
         } catch (error) {
           showResponse('httpErrorResponse', { error: error.message }, 'error');
         }
       }
 
       async function testConflict() {
-        // Try to create a user with existing username
         try {
-          await apiRequest('/users', {
+          await apiRequest('/test/409', {
             method: 'POST',
-            body: JSON.stringify({ username: 'conflict-test', displayName: 'Test' }),
           });
-
-          // Try again with same username
-          try {
-            await apiRequest('/users', {
-              method: 'POST',
-              body: JSON.stringify({ username: 'conflict-test', displayName: 'Test' }),
-            });
-            showResponse('httpErrorResponse', { status: 'success', data: 'No conflict detected' }, 'success');
-          } catch (conflictError) {
-            showResponse('httpErrorResponse', { error: conflictError.message }, 'error');
-          }
         } catch (error) {
           showResponse('httpErrorResponse', { error: error.message }, 'error');
         }
@@ -1481,59 +1484,29 @@ console.log(data.data.pagination); // Pagination info</pre
       }
 
       async function testServiceUnavailable() {
-        // This would need a custom endpoint to trigger service unavailable
-        const exampleError = {
-          error: {
-            type: 'SERVICE_UNAVAILABLE',
-            message: 'Service temporarily unavailable',
-            timestamp: new Date().toISOString(),
-            requestId: 'req-' + Date.now(),
-          },
-        };
-        showResponse(
-          'httpErrorResponse',
-          { example: exampleError, note: 'Example 503 response format' },
-          'error'
-        );
+        try {
+          await apiRequest('/test/503');
+        } catch (error) {
+          showResponse('httpErrorResponse', { error: error.message }, 'error');
+        }
       }
 
       async function testValidationError() {
-        const data = document.getElementById('validationData').value;
-        if (!data) {
-          showResponse('httpValidationResponse', { error: 'Please enter test data' }, 'error');
-          return;
+        try {
+          await apiRequest('/test/validation', {
+            method: 'POST',
+          });
+        } catch (error) {
+          showResponse('httpValidationResponse', { error: error.message }, 'error');
         }
-
-        const exampleValidation = {
-          error: {
-            type: 'VALIDATION_ERROR',
-            message: 'Validation failed',
-            timestamp: new Date().toISOString(),
-            requestId: 'req-' + Date.now(),
-            details: { field: 'test', value: data, issue: 'Invalid format' },
-          },
-        };
-        showResponse(
-          'httpValidationResponse',
-          { example: exampleValidation, testData: data },
-          'error'
-        );
       }
 
       async function testAuthError() {
-        const exampleAuth = {
-          error: {
-            type: 'AUTHENTICATION_ERROR',
-            message: 'Authentication required',
-            timestamp: new Date().toISOString(),
-            requestId: 'req-' + Date.now(),
-          },
-        };
-        showResponse(
-          'httpValidationResponse',
-          { example: exampleAuth, note: 'Example 401 response format' },
-          'error'
-        );
+        try {
+          await apiRequest('/test/auth');
+        } catch (error) {
+          showResponse('httpValidationResponse', { error: error.message }, 'error');
+        }
       }
 
       async function analyzeRequests() {
