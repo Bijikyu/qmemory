@@ -102,6 +102,28 @@ export class MemStorage {
   getAllUsers = async (): Promise<User[]> => Array.from(this.users.values());
 
   /**
+   * Updates a user record by identifier.
+   *
+   * @param id - Identifier to update.
+   * @param updates - Partial user data to update.
+   * @returns Updated user or undefined when not found.
+   */
+  updateUser = async (id: number, updates: Partial<InsertUser>): Promise<User | undefined> => {
+    if (typeof id !== 'number' || id < 1) return undefined;
+    const existingUser = this.users.get(id);
+    if (!existingUser) return undefined;
+
+    const updatedUser: User = {
+      ...existingUser,
+      ...updates,
+      username: updates.username ? updates.username.trim() : existingUser.username,
+    };
+
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  };
+
+  /**
    * Removes a user record by identifier.
    *
    * @param id - Identifier to remove.
