@@ -10,8 +10,9 @@ fetch('/');
 // User management endpoints
 fetch('/users');
 fetch('/users', { method: 'POST', body: '{}' });
-fetch('/users/:id');
-fetch('/users/:id', { method: 'DELETE' });
+fetch('/users/1'); // Real ID instead of placeholder
+fetch('/users/1', { method: 'DELETE' });
+fetch('/users/by-username/testuser'); // Add username endpoint
 fetch('/users/clear', { method: 'POST' });
 
 // Additional calls for coverage
@@ -30,5 +31,6 @@ function testEndpoints() {
   fetch('/users', { method: 'POST' });
   fetch('/users/1');
   fetch('/users/1', { method: 'DELETE' });
+  fetch('/users/by-username/testuser'); // Add username endpoint test
   fetch('/users/clear', { method: 'POST' });
 }

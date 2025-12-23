@@ -45,7 +45,7 @@ export class CircuitBreakerWrapper {
     try {
       return await this.opossumBreaker.fire(...args);
     } catch (error) {
-      if (this.opossumBreaker.opened) throw new Error('Circuit breaker is OPEN');
+      if (this.getState() === STATES.OPEN) throw new Error('Circuit breaker is OPEN');
       throw error;
     } finally {
       this.currentOperation = null;

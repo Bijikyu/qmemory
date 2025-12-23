@@ -348,9 +348,12 @@ function createOnSignal(onSignal?: () => Promise<void>): () => Promise<void> {
  *
  * @param {Server} server - Express server instance
  * @param {TerminusOptions} options - Configuration options
- * @returns {any} Terminus configuration
+ * @returns {ReturnType<typeof createTerminus>} Terminus configuration
  */
-function setupHealthChecks(server: Server, options: TerminusOptions = {}): any {
+function setupHealthChecks(
+  server: Server,
+  options: TerminusOptions = {}
+): ReturnType<typeof createTerminus> {
   const terminusOptions: any = {
     healthChecks: {
       '/health': healthCheck,

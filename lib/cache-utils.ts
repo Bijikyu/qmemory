@@ -88,7 +88,7 @@ export function createRedisClient(
   const clientOptions: BaseRedisOptions & Record<string, unknown> = {
     ...(redisOptionOverrides as BaseRedisOptions),
     socket: sanitizedSocket as BaseRedisOptions['socket'],
-    database: db ?? database ?? asNumber(String(REDIS_DB), 0),
+    database: asNumber(String(db ?? database ?? REDIS_DB), 0),
     password: password ?? REDIS_PASSWORD,
     retryDelayOnFailover,
     maxRetriesPerRequest,

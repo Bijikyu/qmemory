@@ -93,10 +93,6 @@ class ApiService {
     });
   }
 
-  async getUserByUsername(username) {
-    return this.request(`/users/by-username/${username}`);
-  }
-
   // HTTP testing endpoints
   async test404() {
     return this.request('/test/404');

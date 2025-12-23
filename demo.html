@@ -469,6 +469,61 @@
             <button onclick="findUserByUsername()" class="secondary">Find by Username</button>
             <div id="findUserResponse" class="response hidden"></div>
           </div>
+
+          <div class="card">
+            <h3>Update User</h3>
+            <form id="updateUserForm">
+              <div class="form-group">
+                <label for="updateUserId">User ID *</label>
+                <input
+                  type="number"
+                  id="updateUserId"
+                  name="updateUserId"
+                  required
+                  placeholder="Enter user ID"
+                />
+              </div>
+              <div class="form-group">
+                <label for="updateUsername">Username</label>
+                <input
+                  type="text"
+                  id="updateUsername"
+                  name="updateUsername"
+                  placeholder="Enter new username"
+                />
+              </div>
+              <div class="form-group">
+                <label for="updateDisplayName">Display Name</label>
+                <input
+                  type="text"
+                  id="updateDisplayName"
+                  name="updateDisplayName"
+                  placeholder="Enter new display name"
+                />
+              </div>
+              <div class="form-group">
+                <label for="updateGithubId">GitHub ID</label>
+                <input
+                  type="text"
+                  id="updateGithubId"
+                  name="updateGithubId"
+                  placeholder="Enter GitHub ID"
+                />
+              </div>
+              <div class="form-group">
+                <label for="updateAvatar">Avatar URL</label>
+                <input
+                  type="text"
+                  id="updateAvatar"
+                  name="updateAvatar"
+                  placeholder="Enter avatar URL"
+                />
+              </div>
+              <button type="submit">Update User</button>
+              <button type="button" onclick="clearUpdateForm()" class="secondary">Clear</button>
+            </form>
+            <div id="updateUserResponse" class="response hidden"></div>
+          </div>
         </div>
 
         <div class="card">
@@ -639,7 +694,9 @@
                 <li><code>GET /users</code> - List users (paginated)</li>
                 <li><code>POST /users</code> - Create user</li>
                 <li><code>GET /users/:id</code> - Get user by ID</li>
+                <li><code>PUT /users/:id</code> - Update user</li>
                 <li><code>DELETE /users/:id</code> - Delete user</li>
+                <li><code>GET /users/by-username/:username</code> - Get user by username</li>
                 <li><code>POST /users/clear</code> - Clear all users</li>
               </ul>
             </div>
@@ -719,8 +776,8 @@ const response = await fetch('/users', {
               <pre>
 const response = await fetch('/users?page=1&limit=10');
 const data = await response.json();
-console.log(data.users); // User array
-console.log(data.pagination); // Pagination info</pre
+console.log(data.data.users); // User array (nested in data.data)
+console.log(data.data.pagination); // Pagination info</pre
               >
             </div>
           </div>
@@ -751,6 +808,10 @@ console.log(data.pagination); // Pagination info</pre
         document.getElementById('createUserForm').addEventListener('submit', function (e) {
           e.preventDefault();
           createUser();
+        });
+        document.getElementById('updateUserForm').addEventListener('submit', function (e) {
+          e.preventDefault();
+          updateUser();
         });
       }
 
@@ -850,6 +911,50 @@ console.log(data.pagination); // Pagination info</pre
         document.getElementById('displayName').value = '';
       }
 
+      function clearUpdateForm() {
+        document.getElementById('updateUserId').value = '';
+        document.getElementById('updateUsername').value = '';
+        document.getElementById('updateDisplayName').value = '';
+        document.getElementById('updateGithubId').value = '';
+        document.getElementById('updateAvatar').value = '';
+      }
+
+      async function updateUser() {
+        const userId = parseInt(document.getElementById('updateUserId').value);
+        const username = document.getElementById('updateUsername').value;
+        const displayName = document.getElementById('updateDisplayName').value;
+        const githubId = document.getElementById('updateGithubId').value;
+        const avatar = document.getElementById('updateAvatar').value;
+
+        if (!userId || isNaN(userId) || userId <= 0) {
+          showResponse('updateUserResponse', { error: 'Valid User ID is required' }, 'error');
+          return;
+        }
+
+        const updateData = {};
+        if (username) updateData.username = username.trim();
+        if (displayName) updateData.displayName = displayName.trim();
+        if (githubId) updateData.githubId = githubId.trim();
+        if (avatar) updateData.avatar = avatar.trim();
+
+        if (Object.keys(updateData).length === 0) {
+          showResponse('updateUserResponse', { error: 'At least one field must be provided for update' }, 'error');
+          return;
+        }
+
+        try {
+          const data = await apiRequest(`/users/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData)
+          });
+          showResponse('updateUserResponse', data, 'success');
+          clearUpdateForm();
+          refreshStats();
+        } catch (error) {
+          showResponse('updateUserResponse', { error: error.message || 'Network error' }, 'error');
+        }
+      }
+
       async function findUser() {
         const userId = document.getElementById('userId').value;
 
@@ -871,19 +976,9 @@ console.log(data.pagination); // Pagination info</pre
         if (!username) return;
 
         try {
-          // This would need a custom endpoint, for now we'll load all users and filter
-          const data = await apiRequest('/users?page=1&limit=1000');
-
-          if (data.data) {
-            const user = data.data.users.find(u => u.username === username);
-            if (user) {
-              showResponse('findUserResponse', user, 'success');
-            } else {
-              showResponse('findUserResponse', { error: 'User not found' }, 'error');
-            }
-          } else {
-            showResponse('findUserResponse', data, 'error');
-          }
+          // Use the dedicated username endpoint instead of client-side filtering
+          const data = await apiRequest(`/users/by-username/${encodeURIComponent(username)}`);
+          showResponse('findUserResponse', data, 'success');
         } catch (error) {
           showResponse('findUserResponse', { error: error.message }, 'error');
         }
@@ -1009,10 +1104,6 @@ console.log(data.pagination); // Pagination info</pre
           refreshStats();
         } catch (error) {
           showResponse('loadUsersResponse', { error: error.error?.message || error.message || 'Network error during delete' }, 'error');
-        }
-      }
-        } catch (error) {
-          alert('Error deleting user: ' + error.message);
         }
       }
 
