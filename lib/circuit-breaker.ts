@@ -1,13 +1,12 @@
 import CircuitBreakerBase from 'opossum';
+
 export const STATES = { CLOSED: 'closed', OPEN: 'open', HALF_OPEN: 'half-open' };
+
 export class CircuitBreakerWrapper {
-  private currentOperation: Function | null = null;
-  private failureThreshold: number;
   private resetTimeout: number;
   private opossumBreaker: CircuitBreakerBase;
 
   constructor(options: any = {}) {
-    this.currentOperation = null;
     const opossumOptions = {
       timeout: options.timeout || 30000,
       errorThresholdPercentage: options.errorThresholdPercentage || 50,
@@ -21,51 +20,74 @@ export class CircuitBreakerWrapper {
       maxRetries: options.maxRetries || 0,
       retryDelay: options.retryDelay || 100,
     };
-    this.failureThreshold = options.failureThreshold || 5;
     this.resetTimeout = options.resetTimeout || 60000;
 
     try {
-      this.opossumBreaker = new CircuitBreakerBase(async (...args) => {
-        if (!this.currentOperation) throw new Error('No operation set. Use execute() method.');
-        return await this.currentOperation(...args);
+      this.opossumBreaker = new CircuitBreakerBase(async () => {
+        throw new Error(
+          'Circuit breaker used incorrectly. Use execute() method instead of direct fire().'
+        );
       }, opossumOptions);
-      this.currentOperation = null;
     } catch (error) {
       throw new Error(
         `Failed to initialize circuit breaker: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
-  async execute(operation, ...args) {
-    this.currentOperation = operation;
+
+  async execute(operation: (...args: any[]) => Promise<any>, ...args: any[]): Promise<any> {
+    if (!operation) {
+      throw new Error('Operation is required');
+    }
+
+    // Create a dedicated circuit breaker instance for this operation to avoid race conditions
+    const operationOptions = {
+      timeout: 30000,
+      errorThresholdPercentage: 50,
+      resetTimeout: this.resetTimeout,
+      rollingCountTimeout: 10000,
+      rollingCountBuckets: 10,
+      minimumNumberOfCalls: 5,
+      volumeThreshold: 5,
+    };
+
+    const operationBreaker = new CircuitBreakerBase(operation, operationOptions);
+
     try {
-      return await this.opossumBreaker.fire(...args);
+      return await operationBreaker.fire(...args);
     } catch (error) {
-      if (this.getState() === STATES.OPEN) throw new Error('Circuit breaker is OPEN');
+      if (operationBreaker.opened) {
+        throw new Error('Circuit breaker is OPEN');
+      }
       throw error;
-    } finally {
-      this.currentOperation = null;
     }
   }
-  getState() {
+
+  getState(): string {
     if (this.opossumBreaker.opened) return STATES.OPEN;
     if (this.opossumBreaker.halfOpen) return STATES.HALF_OPEN;
     return STATES.CLOSED;
   }
-  reset() {
+
+  reset(): void {
     this.opossumBreaker.close();
   }
-  getStats() {
+
+  getStats(): any {
     return this.opossumBreaker.stats;
   }
-  isClosed() {
+
+  isClosed(): boolean {
     return this.opossumBreaker.closed;
   }
-  isOpen() {
+
+  isOpen(): boolean {
     return this.opossumBreaker.opened;
   }
-  getOpossumBreaker() {
+
+  getOpossumBreaker(): CircuitBreakerBase {
     return this.opossumBreaker;
   }
 }
+
 export const createCircuitBreaker = (options = {}) => new CircuitBreakerWrapper(options);

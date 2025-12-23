@@ -113,6 +113,15 @@ export class MemStorage {
     const existingUser = this.users.get(id);
     if (!existingUser) return undefined;
 
+    // Check for username conflict if username is being updated
+    if (updates.username && updates.username.trim() !== existingUser.username) {
+      const trimmedUsername = updates.username.trim();
+      const existingUserWithSameName = await this.getUserByUsername(trimmedUsername);
+      if (existingUserWithSameName) {
+        throw new Error(`Username '${trimmedUsername}' already exists`);
+      }
+    }
+
     const updatedUser: User = {
       ...existingUser,
       ...updates,

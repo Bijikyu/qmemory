@@ -123,13 +123,14 @@ export function createRedisClient(
     };
 
     // Build clean client options with compatible types only
-    const clientOptions = {
+    const clientOptions: RedisClientOptions = {
       ...redisOptionOverrides,
       socket: socketConfig,
       database: asNumber(String(db ?? database ?? REDIS_DB), 0),
       password: password ?? REDIS_PASSWORD,
     };
 
+    // Type assertion needed due to Redis module generic complexity between versions
     return createRedisClientBase(clientOptions as any);
   } catch (error) {
     throw new Error(
