@@ -113,52 +113,6 @@ export class MemStorage {
   };
 
   /**
-   * Updates a user record by identifier.
-   *
-   * @param id - Identifier to update.
-   * @param updates - Partial user data to update.
-   * @returns Updated user record or null if not found.
-   */
-  updateUser = async (id: number, updates: Partial<InsertUser>): Promise<User | null> => {
-    if (typeof id !== 'number' || id < 1) return null;
-
-    const existingUser = this.users.get(id);
-    if (!existingUser) return null;
-
-    // Apply updates with validation
-    const updatedUser: User = { ...existingUser };
-
-    if (updates.username !== undefined) {
-      if (typeof updates.username !== 'string' || !updates.username.trim().length) {
-        throw new Error('Username is required and must be a non-empty string');
-      }
-      const trimmedUsername = updates.username.trim();
-      // Check for username conflicts (excluding current user)
-      const conflictUser = await this.getUserByUsername(trimmedUsername);
-      if (conflictUser && conflictUser.id !== id) {
-        throw new Error(`Username '${trimmedUsername}' already exists`);
-      }
-      updatedUser.username = trimmedUsername;
-    }
-
-    if (updates.displayName !== undefined) {
-      updatedUser.displayName = updates.displayName === null ? null : String(updates.displayName);
-    }
-
-    if (updates.githubId !== undefined) {
-      updatedUser.githubId = updates.githubId === null ? null : String(updates.githubId);
-    }
-
-    if (updates.avatar !== undefined) {
-      updatedUser.avatar = updates.avatar === null ? null : String(updates.avatar);
-    }
-
-    // Store updated user
-    this.users.set(id, updatedUser);
-    return updatedUser;
-  };
-
-  /**
    * Clears the storage and resets the auto-incrementing counter.
    */
   clear = async (): Promise<void> => {
