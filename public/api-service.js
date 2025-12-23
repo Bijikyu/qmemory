@@ -10,7 +10,7 @@
  */
 
 class ApiService {
-  constructor(baseUrl = window.location.origin) {
+  constructor(baseUrl = 'http://localhost:5000') {
     this.baseUrl = baseUrl;
   }
 

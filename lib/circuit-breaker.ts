@@ -5,7 +5,6 @@ export class CircuitBreakerWrapper {
   private failureThreshold: number;
   private resetTimeout: number;
   private opossumBreaker: CircuitBreakerBase;
-  private state: string;
 
   constructor(options: any = {}) {
     this.currentOperation = null;
@@ -24,21 +23,18 @@ export class CircuitBreakerWrapper {
     };
     this.failureThreshold = options.failureThreshold || 5;
     this.resetTimeout = options.resetTimeout || 60000;
-    this.opossumBreaker = new CircuitBreakerBase(async (...args) => {
-      if (!this.currentOperation) throw new Error('No operation set. Use execute() method.');
-      return await this.currentOperation(...args);
-    }, opossumOptions);
-    this.currentOperation = null;
-    this.opossumBreaker.on('open', () => {
-      this.state = STATES.OPEN;
-    });
-    this.opossumBreaker.on('halfOpen', () => {
-      this.state = STATES.HALF_OPEN;
-    });
-    this.opossumBreaker.on('close', () => {
-      this.state = STATES.CLOSED;
-    });
-    this.state = STATES.CLOSED;
+
+    try {
+      this.opossumBreaker = new CircuitBreakerBase(async (...args) => {
+        if (!this.currentOperation) throw new Error('No operation set. Use execute() method.');
+        return await this.currentOperation(...args);
+      }, opossumOptions);
+      this.currentOperation = null;
+    } catch (error) {
+      throw new Error(
+        `Failed to initialize circuit breaker: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
   async execute(operation, ...args) {
     this.currentOperation = operation;
@@ -58,7 +54,6 @@ export class CircuitBreakerWrapper {
   }
   reset() {
     this.opossumBreaker.close();
-    this.state = STATES.CLOSED;
   }
   getStats() {
     return this.opossumBreaker.stats;

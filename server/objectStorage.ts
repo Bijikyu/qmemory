@@ -10,25 +10,41 @@ const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
 /**
  * Shared Google Cloud Storage client configured for the Replit sidecar.
  * Centralising the client avoids repeated credential parsing.
+ * Includes proper error handling for credential configuration.
  */
-const objectStorageClient: Storage = new Storage({
-  credentials: {
+let objectStorageClient: Storage;
+
+try {
+  const externalAccountCredentials = {
     audience: 'replit',
     subject_token_type: 'access_token',
     token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: 'external_account',
+    type: 'external_account' as const,
     credential_source: {
       url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
       format: {
-        type: 'json',
+        type: 'json' as const,
         subject_token_field_name: 'access_token',
       },
     },
     universe_domain: 'googleapis.com',
-  },
-  projectId: '',
-  // Cast ensures compatibility with StorageOptions while we supply external account credentials.
-} as StorageOptions);
+  };
+
+  // Validate external account credentials before creating client
+  if (!externalAccountCredentials.token_url || !externalAccountCredentials.credential_source?.url) {
+    throw new Error('Invalid external account credentials: missing required URLs');
+  }
+
+  objectStorageClient = new Storage({
+    credentials: externalAccountCredentials,
+    projectId: '',
+  });
+} catch (error) {
+  console.error('Failed to initialize Google Cloud Storage client:', error);
+  throw new Error(
+    `Google Cloud Storage initialization failed: ${error instanceof Error ? error.message : String(error)}`
+  );
+}
 
 /**
  * Represents the parsed components of an object storage path.
@@ -95,13 +111,13 @@ class ObjectStorageService {
         pathsStr
           .split(',')
           .map(path => path.trim())
-          .filter(path => path.length > 0),
-      ),
+          .filter(path => path.length > 0)
+      )
     );
     if (paths.length === 0) {
       throw new Error(
         "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
-          'tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths).',
+          'tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths).'
       );
     }
     return paths;
@@ -116,7 +132,7 @@ class ObjectStorageService {
     const dir = process.env.PRIVATE_OBJECT_DIR ?? '';
     if (!dir) {
       throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' tool and set PRIVATE_OBJECT_DIR env var.",
+        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' tool and set PRIVATE_OBJECT_DIR env var."
       );
     }
     return dir;
@@ -188,20 +204,17 @@ async function signObjectURL({
     expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
   };
 
-  const response = await fetch(
-    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestPayload),
+  const response = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-  );
+    body: JSON.stringify(requestPayload),
+  });
 
   if (!response.ok) {
     throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, make sure you're running on Replit`,
+      `Failed to sign object URL, errorcode: ${response.status}, make sure you're running on Replit`
     );
   }
 

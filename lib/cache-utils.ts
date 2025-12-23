@@ -109,51 +109,33 @@ const validateRedisConfig = (options: RedisOptions): void => {
 export function createRedisClient(
   options: RedisOptions = {}
 ): RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
-  // Validate configuration before creating client
-  validateRedisConfig(options);
+  try {
+    // Validate configuration before creating client
+    validateRedisConfig(options);
 
-  const {
-    host,
-    port,
-    db,
-    retryDelayOnFailover = 100,
-    maxRetriesPerRequest = 3,
-    socket,
-    password,
-    database,
-    ...redisOptionOverrides
-  } = options;
+    const { host, port, db, socket, password, database, ...redisOptionOverrides } = options;
 
-  const socketOverrides: SocketOverrides = { ...(socket ?? {}) };
+    // Build clean socket configuration
+    const socketConfig = {
+      host: host ?? socket?.host ?? REDIS_HOST,
+      port: port ?? socket?.port ?? asNumber(String(REDIS_PORT), 6379),
+      reconnectStrategy: socket?.reconnectStrategy ?? defaultReconnectStrategy,
+    };
 
-  const sanitizedSocket: SocketOverrides = {
-    ...socketOverrides,
-    host: host ?? (socketOverrides.host as string | undefined) ?? REDIS_HOST,
-    port:
-      port ?? (socketOverrides.port as number | undefined) ?? asNumber(String(REDIS_PORT), 6379),
-    reconnectStrategy: socketOverrides.reconnectStrategy ?? defaultReconnectStrategy,
-  };
+    // Build clean client options with compatible types only
+    const clientOptions = {
+      ...redisOptionOverrides,
+      socket: socketConfig,
+      database: asNumber(String(db ?? database ?? REDIS_DB), 0),
+      password: password ?? REDIS_PASSWORD,
+    };
 
-  const clientOptions: BaseRedisOptions & Record<string, unknown> = {
-    ...(redisOptionOverrides as BaseRedisOptions),
-    socket: sanitizedSocket as BaseRedisOptions['socket'],
-    database: asNumber(String(db ?? database ?? REDIS_DB), 0),
-    password: password ?? REDIS_PASSWORD,
-    retryDelayOnFailover,
-    maxRetriesPerRequest,
-  };
-
-  return createRedisClientBase<
-    RedisModules,
-    RedisFunctions,
-    RedisScripts,
-    RespVersions,
-    TypeMapping
-  >(clientOptions as BaseRedisOptions) as RedisClientType<
-    RedisModules,
-    RedisFunctions,
-    RedisScripts
-  >;
+    return createRedisClientBase(clientOptions as any);
+  } catch (error) {
+    throw new Error(
+      `Failed to create Redis client: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 // Re-export redis module for advanced usage

@@ -31,7 +31,8 @@ export default {
   collectCoverage: false,
   transform: {},
   transformIgnorePatterns: [
-    'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue|qerrors|lru-cache|redis|mongoose)/)',
+    'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy\\/terminus|bee-queue|lru-cache|redis|mongoose)/)',
+    'node_modules/qerrors/**',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
   modulePathIgnorePatterns: ['<rootDir>/.cache/', '<rootDir>/cache/'],
@@ -49,9 +50,6 @@ export default {
   errorOnDeprecated: true,
   resolver: undefined,
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '<rootDir>/$1',
-    '^qgenutils$': '<rootDir>/node_modules/qgenutils',
-    '^qerrors$': '<rootDir>/node_modules/qerrors',
-    '^@/(.*)$': '<rootDir>/$1',
+    '^(\\.(.*)\\.js$': '<rootDir>/dist/$1.js',
   },
 };

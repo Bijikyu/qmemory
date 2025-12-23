@@ -47,12 +47,32 @@
       }
 
       .status-indicator {
-        display: inline-block;
         padding: 8px 16px;
         border-radius: 20px;
-        font-size: 0.9em;
-        font-weight: 600;
-        margin-bottom: 20px;
+        font-weight: bold;
+        margin: 10px 0;
+        display: inline-block;
+      }
+
+      #requestStatus {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        margin: 5px 0;
+        display: inline-block;
+      }
+
+      .status-ready {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .status-processing {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
       }
 
       .status-connected {
@@ -363,6 +383,7 @@
         <div id="serverStatus" class="status-indicator status-disconnected">
           🔴 Server Status: Disconnected
         </div>
+        <div id="requestStatus" class="status-ready">✅ Ready</div>
         <div class="stats">
           <div class="stat-card">
             <div class="stat-number" id="totalUsers">0</div>
@@ -1573,7 +1594,18 @@ console.log(data.data.pagination); // Pagination info</pre
       }
 
       // API Service wrapper functions using our centralized service
+      // Loading state management
+      let isLoading = false;
+
       async function apiRequest(endpoint, options = {}) {
+        if (isLoading) {
+          console.warn('Request already in progress, ignoring duplicate call');
+          return;
+        }
+
+        isLoading = true;
+        updateLoadingStates(true);
+
         try {
           const response = await fetch(`${API_BASE}${endpoint}`, {
             headers: {
@@ -1586,9 +1618,43 @@ console.log(data.data.pagination); // Pagination info</pre
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(
-              errorData.error?.message || errorData.message || `HTTP ${response.status}: ${response.statusText}`
+              errorData.error?.message ||
+                errorData.message ||
+                `HTTP ${response.status}: ${response.statusText}`
             );
           }
+
+          return await response.json();
+        } catch (error) {
+          if (error instanceof Error) {
+            throw error;
+          }
+          throw new Error('Network error occurred');
+        } finally {
+          isLoading = false;
+          updateLoadingStates(false);
+        }
+      }
+
+      function updateLoadingStates(loading) {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => {
+          if (loading) {
+            button.disabled = true;
+            button.style.opacity = '0.6';
+          } else {
+            button.disabled = false;
+            button.style.opacity = '1';
+          }
+        });
+
+        // Update status indicator
+        const statusEl = document.getElementById('requestStatus');
+        if (statusEl) {
+          statusEl.textContent = loading ? '⏳ Processing...' : '✅ Ready';
+          statusEl.className = loading ? 'status-processing' : 'status-ready';
+        }
+      }
 
           return await response.json();
         } catch (error) {
