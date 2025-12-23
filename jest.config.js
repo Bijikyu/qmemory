@@ -50,6 +50,6 @@ export default {
   errorOnDeprecated: true,
   resolver: undefined,
   moduleNameMapper: {
-    '^(\\.(.*)\\.js$': '<rootDir>/dist/$1.js',
+    '^@/(.*)$': '<rootDir>/$1',
   },
 };
