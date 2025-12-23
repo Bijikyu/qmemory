@@ -27,6 +27,9 @@ import {
   optimizeQuery,
   createAggregationPipeline,
 } from './lib/database-utils.js';
+
+// Storage utilities
+import { MemStorage, storage, User, InsertUser } from './lib/storage.js';
 // Document helpers
 import {
   findDocumentById,
@@ -53,7 +56,7 @@ import {
   hasUniqueFieldChanges,
 } from './lib/document-ops.js';
 // Storage
-import { MemStorage, storage } from './lib/storage.js';
+// MemStorage and storage imported above
 // Utils
 import {
   greet,
@@ -449,3 +452,6 @@ export {
   serializeFields,
   serializeWithoutFields,
 };
+
+// Export types
+export type { User, InsertUser } from './lib/storage.js';

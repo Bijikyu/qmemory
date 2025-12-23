@@ -30,6 +30,7 @@ import {
   validatePagination,
   createPaginatedResponse,
 } from './index.js';
+import type { User, InsertUser } from './lib/storage.js';
 import {
   logger,
   sanitizeString,
@@ -40,13 +41,8 @@ import {
 import type { Server } from 'http';
 
 // Define interfaces for complex objects
-interface User {
-  username: string;
-  displayName?: string;
-}
-
 interface CreateUserRequest extends Request {
-  body: User;
+  body: InsertUser;
 }
 
 interface ApiResponse {
@@ -350,31 +346,45 @@ app.put('/users/:id', async (req: Request, res: Response) => {
       return sendBadRequest(res, 'User ID must be numeric'); // reject invalid ids with 400
     }
 
-    const { username, displayName } = req.body; // get optional update fields
-    const safeName = username ? sanitizeInput(username) : undefined; // sanitize if provided
-    const safeDisplay = displayName !== undefined ? sanitizeInput(displayName) : undefined; // sanitize if provided
+    const { username, displayName, githubId, avatar } = req.body; // get optional update fields
+    const updates: any = {}; // build updates object
 
-    // Check if user exists
-    const existingUser = await storage.getUser(id);
-    if (!existingUser) {
+    // Sanitize and validate provided fields
+    if (username !== undefined) {
+      const safeName = sanitizeInput(username);
+      if (!safeName) {
+        return sendBadRequest(res, 'Username must be a non-empty string');
+      }
+      updates.username = safeName;
+    }
+
+    if (displayName !== undefined) {
+      updates.displayName = sanitizeInput(displayName) || null;
+    }
+
+    if (githubId !== undefined) {
+      updates.githubId = sanitizeInput(githubId) || null;
+    }
+
+    if (avatar !== undefined) {
+      updates.avatar = sanitizeInput(avatar) || null;
+    }
+
+    // Use the actual update functionality
+    const updatedUser = await storage.updateUser(id, updates);
+    if (!updatedUser) {
       return sendNotFound(res, 'User not found');
     }
 
-    // Update user with new values (MemStorage doesn't have update method, so we'll simulate)
-    // Since MemStorage doesn't have update, we'll delete and recreate with same ID
-    const updatedUser = {
-      id,
-      username: safeName || existingUser.username,
-      displayName: safeDisplay !== undefined ? safeDisplay : existingUser.displayName,
-    };
-
-    // For this demo, we'll just return the updated user data
-    // In a real implementation, you'd update the storage
     logInfo(`Updated user with ID: ${id}`); // audit update event
     sendSuccess(res, 'User updated successfully', updatedUser);
   } catch (error) {
-    logError('Failed to update user', String(error)); // preserve stack for debugging
-    sendInternalServerError(res, 'Failed to update user');
+    if (error instanceof Error && error.message.includes('already exists')) {
+      sendBadRequest(res, error.message); // username conflict
+    } else {
+      logError('Failed to update user', String(error)); // preserve stack for debugging
+      sendInternalServerError(res, 'Failed to update user');
+    }
   }
 });
 
