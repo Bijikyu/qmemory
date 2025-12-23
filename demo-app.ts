@@ -159,6 +159,44 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Validation rules endpoint
+app.get('/validation/rules', (req: Request, res: Response) => {
+  // Expose validation rules for frontend use
+  try {
+    const validationRules = {
+      username: {
+        required: true,
+        minLength: 1,
+        maxLength: 50,
+        pattern: '^[a-zA-Z0-9_-]+$',
+        message:
+          'Username must be 1-50 characters, letters, numbers, underscores, and hyphens only',
+      },
+      displayName: {
+        required: false,
+        minLength: 1,
+        maxLength: 100,
+        pattern: '^[a-zA-Z0-9\\s_-]+$',
+        message:
+          'Display name must be 1-100 characters, letters, numbers, spaces, underscores, and hyphens only',
+      },
+      email: {
+        required: false,
+        pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+        message: 'Invalid email format',
+      },
+      url: {
+        required: false,
+        message: 'Invalid URL format',
+      },
+    };
+    sendSuccess(res, 'Validation rules retrieved', validationRules);
+  } catch (error) {
+    logError('Failed to get validation rules', String(error));
+    sendInternalServerError(res, 'Failed to get validation rules');
+  }
+});
+
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
   // returns service status to support uptime monitoring

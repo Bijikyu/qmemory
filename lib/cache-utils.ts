@@ -130,7 +130,7 @@ export function createRedisClient(
       password: password ?? REDIS_PASSWORD,
     };
 
-    return createRedisClientBase(clientOptions as any);
+    return createRedisClientBase(clientOptions);
   } catch (error) {
     throw new Error(
       `Failed to create Redis client: ${error instanceof Error ? error.message : String(error)}`

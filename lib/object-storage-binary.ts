@@ -113,6 +113,7 @@ class ObjectStorageBinaryStorage extends IStorage {
           'Content-Type': 'application/octet-stream',
           'Content-Length': data.length.toString(),
         },
+        signal: AbortSignal.timeout(30000), // 30 second timeout
       });
 
       if (!response.ok) {

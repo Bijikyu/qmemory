@@ -50,7 +50,9 @@ const isMongoServerError = (error: unknown): error is MongoServerError =>
 const isValidationError = (
   error: unknown
 ): error is { name: 'ValidationError'; errors?: Record<string, { message: string }> } =>
-  typeof error === 'object' && error !== null && (error as { name?: string }).name === 'ValidationError';
+  typeof error === 'object' &&
+  error !== null &&
+  (error as { name?: string }).name === 'ValidationError';
 
 const isCastError = (error: unknown): error is { name: 'CastError' } =>
   typeof error === 'object' && error !== null && (error as { name?: string }).name === 'CastError';
@@ -66,7 +68,7 @@ export const ensureMongoDB = (res: Response): boolean => {
     readyState: mongoose.connection.readyState,
   });
   try {
-    const isReady = mongoose.connection.readyState === 1;
+    const isReady = mongoose.connection.readyState === mongoose.connection.states.connected;
     if (!isReady) {
       sendServiceUnavailable(res, 'Database functionality unavailable');
       logger.warn('Database connection not ready when ensureMongoDB executed');
@@ -142,13 +144,17 @@ export const handleMongoError = (error: unknown, res: Response | null, operation
   }
 
   if (isMongoServerError(error) && error.code === 11000) {
-    const field = Object.keys((error as MongoServerError & { keyPattern?: Record<string, number> }).keyPattern ?? {})[0];
+    const field = Object.keys(
+      (error as MongoServerError & { keyPattern?: Record<string, number> }).keyPattern ?? {}
+    )[0];
     sendConflict(res, `Duplicate value for field: ${field ?? 'unknown'}`);
     return;
   }
 
   if (isValidationError(error)) {
-    const messages = Object.values(error.errors ?? {}).map(validationError => validationError.message);
+    const messages = Object.values(error.errors ?? {}).map(
+      validationError => validationError.message
+    );
     sendValidationError(res, 'Validation failed', messages);
     return;
   }
@@ -277,7 +283,7 @@ export const optimizeQuery = <
   TResult,
   TSchema extends AnyDocumentShape,
   THelpers = unknown,
-  TRawDocType extends AnyDocumentShape = TSchema
+  TRawDocType extends AnyDocumentShape = TSchema,
 >(
   query: QueryWithHelpers<TResult, HydratedDocument<TSchema>, THelpers, TRawDocType>
 ): QueryWithHelpers<TResult, HydratedDocument<TSchema>, THelpers, TRawDocType> => {
@@ -310,7 +316,9 @@ interface AggregationStageDefinition {
  * @param stages Array of stage descriptors that will be expanded into pipeline stages.
  * @returns Fully formed aggregation pipeline ready for execution.
  */
-export const createAggregationPipeline = (stages: AggregationStageDefinition[]): PipelineStage[] => {
+export const createAggregationPipeline = (
+  stages: AggregationStageDefinition[]
+): PipelineStage[] => {
   logger.logDebug('createAggregationPipeline building pipeline', { stageCount: stages.length });
   const pipeline: PipelineStage[] = [];
   stages.forEach((stage, index) => {

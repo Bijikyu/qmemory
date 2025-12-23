@@ -1018,7 +1018,7 @@ console.log(data.data.pagination); // Pagination info</pre
           const data = await apiRequest(`/users?page=${page}&limit=${limit}`);
 
           if (data && data.data) {
-            displayUserList(data.data.users, data.data.pagination);
+            displayUserList(data.data, data.pagination);
             showResponse('loadUsersResponse', data, 'success');
           } else {
             showResponse('loadUsersResponse', { error: 'Invalid response format' }, 'error');
@@ -1033,7 +1033,7 @@ console.log(data.data.pagination); // Pagination info</pre
           const data = await apiRequest('/users?page=1&limit=1000');
 
           if (data.data) {
-            displayUserList(data.data.users, data.data.pagination);
+            displayUserList(data.data, data.pagination);
             showResponse('loadUsersResponse', data, 'success');
           } else {
             showResponse('loadUsersResponse', data, 'error');

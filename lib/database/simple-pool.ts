@@ -108,8 +108,13 @@ class SimpleDatabasePool {
             connectTimeout: Number(DEFAULT_DB_CONNECT_TIMEOUT),
           },
         });
-        await client.connect();
-        return client;
+        try {
+          await client.connect();
+          return client;
+        } catch (error) {
+          console.error(`[dbPool] Redis connection failed:`, error.message);
+          throw new Error(`Redis connection failed: ${error.message}`);
+        }
       }
       case 'postgresql': {
         const { default: pg } = await import('pg');
@@ -126,13 +131,6 @@ class SimpleDatabasePool {
         return await mysql.default.createConnection({
           uri: this.databaseUrl,
           connectTimeout: Number(DEFAULT_DB_CONNECT_TIMEOUT),
-        });
-      }
-      case 'mysql': {
-        const mysql = await import('mysql2/promise');
-        return await mysql.createConnection({
-          uri: this.databaseUrl,
-          connectTimeout: 10000,
         });
       }
       case 'mongodb': {
