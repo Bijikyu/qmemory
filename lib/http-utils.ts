@@ -250,6 +250,22 @@ const sendValidationError = (
 };
 
 /**
+ * Sends a 200 success payload with consistent formatting.
+ */
+const sendSuccess = (
+  res: Response,
+  message: string,
+  data?: unknown
+): Response<{ message: string; timestamp: string; data?: unknown }> => {
+  const payload = {
+    message: sanitizeResponseMessage(message, 'Operation completed successfully'),
+    timestamp: getTimestamp(),
+    ...(data !== undefined && { data }),
+  };
+  return res.status(200).json(payload);
+};
+
+/**
  * Sends a 401 authentication error payload with hardened error logging.
  */
 const sendAuthError = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
@@ -295,16 +311,11 @@ export {
   sendServiceUnavailable,
   sendBadRequest,
   sendValidationError,
+  sendSuccess,
   sendAuthError,
-  validateResponseObject,
-  validateResponseObject as validateExpressResponse,
   sendErrorResponse,
+  validateResponseObject,
   sanitizeResponseMessage,
   getTimestamp,
   generateRequestId,
-  createPerformanceTimer,
-  generateUniqueId,
-  createTypedError,
-  ErrorTypes,
-  ErrorFactory,
 };

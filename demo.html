@@ -818,8 +818,81 @@ console.log(data.data.pagination); // Pagination info</pre
       // Note: In a real project, you'd use proper module imports
       // For demo purposes, we'll inline the API service functionality
 
+      // Validation rules cache
+      let validationRules = null;
+
+      // Load validation rules from backend
+      async function loadValidationRules() {
+        try {
+          const data = await apiRequest('/validation/rules');
+          validationRules = data.data;
+          console.log('Validation rules loaded:', validationRules);
+        } catch (error) {
+          console.warn('Failed to load validation rules:', error);
+          // Fallback to basic validation
+          validationRules = {
+            username: { required: true, minLength: 1, maxLength: 50, pattern: '^[a-zA-Z0-9_-]+$' },
+            displayName: { required: false, minLength: 1, maxLength: 100, pattern: '^[a-zA-Z0-9\\s_-]+$' },
+            email: { required: false, pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$' },
+            url: { required: false }
+          };
+        }
+      }
+
+      // Validate input using backend rules
+      function validateInput(fieldName, value) {
+        // Block validation if rules not loaded yet to prevent race condition
+        if (!validationRules) {
+          return { valid: false, error: 'Validation rules not loaded yet. Please try again.' };
+        }
+
+        if (!validationRules[fieldName]) {
+          return { valid: true }; // No validation rule for this field
+        }
+
+        const rule = validationRules[fieldName];
+        let isValid = true;
+        let error = '';
+
+        // Required check
+        if (rule.required && (!value || !value.trim())) {
+          isValid = false;
+          error = `${fieldName} is required`;
+        }
+
+        // Length checks
+        if (isValid && value) {
+          if (rule.minLength && value.length < rule.minLength) {
+            isValid = false;
+            error = `${fieldName} must be at least ${rule.minLength} characters`;
+          }
+          if (rule.maxLength && value.length > rule.maxLength) {
+            isValid = false;
+            error = `${fieldName} must be no more than ${rule.maxLength} characters`;
+          }
+        }
+
+        // Pattern check with basic validation to prevent regex injection
+        if (isValid && value && rule.pattern) {
+          try {
+            const regex = new RegExp(rule.pattern);
+            if (!regex.test(value)) {
+              isValid = false;
+              error = rule.message || `${fieldName} format is invalid`;
+            }
+          } catch (regexError) {
+            console.warn('Invalid regex pattern in validation rules:', rule.pattern);
+            isValid = false;
+            error = `${fieldName} validation error`;
+          }
+        }
+
+        return { valid: isValid, error };
+      }
+
       // Initialize
       document.addEventListener('DOMContentLoaded', function () {
+        loadValidationRules(); // Load validation rules first
         checkServerHealth();
         setupEventListeners();
       });
@@ -906,9 +979,20 @@ console.log(data.data.pagination); // Pagination info</pre
         const username = document.getElementById('username').value;
         const displayName = document.getElementById('displayName').value;
 
-        if (!username || !username.trim()) {
-          showResponse('createUserResponse', { error: 'Username is required' }, 'error');
+        // Validate username using backend rules
+        const usernameValidation = validateInput('username', username);
+        if (!usernameValidation.valid) {
+          showResponse('createUserResponse', { error: usernameValidation.error }, 'error');
           return;
+        }
+
+        // Validate display name using backend rules
+        if (displayName) {
+          const displayNameValidation = validateInput('displayName', displayName);
+          if (!displayNameValidation.valid) {
+            showResponse('createUserResponse', { error: displayNameValidation.error }, 'error');
+            return;
+          }
         }
 
         try {
@@ -953,8 +1037,27 @@ console.log(data.data.pagination); // Pagination info</pre
         }
 
         const updateData = {};
-        if (username) updateData.username = username.trim();
-        if (displayName) updateData.displayName = displayName.trim();
+
+        // Validate username if provided
+        if (username) {
+          const usernameValidation = validateInput('username', username);
+          if (!usernameValidation.valid) {
+            showResponse('updateUserResponse', { error: usernameValidation.error }, 'error');
+            return;
+          }
+          updateData.username = username.trim();
+        }
+
+        // Validate display name if provided
+        if (displayName) {
+          const displayNameValidation = validateInput('displayName', displayName);
+          if (!displayNameValidation.valid) {
+            showResponse('updateUserResponse', { error: displayNameValidation.error }, 'error');
+            return;
+          }
+          updateData.displayName = displayName.trim();
+        }
+
         if (githubId) updateData.githubId = githubId.trim();
         if (avatar) updateData.avatar = avatar.trim();
 
@@ -1183,17 +1286,29 @@ console.log(data.data.pagination); // Pagination info</pre
         }
 
         const items = input.split(',').map(item => item.trim());
-        const deduped = [...new Set(items)];
 
-        showResponse(
-          'dedupeResponse',
-          {
-            original: items,
-            deduped: deduped,
-            removed: items.length - deduped.length,
-          },
-          'success'
-        );
+        try {
+          // Use backend deduplication endpoint for consistency
+          const data = await apiRequest('/utils/dedupe', {
+            method: 'POST',
+            body: JSON.stringify({ items })
+          });
+
+          showResponse('dedupeResponse', data, 'success'); // Fixed: data not data.data
+        } catch (error) {
+          // Fallback to client-side deduplication if backend fails
+          const deduped = [...new Set(items)];
+          showResponse(
+            'dedupeResponse',
+            {
+              original: items,
+              deduped: deduped,
+              removed: items.length - deduped.length,
+              fallback: 'Client-side deduplication (backend unavailable)'
+            },
+            'success'
+          );
+        }
       }
 
       // Storage operations
@@ -1626,15 +1741,6 @@ console.log(data.data.pagination); // Pagination info</pre
         if (statusEl) {
           statusEl.textContent = loading ? '⏳ Processing...' : '✅ Ready';
           statusEl.className = loading ? 'status-processing' : 'status-ready';
-        }
-      }
-
-          return await response.json();
-        } catch (error) {
-          if (error instanceof Error) {
-            throw error;
-          }
-          throw new Error('Network error occurred');
         }
       }
 

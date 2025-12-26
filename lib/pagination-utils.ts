@@ -29,7 +29,7 @@
 // Import existing HTTP utilities to maintain consistency with library patterns
 import {
   sendInternalServerError,
-  validateExpressResponse,
+  validateResponseObject,
   sendErrorResponse,
 } from './http-utils.js';
 import { logFunctionEntry } from './logging-utils.js';
@@ -91,7 +91,7 @@ const parseIntegerParam = (paramValue, paramName) => {
  */
 function validatePagination(req: any, res: any, options: any = {}) {
   // Validate Express response object using shared utility
-  validateExpressResponse(res);
+  validateResponseObject(res);
   // Validate request object
   if (!req) {
     throw new Error('Invalid Express request object provided');
@@ -283,7 +283,7 @@ function createPaginatedResponse(data, page, limit, totalRecords) {
 function validateCursorPagination(req: any, res: any, options: any = {}) {
   logFunctionEntry('validateCursorPagination', { query: req.query });
   // Validate Express response object using shared utility
-  validateExpressResponse(res);
+  validateResponseObject(res);
   // Validate request object
   if (!req) {
     throw new Error('Invalid Express request object provided');
@@ -464,7 +464,7 @@ function createCursorPaginationMeta(
 function validateSorting(req: any, res: any, options: any = {}) {
   logFunctionEntry('validateSorting', { query: req.query });
   // Validate Express response object using shared utility
-  validateExpressResponse(res);
+  validateResponseObject(res);
   // Validate request object
   if (!req) {
     throw new Error('Invalid Express request object provided');

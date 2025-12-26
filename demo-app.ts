@@ -20,16 +20,7 @@
  */
 
 import express, { Request, Response, NextFunction, Application } from 'express';
-import {
-  MemStorage,
-  sendNotFound,
-  sendInternalServerError,
-  sendConflict,
-  sendServiceUnavailable,
-  sendAuthError,
-  validatePagination,
-  createPaginatedResponse,
-} from './index.js';
+import { MemStorage, validatePagination, createPaginatedResponse } from './index.js';
 import type { User, InsertUser } from './lib/storage.js';
 import {
   logger,
@@ -38,6 +29,15 @@ import {
   requireEnvVars,
   gracefulShutdown,
 } from './lib/qgenutils-wrapper.js';
+import {
+  sendSuccess,
+  sendBadRequest,
+  sendNotFound,
+  sendConflict,
+  sendInternalServerError,
+  sendServiceUnavailable,
+  sendAuthError,
+} from './lib/http-utils.js';
 import type { Server } from 'http';
 
 // Define interfaces for complex objects
@@ -106,29 +106,6 @@ function logError(...args: string[]): void {
     logger?.error?.(args.join(' '));
   } catch {
     // Intentionally empty
-  }
-}
-
-function sendSuccess(res: Response, message: string, data?: unknown): void {
-  // send standard 200 response
-  try {
-    const payload: ApiResponse = { message, timestamp: new Date().toISOString() };
-    if (data !== undefined) payload.data = data; // include optional data
-    res.status(200).json(payload);
-    logger?.logDebug?.('sendSuccess response sent', { message });
-  } catch (error) {
-    logError('sendSuccess failed', String(error));
-  }
-}
-
-function sendBadRequest(res: Response, message: string): void {
-  // send standard 400 response
-  try {
-    const payload: ApiResponse = { message, timestamp: new Date().toISOString() };
-    res.status(400).json(payload);
-    logger?.logDebug?.('sendBadRequest response sent', { message });
-  } catch (error) {
-    logError('sendBadRequest failed', String(error));
   }
 }
 
@@ -489,21 +466,54 @@ app.post('/utils/math', (req: Request, res: Response) => {
   try {
     const { a, b, operation } = req.body;
 
-    if (operation === 'add') {
-      const numA = parseFloat(a);
-      const numB = parseFloat(b);
+    // Validate required fields
+    if (a === undefined || b === undefined || operation === undefined) {
+      return sendBadRequest(res, 'Missing required fields: a, b, and operation');
+    }
 
-      if (isNaN(numA) || isNaN(numB) || !isFinite(numA) || !isFinite(numB)) {
-        return sendBadRequest(res, 'Please enter valid finite numbers');
-      }
+    // Sanitize operation parameter
+    const safeOperation = sanitizeInput(String(operation));
+    const validOperations = ['add', 'subtract', 'multiply', 'divide'];
+    if (!validOperations.includes(safeOperation)) {
+      return sendBadRequest(res, 'Invalid operation. Supported: add, subtract, multiply, divide');
+    }
 
+    const numA = parseFloat(a);
+    const numB = parseFloat(b);
+
+    if (isNaN(numA) || isNaN(numB) || !isFinite(numA) || !isFinite(numB)) {
+      return sendBadRequest(res, 'Please enter valid finite numbers');
+    }
+
+    if (safeOperation === 'add') {
       const sum = numA + numB;
       sendSuccess(res, 'Math operation completed', {
         result: sum,
         operation: `${numA} + ${numB} = ${sum}`,
       });
+    } else if (safeOperation === 'subtract') {
+      const difference = numA - numB;
+      sendSuccess(res, 'Math operation completed', {
+        result: difference,
+        operation: `${numA} - ${numB} = ${difference}`,
+      });
+    } else if (safeOperation === 'multiply') {
+      const product = numA * numB;
+      sendSuccess(res, 'Math operation completed', {
+        result: product,
+        operation: `${numA} * ${numB} = ${product}`,
+      });
+    } else if (safeOperation === 'divide') {
+      if (numB === 0) {
+        return sendBadRequest(res, 'Division by zero is not allowed');
+      }
+      const quotient = numA / numB;
+      sendSuccess(res, 'Math operation completed', {
+        result: quotient,
+        operation: `${numA} / ${numB} = ${quotient}`,
+      });
     } else {
-      sendBadRequest(res, 'Unsupported operation');
+      return sendBadRequest(res, 'Unsupported operation');
     }
   } catch (error) {
     logError('Failed to perform math operation', String(error));
@@ -513,7 +523,9 @@ app.post('/utils/math', (req: Request, res: Response) => {
 
 app.get('/utils/even/:num', (req: Request, res: Response) => {
   try {
-    const num = parseInt(req.params.num);
+    // Sanitize and validate input parameter
+    const sanitizedNum = sanitizeInput(req.params.num);
+    const num = parseInt(sanitizedNum, 10);
 
     if (isNaN(num) || !isFinite(num)) {
       return sendBadRequest(res, 'Please enter a valid integer');
@@ -528,6 +540,47 @@ app.get('/utils/even/:num', (req: Request, res: Response) => {
   } catch (error) {
     logError('Failed to check even/odd', String(error));
     sendInternalServerError(res, 'Failed to check even/odd');
+  }
+});
+
+app.post('/utils/dedupe', (req: Request, res: Response) => {
+  try {
+    const { items } = req.body;
+
+    if (!Array.isArray(items)) {
+      return sendBadRequest(res, 'Items must be an array');
+    }
+
+    if (items.length === 0) {
+      return sendSuccess(res, 'Deduplication completed', {
+        original: [],
+        deduped: [],
+        removed: 0,
+      });
+    }
+
+    // Perform deduplication while preserving order
+    const seen = new Set();
+    const deduped = [];
+
+    for (const item of items) {
+      const key = typeof item === 'string' ? item : JSON.stringify(item);
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(item);
+      }
+    }
+
+    const removed = items.length - deduped.length;
+
+    sendSuccess(res, 'Deduplication completed', {
+      original: items,
+      deduped: deduped,
+      removed: removed,
+    });
+  } catch (error) {
+    logError('Failed to dedupe array', String(error));
+    sendInternalServerError(res, 'Failed to dedupe array');
   }
 });
 

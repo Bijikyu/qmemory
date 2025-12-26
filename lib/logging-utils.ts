@@ -370,7 +370,7 @@ export const logFunctionError = (
   const requestId = context.requestId ?? options.requestId ?? generateUniqueId();
 
   try {
-    const sanitizedMessage = sanitizeMessage(error.message, 'Error occurred');
+    const sanitizedMessage = sanitizeMessage(error.message);
     const performance =
       context.startTime !== undefined
         ? {
