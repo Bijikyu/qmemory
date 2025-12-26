@@ -9,7 +9,7 @@ import {
   sanitizeMessage,
   sanitizeContext,
   generateUniqueId,
-} from 'qerrors';
+} from './simple-wrapper.js';
 
 // Minimal implementations for missing functions
 function logDebug(message: string, meta?: any): void {

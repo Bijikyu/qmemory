@@ -1663,6 +1663,17 @@ console.log(data.data.pagination); // Pagination info</pre
         return apiRequest(`/users/${id}`);
       }
 
+      async function getUserByUsername(username) {
+        return apiRequest(`/users/by-username/${username}`);
+      }
+
+      async function updateUser(id, userData) {
+        return apiRequest(`/users/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(userData),
+        });
+      }
+
       async function deleteUser(id) {
         return apiRequest(`/users/${id}`, {
           method: 'DELETE',

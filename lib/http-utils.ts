@@ -11,7 +11,7 @@ import {
   createTypedError,
   ErrorTypes,
   ErrorFactory,
-} from './qgenutils-wrapper.js';
+} from './simple-wrapper.js';
 
 type HttpErrorType =
   | 'BAD_REQUEST'

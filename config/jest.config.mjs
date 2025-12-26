@@ -15,68 +15,60 @@ export default {
   setupFilesAfterEnv: [path.join(PROJECT_ROOT, 'config', 'jest-setup.ts')],
   roots: [PROJECT_ROOT],
   testMatch: [
-  "**/*.test.ts",
-  "**/*.test.tsx",
-  "**/*.spec.ts",
-  "**/*.spec.tsx",
-  "**/*.GenerateTest.test.ts",
-  "**/*.GenerateTest.test.tsx",
-  "**/*.GeneratedTest.test.ts",
-  "**/*.GeneratedTest.test.tsx",
-  "**/manual-tests/**/*.test.ts",
-  "**/generated-tests/**/*GeneratedTest*.test.ts",
-  "**/generated-tests/**/*GeneratedTest*.test.tsx"
-],
-  testPathIgnorePatterns: [
-  "/node_modules/",
-  "/dist/",
-  "/build/",
-  "/__mocks__/"
-],
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    '**/*.spec.ts',
+    '**/*.spec.tsx',
+    '**/*.GenerateTest.test.ts',
+    '**/*.GenerateTest.test.tsx',
+    '**/*.GeneratedTest.test.ts',
+    '**/*.GeneratedTest.test.tsx',
+    '**/manual-tests/**/*.test.ts',
+    '**/generated-tests/**/*GeneratedTest*.test.ts',
+    '**/generated-tests/**/*GeneratedTest*.test.tsx',
+  ],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/build/', '/__mocks__/'],
   // Harden ignores to avoid duplicate manual mocks and compiled artifacts
   modulePathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/build/'],
   watchPathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/build/'],
-  moduleFileExtensions: ["ts","tsx","js","jsx","json"],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   transform: {
-    "^.+\\.(ts|tsx)$": [
-    "ts-jest",
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
       {
-        "useESM": true,
-        "tsconfig": {
-          "jsx": "react-jsx",
-          "typeRoots": ["<rootDir>", "<rootDir>/node_modules/@types"]
-        }
-      }
+        useESM: true,
+        tsconfig: {
+          jsx: 'react-jsx',
+          typeRoots: ['<rootDir>', '<rootDir>/node_modules/@types'],
+        },
+      },
     ],
-    "^.+\\.(js|jsx)$": [
-      "babel-jest",
+    '^.+\\.(js|jsx)$': [
+      'babel-jest',
       {
-        "presets": [[
-          "@babel/preset-env",
-          { "targets": { "node": "current" }, "modules": "commonjs" }
-        ]]
-      }
-    ]
+        presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]],
+      },
+    ],
   },
-  extensionsToTreatAsEsm: [".ts",".tsx"],
-  transformIgnorePatterns: ['node_modules/(?!(?:qtests|@tanstack|@radix-ui|lucide-react|react-resizable-panels|cmdk|vaul)/)'],
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(?:qtests|@tanstack|@radix-ui|lucide-react|react-resizable-panels|cmdk|vaul)/)',
+  ],
   moduleNameMapper: {
-  "^\\.\\./index\\.js$": "<rootDir>/index.ts",
-  "^\\.\\./setup\\.js$": "<rootDir>/setup.ts",
-  "^\\.\\./lib/(.*)\\.js$": "<rootDir>/lib/$1.ts",
-  "^\\.\\./lib/(.*)$": "<rootDir>/lib/$1.ts",
-  // Map generated HTTP test helper used by generated tests
-  "^\\.\\./utils/httpTest$": "<rootDir>/tests/generated-tests/utils/httpTest.ts",
-  "^\\.\\./utils/httpTest\\.shim\\.js$": "<rootDir>/tests/generated-tests/utils/httpTest.shim.js",
-  "^\\.\\./utils/(.*)\\.js$": "<rootDir>/utils/$1.ts",
-  "^(.*/httpTest\\.shim)\\.js$": "$1.js",
-  "^external-service-client$": "<rootDir>/utils/jest-proxies/external-service-client.cjs",
-  "^feature-x$": "<rootDir>/utils/jest-proxies/feature-x.cjs",
-  "^(\\.{1,2}/.*)\\.js$": "$1",
-  // Map qtests helpers to built dist files (ensure setup resolves)
-  "^qtests/(.*)$": "<rootDir>/node_modules/qtests/dist/$1.js",
-  "^mongoose$": "<rootDir>/__mocks__/mongoose.js",
-  "^.+\\\\.(css|less|scss|sass)$": "<rootDir>/__mocks__/fileMock.js",
-  "^.+\\\\.(png|jpg|jpeg|gif|svg|webp|avif|ico|bmp)$": "<rootDir>/__mocks__/fileMock.js"
-}
+    '^\\.\\./lib/(.*)\\.js$': '<rootDir>/lib/$1.ts',
+
+    // Map generated HTTP test helper used by generated tests
+    '^\\.\\./utils/httpTest$': '<rootDir>/tests/generated-tests/utils/httpTest.ts',
+    '^\\.\\./utils/httpTest\\.shim\\.js$': '<rootDir>/tests/generated-tests/utils/httpTest.shim.js',
+
+    '^(.*/httpTest\\.shim)\\.js$': '$1.js',
+    '^external-service-client$': '<rootDir>/utils/jest-proxies/external-service-client.cjs',
+    '^feature-x$': '<rootDir>/utils/jest-proxies/feature-x.cjs',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    // Map qtests helpers to built dist files (ensure setup resolves)
+    '^qtests/(.*)$': '<rootDir>/node_modules/qtests/dist/$1.js',
+    '^mongoose$': '<rootDir>/__mocks__/mongoose.js',
+    '^.+\\\\.(css|less|scss|sass)$': '<rootDir>/__mocks__/fileMock.js',
+    '^.+\\\\.(png|jpg|jpeg|gif|svg|webp|avif|ico|bmp)$': '<rootDir>/__mocks__/fileMock.js',
+  },
 };
