@@ -350,9 +350,12 @@ app.get('/users/by-username/:username', async (req: Request, res: Response) => {
       return sendBadRequest(res, 'Username is required and must be a string');
     }
 
+    // Trim username to match stored usernames (storage uses .trim())
+    const trimmedUsername = username.trim();
+
     // Get all users and search by username (since MemStorage doesn't have username search)
     const allUsers = await storage.getAllUsers();
-    const user = allUsers.find(u => u.username === username);
+    const user = allUsers.find(u => u.username === trimmedUsername);
 
     if (!user) {
       // handle unknown username
@@ -361,6 +364,12 @@ app.get('/users/by-username/:username', async (req: Request, res: Response) => {
 
     sendSuccess(res, 'User found', user);
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.getUserByUsername', {
+      endpoint: '/users/by-username/:username',
+      method: 'GET',
+      username: req.params.username,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to fetch user by username', String(error)); // log before sending generic error
     sendInternalServerError(res, 'Failed to fetch user');
   }
@@ -384,6 +393,12 @@ app.delete('/users/:id', async (req: Request, res: Response) => {
     logInfo(`Deleted user with ID: ${id}`); // audit deletion event
     sendSuccess(res, 'User deleted successfully');
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.deleteUser', {
+      endpoint: '/users/:id',
+      method: 'DELETE',
+      userId: req.params.id,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to delete user', String(error)); // preserve stack for debugging
     sendInternalServerError(res, 'Failed to delete user');
   }
@@ -432,8 +447,22 @@ app.put('/users/:id', async (req: Request, res: Response) => {
     sendSuccess(res, 'User updated successfully', updatedUser);
   } catch (error) {
     if (error instanceof Error && error.message.includes('already exists')) {
+      qerrors.qerrors(error as Error, 'demo-app.updateUser', {
+        endpoint: '/users/:id',
+        method: 'PUT',
+        userId: req.params.id,
+        errorType: 'duplicate',
+        userAgent: req.get('User-Agent'),
+      });
       sendBadRequest(res, error.message); // username conflict
     } else {
+      qerrors.qerrors(error as Error, 'demo-app.updateUser', {
+        endpoint: '/users/:id',
+        method: 'PUT',
+        userId: req.params.id,
+        errorType: 'server',
+        userAgent: req.get('User-Agent'),
+      });
       logError('Failed to update user', String(error)); // preserve stack for debugging
       sendInternalServerError(res, 'Failed to update user');
     }
@@ -451,6 +480,12 @@ app.post('/users/clear', async (req: Request, res: Response) => {
     logInfo('Cleared all users'); // log maintenance activity
     sendSuccess(res, 'All users cleared successfully');
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.clearUsers', {
+      endpoint: '/users/clear',
+      method: 'POST',
+      environment: process.env.NODE_ENV,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to clear users', String(error)); // log for debugging
     sendInternalServerError(res, 'Failed to clear users');
   }
@@ -494,6 +529,12 @@ app.get('/utils/greet', (req: Request, res: Response) => {
     const safeName = sanitizeInput(name);
     sendSuccess(res, 'Greeting generated', { greeting: `Hello, ${safeName}!` });
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.generateGreeting', {
+      endpoint: '/utils/greet',
+      method: 'GET',
+      name: req.query.name,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to generate greeting', String(error));
     sendInternalServerError(res, 'Failed to generate greeting');
   }
@@ -553,6 +594,14 @@ app.post('/utils/math', (req: Request, res: Response) => {
       return sendBadRequest(res, 'Unsupported operation');
     }
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.mathOperation', {
+      endpoint: '/utils/math',
+      method: 'POST',
+      operation: req.body.operation,
+      hasA: req.body.a !== undefined,
+      hasB: req.body.b !== undefined,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to perform math operation', String(error));
     sendInternalServerError(res, 'Failed to perform math operation');
   }
@@ -562,6 +611,12 @@ app.get('/utils/even/:num', (req: Request, res: Response) => {
   try {
     // Sanitize and validate input parameter
     const sanitizedNum = sanitizeInput(req.params.num);
+
+    // Check if sanitization produced valid input before parsing
+    if (!sanitizedNum || !/^-?\d+$/.test(sanitizedNum)) {
+      return sendBadRequest(res, 'Please enter a valid integer');
+    }
+
     const num = parseInt(sanitizedNum, 10);
 
     if (isNaN(num) || !isFinite(num)) {
@@ -575,6 +630,12 @@ app.get('/utils/even/:num', (req: Request, res: Response) => {
       message: `${num} is ${isEvenResult ? 'even' : 'odd'}`,
     });
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.checkEvenOdd', {
+      endpoint: '/utils/even/:num',
+      method: 'GET',
+      num: req.params.num,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to check even/odd', String(error));
     sendInternalServerError(res, 'Failed to check even/odd');
   }
@@ -616,6 +677,13 @@ app.post('/utils/dedupe', (req: Request, res: Response) => {
       removed: removed,
     });
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.dedupeArray', {
+      endpoint: '/utils/dedupe',
+      method: 'POST',
+      isArray: Array.isArray(req.body.items),
+      itemCount: req.body.items ? req.body.items.length : 0,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to dedupe array', String(error));
     sendInternalServerError(res, 'Failed to dedupe array');
   }
@@ -623,6 +691,12 @@ app.post('/utils/dedupe', (req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+  qerrors.qerrors(error, 'demo-app.unhandledError', {
+    endpoint: req.url,
+    method: req.method,
+    userAgent: req.get('User-Agent'),
+    headersSent: res.headersSent,
+  });
   logError('Unhandled error:', error.message); // capture unexpected issues
   if (res.headersSent) {
     // delegate to default handler if headers already sent
