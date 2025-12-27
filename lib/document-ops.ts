@@ -8,6 +8,7 @@ import type { Response } from 'express';
 import { sendNotFound } from './http-utils.js';
 import { ensureUnique } from './database-utils.js';
 import { logFunctionEntry, logFunctionExit, logFunctionError } from './logging-utils.js';
+import * as qerrors from 'qerrors';
 
 type AnyUserDoc = AnyObject & { user: string };
 type DocumentId = Types.ObjectId | string;
@@ -51,6 +52,12 @@ const performUserDocOp = async <TSchema extends AnyUserDoc>(
     console.log(`performUserDocOp is returning ${doc ?? 'null'}`);
     return doc;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-ops.performUserDocOp', {
+      operation: opCallback.name,
+      id,
+      username,
+      isCastError: error instanceof mongoose.Error.CastError,
+    });
     logFunctionError(opCallback.name, error);
     if (error instanceof mongoose.Error.CastError) {
       logFunctionExit(opCallback.name, 'null due to CastError');
@@ -134,6 +141,12 @@ const userDocActionOr404 = async <TSchema extends AnyUserDoc>(
     console.log(`userDocActionOr404 is returning ${doc}`);
     return doc;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-ops.userDocActionOr404', {
+      action: action.name,
+      id,
+      user,
+      message: msg,
+    });
     logFunctionError('userDocActionOr404', error);
     throw error;
   }
@@ -162,6 +175,11 @@ const fetchUserDocOr404 = async <TSchema extends AnyUserDoc>(
     console.log(`fetchUserDocOr404 is returning ${doc}`);
     return doc;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-ops.fetchUserDocOr404', {
+      id,
+      user,
+      message: msg,
+    });
     logFunctionError('fetchUserDocOr404', error);
     throw error;
   }
@@ -190,6 +208,11 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
     console.log(`deleteUserDocOr404 is returning ${doc}`);
     return doc;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-ops.deleteUserDocOr404', {
+      id,
+      user,
+      message: msg,
+    });
     logFunctionError('deleteUserDocOr404', error);
     throw error;
   }
@@ -206,11 +229,19 @@ const listUserDocs = async <TSchema extends AnyUserDoc>(
   logFunctionStart('listUserDocs', { username });
   logFunctionEntry('listUserDocs', { username, sort: JSON.stringify(sort) });
   try {
-    const docs = await model.find({ user: username } as FilterQuery<TSchema>).sort(sort ?? {}).exec();
+    const docs = await model
+      .find({ user: username } as FilterQuery<TSchema>)
+      .sort(sort ?? {})
+      .exec();
     logFunctionExit('listUserDocs', docs);
     console.log(`listUserDocs is returning ${docs.length} documents`);
     return docs;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-ops.listUserDocs', {
+      username,
+      hasSort: sort !== undefined,
+      sortKeys: sort ? Object.keys(sort) : undefined,
+    });
     logFunctionError('listUserDocs', error);
     throw error;
   }
@@ -241,7 +272,9 @@ const hasUniqueFieldChanges = <TSchema extends AnyUserDoc>(
     if (!(key in fieldsToUpdate)) {
       return false;
     }
-    return (doc as Record<string, unknown>)[key] !== (fieldsToUpdate as Record<string, unknown>)[key];
+    return (
+      (doc as Record<string, unknown>)[key] !== (fieldsToUpdate as Record<string, unknown>)[key]
+    );
   });
 };
 
@@ -270,6 +303,11 @@ const createUniqueDoc = async <TSchema extends AnyUserDoc>(
     console.log(`createUniqueDoc is returning ${saved}`);
     return saved;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-ops.createUniqueDoc', {
+      fieldKeys: Object.keys(fields),
+      uniqueQueryKeys: Object.keys(uniqueQuery),
+      hasDuplicateMsg: duplicateMsg !== undefined,
+    });
     logFunctionError('createUniqueDoc', error);
     throw error;
   }
@@ -306,7 +344,12 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
         ...uniqueQuery,
         _id: { $ne: doc._id },
       } as FilterQuery<TSchema>;
-      const isStillUnique = await validateDocumentUniqueness(model, uniqueQueryWithExclusion, res, duplicateMsg);
+      const isStillUnique = await validateDocumentUniqueness(
+        model,
+        uniqueQueryWithExclusion,
+        res,
+        duplicateMsg
+      );
       if (!isStillUnique) {
         logFunctionExit('updateUserDoc', 'undefined');
         console.log('updateUserDoc is returning undefined');
@@ -319,6 +362,13 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
     console.log(`updateUserDoc is returning ${doc}`);
     return doc;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-ops.updateUserDoc', {
+      id,
+      username,
+      updateFieldKeys: Object.keys(fieldsToUpdate),
+      hasUniqueQuery: uniqueQuery !== undefined,
+      attemptedUserChange: Object.prototype.hasOwnProperty.call(fieldsToUpdate, 'user'),
+    });
     logFunctionError('updateUserDoc', error);
     throw error;
   }

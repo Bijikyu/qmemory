@@ -9,6 +9,7 @@ import {
   type TypeMapping,
 } from 'redis';
 import { REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD } from '../config/localVars.js';
+import * as qerrors from 'qerrors';
 
 type BaseRedisOptions = RedisClientOptions<
   RedisModules,
@@ -66,37 +67,49 @@ const asNumber = (value: unknown, fallback: number): number => {
  * Validates Redis connection parameters to ensure compliance with Redis client requirements.
  */
 const validateRedisConfig = (options: RedisOptions): void => {
-  if (options.host && typeof options.host !== 'string') {
-    throw new Error('Redis host must be a string');
-  }
+  try {
+    if (options.host && typeof options.host !== 'string') {
+      throw new Error('Redis host must be a string');
+    }
 
-  if (
-    options.port &&
-    (!Number.isInteger(options.port) || options.port < 1 || options.port > 65535)
-  ) {
-    throw new Error('Redis port must be an integer between 1 and 65535');
-  }
+    if (
+      options.port &&
+      (!Number.isInteger(options.port) || options.port < 1 || options.port > 65535)
+    ) {
+      throw new Error('Redis port must be an integer between 1 and 65535');
+    }
 
-  if (options.db && (!Number.isInteger(options.db) || options.db < 0)) {
-    throw new Error('Redis database must be a non-negative integer');
-  }
+    if (options.db && (!Number.isInteger(options.db) || options.db < 0)) {
+      throw new Error('Redis database must be a non-negative integer');
+    }
 
-  if (options.password && typeof options.password !== 'string') {
-    throw new Error('Redis password must be a string');
-  }
+    if (options.password && typeof options.password !== 'string') {
+      throw new Error('Redis password must be a string');
+    }
 
-  if (
-    options.retryDelayOnFailover &&
-    (!Number.isInteger(options.retryDelayOnFailover) || options.retryDelayOnFailover < 0)
-  ) {
-    throw new Error('Redis retry delay on failover must be a non-negative integer');
-  }
+    if (
+      options.retryDelayOnFailover &&
+      (!Number.isInteger(options.retryDelayOnFailover) || options.retryDelayOnFailover < 0)
+    ) {
+      throw new Error('Redis retry delay on failover must be a non-negative integer');
+    }
 
-  if (
-    options.maxRetriesPerRequest &&
-    (!Number.isInteger(options.maxRetriesPerRequest) || options.maxRetriesPerRequest < 0)
-  ) {
-    throw new Error('Redis max retries per request must be a non-negative integer');
+    if (
+      options.maxRetriesPerRequest &&
+      (!Number.isInteger(options.maxRetriesPerRequest) || options.maxRetriesPerRequest < 0)
+    ) {
+      throw new Error('Redis max retries per request must be a non-negative integer');
+    }
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'cache-utils.validateRedisConfig', {
+      hasHost: options.host !== undefined,
+      hasPort: options.port !== undefined,
+      hasDb: options.db !== undefined,
+      hasPassword: options.password !== undefined,
+      hasRetryDelay: options.retryDelayOnFailover !== undefined,
+      hasMaxRetries: options.maxRetriesPerRequest !== undefined,
+    });
+    throw error;
   }
 };
 
@@ -133,6 +146,14 @@ export function createRedisClient(
     // Type assertion needed due to Redis module generic complexity between versions
     return createRedisClientBase(clientOptions as any);
   } catch (error) {
+    qerrors.qerrors(error as Error, 'cache-utils.createRedisClient', {
+      hasCustomHost: options.host !== undefined,
+      hasCustomPort: options.port !== undefined,
+      hasCustomDb: options.db !== undefined,
+      hasCustomSocket: options.socket !== undefined,
+      hasCustomPassword: options.password !== undefined,
+      optionCount: Object.keys(options).length,
+    });
     throw new Error(
       `Failed to create Redis client: ${error instanceof Error ? error.message : String(error)}`
     );

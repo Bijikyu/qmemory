@@ -22,6 +22,7 @@
  */
 
 import type { FilterQuery, HydratedDocument, Model, QueryWithHelpers, UpdateQuery } from 'mongoose';
+import * as qerrors from 'qerrors';
 
 type DocumentShape = Record<string, unknown>;
 type SortDefinition = Record<string, 1 | -1>;
@@ -164,13 +165,23 @@ export async function findByFieldIgnoreCase<
   TDoc extends DocumentShape,
   TField extends keyof TDoc & string,
 >(Model: Model<TDoc>, field: TField, value: TDoc[TField]): Promise<HydratedDocument<TDoc> | null> {
-  if (!value || typeof value !== 'string') {
-    return Model.findOne({ [field]: value } as FilterQuery<TDoc>).exec(); // Query directly without regex when value is non-string to leverage indexes
-  }
+  try {
+    if (!value || typeof value !== 'string') {
+      return Model.findOne({ [field]: value } as FilterQuery<TDoc>).exec(); // Query directly without regex when value is non-string to leverage indexes
+    }
 
-  return Model.findOne({
-    [field]: { $regex: new RegExp(`^${escapeRegex(value)}$`, 'i') },
-  } as FilterQuery<TDoc>).exec(); // Use case-insensitive regex to prevent duplicates differing only by casing
+    return Model.findOne({
+      [field]: { $regex: new RegExp(`^${escapeRegex(value)}$`, 'i') },
+    } as FilterQuery<TDoc>).exec(); // Use case-insensitive regex to prevent duplicates differing only by casing
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'crud-service-factory.findByFieldIgnoreCase', {
+      field,
+      valueType: typeof value,
+      isStringValue: typeof value === 'string',
+      valueLength: typeof value === 'string' ? value.length : undefined,
+    });
+    throw error;
+  }
 }
 
 /**
@@ -229,25 +240,38 @@ export function createCrudService<TDoc extends DocumentShape>(
   } = options;
 
   async function create(data: Partial<TDoc>): Promise<HydratedDocument<TDoc>> {
-    const uniqueValue = data[uniqueField];
-    if (uniqueValue !== undefined && uniqueValue !== null && uniqueValue !== '') {
-      const existing = await findByFieldIgnoreCase(Model as any, uniqueField, uniqueValue);
-      if (existing) {
-        throw createDuplicateError(resourceType, uniqueField, uniqueValue);
+    try {
+      const uniqueValue = data[uniqueField];
+      if (uniqueValue !== undefined && uniqueValue !== null && uniqueValue !== '') {
+        const existing = await findByFieldIgnoreCase(Model as any, uniqueField, uniqueValue);
+        if (existing) {
+          throw createDuplicateError(resourceType, uniqueField, uniqueValue);
+        }
       }
+
+      const processedData = beforeCreate ? await beforeCreate({ ...data }) : { ...data };
+
+      const item = new (Model as any)(processedData);
+      const saved = await item.save(); // Persist via Mongoose so hooks and validation execute
+
+      if (afterCreate) {
+        await afterCreate(saved);
+      }
+
+      console.log(`[crud] ${resourceType} created: ${saved._id}`); // Emit structured log to support operational tracing
+      return saved;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'crud-service-factory.create', {
+        resourceType,
+        uniqueField,
+        hasUniqueValue:
+          data[uniqueField] !== undefined && data[uniqueField] !== null && data[uniqueField] !== '',
+        dataFieldCount: Object.keys(data).length,
+        hasBeforeCreate: beforeCreate !== undefined,
+        hasAfterCreate: afterCreate !== undefined,
+      });
+      throw error;
     }
-
-    const processedData = beforeCreate ? await beforeCreate({ ...data }) : { ...data };
-
-    const item = new (Model as any)(processedData);
-    const saved = await item.save(); // Persist via Mongoose so hooks and validation execute
-
-    if (afterCreate) {
-      await afterCreate(saved);
-    }
-
-    console.log(`[crud] ${resourceType} created: ${saved._id}`); // Emit structured log to support operational tracing
-    return saved;
   }
 
   async function getById(id: string): Promise<HydratedDocument<TDoc>> {
@@ -294,74 +318,97 @@ export function createCrudService<TDoc extends DocumentShape>(
   }
 
   async function update(id: string, updateData: Partial<TDoc>): Promise<HydratedDocument<TDoc>> {
-    const existing = await Model.findById(id).exec(); // Fetch document once to compare unique fields and reuse in hooks
-    if (!existing) {
-      const error = new Error(`${resourceType} not found`) as NotFoundError;
-      error.code = 'NOT_FOUND';
-      throw error;
-    }
-
-    const incomingValue = updateData[uniqueField];
-    if (
-      incomingValue !== undefined &&
-      incomingValue !== null &&
-      incomingValue !== '' &&
-      existing[uniqueField] !== incomingValue
-    ) {
-      const duplicate = await findByFieldIgnoreCase(Model as any, uniqueField, incomingValue);
-      if (duplicate && String((duplicate as { _id: unknown })._id) !== id) {
-        throw createDuplicateError(resourceType, uniqueField, incomingValue);
+    try {
+      const existing = await Model.findById(id).exec(); // Fetch document once to compare unique fields and reuse in hooks
+      if (!existing) {
+        const error = new Error(`${resourceType} not found`) as NotFoundError;
+        error.code = 'NOT_FOUND';
+        throw error;
       }
-    }
 
-    const processedData = beforeUpdate
-      ? await beforeUpdate({ ...updateData }, existing)
-      : { ...updateData };
+      const incomingValue = updateData[uniqueField];
+      if (
+        incomingValue !== undefined &&
+        incomingValue !== null &&
+        incomingValue !== '' &&
+        existing[uniqueField] !== incomingValue
+      ) {
+        const duplicate = await findByFieldIgnoreCase(Model as any, uniqueField, incomingValue);
+        if (duplicate && String((duplicate as { _id: unknown })._id) !== id) {
+          throw createDuplicateError(resourceType, uniqueField, incomingValue);
+        }
+      }
 
-    const updated = await Model.findByIdAndUpdate(id, processedData as UpdateQuery<TDoc>, {
-      new: true,
-      runValidators: true,
-    }).exec(); // Execute update with validators ensuring Mongoose produces a fresh document
+      const processedData = beforeUpdate
+        ? await beforeUpdate({ ...updateData }, existing)
+        : { ...updateData };
 
-    if (!updated) {
-      const error = new Error(`${resourceType} not found`) as NotFoundError;
-      error.code = 'NOT_FOUND';
+      const updated = await Model.findByIdAndUpdate(id, processedData as UpdateQuery<TDoc>, {
+        new: true,
+        runValidators: true,
+      }).exec(); // Execute update with validators ensuring Mongoose produces a fresh document
+
+      if (!updated) {
+        const error = new Error(`${resourceType} not found`) as NotFoundError;
+        error.code = 'NOT_FOUND';
+        throw error;
+      }
+
+      if (afterUpdate) {
+        await afterUpdate(updated);
+      }
+
+      console.log(`[crud] ${resourceType} updated: ${updated._id}`); // Log updates for auditing and debugging diffs
+      return updated;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'crud-service-factory.update', {
+        resourceType,
+        id,
+        uniqueField,
+        updateFieldCount: Object.keys(updateData).length,
+        hasUniqueFieldChange: updateData[uniqueField] !== undefined,
+        hasBeforeUpdate: beforeUpdate !== undefined,
+        hasAfterUpdate: afterUpdate !== undefined,
+      });
       throw error;
     }
-
-    if (afterUpdate) {
-      await afterUpdate(updated);
-    }
-
-    console.log(`[crud] ${resourceType} updated: ${updated._id}`); // Log updates for auditing and debugging diffs
-    return updated;
   }
 
   async function deleteById(id: string): Promise<HydratedDocument<TDoc>> {
-    const existing = await Model.findById(id).exec(); // Ensure we load document for lifecycle hooks before removing
-    if (!existing) {
-      const error = new Error(`${resourceType} not found`) as NotFoundError;
-      error.code = 'NOT_FOUND';
+    try {
+      const existing = await Model.findById(id).exec(); // Ensure we load document for lifecycle hooks before removing
+      if (!existing) {
+        const error = new Error(`${resourceType} not found`) as NotFoundError;
+        error.code = 'NOT_FOUND';
+        throw error;
+      }
+
+      if (beforeDelete) {
+        await beforeDelete(existing);
+      }
+
+      const deleted = await Model.findByIdAndDelete(id).exec(); // Delete via Mongoose so middleware executes and document returned
+      if (!deleted) {
+        const error = new Error(`${resourceType} not found`) as NotFoundError;
+        error.code = 'NOT_FOUND';
+        throw error;
+      }
+
+      if (afterDelete) {
+        await afterDelete(deleted);
+      }
+
+      console.log(`[crud] ${resourceType} deleted: ${deleted._id}`); // Capture deletions for compliance-friendly audit trail
+      return deleted;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'crud-service-factory.deleteById', {
+        resourceType,
+        id,
+        hasBeforeDelete: beforeDelete !== undefined,
+        hasAfterDelete: afterDelete !== undefined,
+      });
       throw error;
     }
-
-    if (beforeDelete) {
-      await beforeDelete(existing);
-    }
-
-    const deleted = await Model.findByIdAndDelete(id).exec(); // Delete via Mongoose so middleware executes and document returned
-    if (!deleted) {
-      const error = new Error(`${resourceType} not found`) as NotFoundError;
-      error.code = 'NOT_FOUND';
-      throw error;
-    }
-
-    if (afterDelete) {
-      await afterDelete(deleted);
-    }
-
-    console.log(`[crud] ${resourceType} deleted: ${deleted._id}`); // Capture deletions for compliance-friendly audit trail
-    return deleted;
   }
 
   async function search(
@@ -425,41 +472,64 @@ export function createCrudService<TDoc extends DocumentShape>(
       input: Partial<TDoc>;
     }>
   > {
-    const results: Array<{
-      success: boolean;
-      data?: HydratedDocument<TDoc>;
-      error?: string;
-      input: Partial<TDoc>;
-    }> = [];
+    try {
+      const results: Array<{
+        success: boolean;
+        data?: HydratedDocument<TDoc>;
+        error?: string;
+        input: Partial<TDoc>;
+      }> = [];
 
-    for (const item of items) {
-      try {
-        const created = await create(item);
-        results.push({ success: true, data: created, input: item });
-      } catch (error) {
-        const err = error as Error;
-        results.push({
-          success: false,
-          error: err.message,
-          input: item,
-        });
+      for (const item of items) {
+        try {
+          const created = await create(item);
+          results.push({ success: true, data: created, input: item });
+        } catch (error) {
+          const err = error as Error;
+          qerrors.qerrors(err, 'crud-service-factory.bulkCreate.item', {
+            resourceType,
+            itemFieldCount: Object.keys(item).length,
+            itemIndex: results.length,
+            totalItems: items.length,
+          });
+          results.push({
+            success: false,
+            error: err.message,
+            input: item,
+          });
+        }
       }
-    }
 
-    return results;
+      return results;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'crud-service-factory.bulkCreate', {
+        resourceType,
+        itemCount: items.length,
+      });
+      throw error;
+    }
   }
 
   async function upsert(
     query: FilterQuery<TDoc>,
     data: Partial<TDoc>
   ): Promise<HydratedDocument<TDoc>> {
-    const existing = await Model.findOne(query).exec(); // Look for existing doc first to respect hooks on update
-    if (existing) {
-      const identifier = (existing as { _id: unknown })._id;
-      return update(String(identifier), data);
-    }
+    try {
+      const existing = await Model.findOne(query).exec(); // Look for existing doc first to respect hooks on update
+      if (existing) {
+        const identifier = (existing as { _id: unknown })._id;
+        return update(String(identifier), data);
+      }
 
-    return create({ ...query, ...data });
+      return create({ ...query, ...data });
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'crud-service-factory.upsert', {
+        resourceType,
+        queryFieldCount: Object.keys(query).length,
+        dataFieldCount: Object.keys(data).length,
+      });
+      throw error;
+    }
   }
 
   return {
@@ -576,60 +646,69 @@ export function validateData<TDoc extends DocumentShape>(
   rules: ValidationRules<TDoc>,
   isUpdate: boolean = false
 ): void {
-  for (const [field, rule] of Object.entries(rules)) {
-    if (!rule) {
-      continue;
-    }
+  try {
+    for (const [field, rule] of Object.entries(rules)) {
+      if (!rule) {
+        continue;
+      }
 
-    const value = data[field as keyof TDoc];
+      const value = data[field as keyof TDoc];
 
-    if (rule.required && !isUpdate && (value === undefined || value === null || value === '')) {
-      throw new Error(`${field} is required`);
-    }
+      if (rule.required && !isUpdate && (value === undefined || value === null || value === '')) {
+        throw new Error(`${field} is required`);
+      }
 
-    if (value === undefined || value === null) {
-      continue;
-    }
+      if (value === undefined || value === null) {
+        continue;
+      }
 
-    if (rule.type === 'string' && typeof value !== 'string') {
-      throw new Error(`${field} must be a string`);
-    }
+      if (rule.type === 'string' && typeof value !== 'string') {
+        throw new Error(`${field} must be a string`);
+      }
 
-    if (rule.type === 'number' && typeof value !== 'number') {
-      throw new Error(`${field} must be a number`);
-    }
+      if (rule.type === 'number' && typeof value !== 'number') {
+        throw new Error(`${field} must be a number`);
+      }
 
-    if (rule.enum && !rule.enum.includes(value)) {
-      throw new Error(`${field} must be one of: ${rule.enum.join(', ')}`);
-    }
+      if (rule.enum && !rule.enum.includes(value)) {
+        throw new Error(`${field} must be one of: ${rule.enum.join(', ')}`);
+      }
 
-    if (
-      rule.minLength !== undefined &&
-      typeof value === 'string' &&
-      value.length < rule.minLength
-    ) {
-      throw new Error(`${field} must be at least ${rule.minLength} characters`);
-    }
+      if (
+        rule.minLength !== undefined &&
+        typeof value === 'string' &&
+        value.length < rule.minLength
+      ) {
+        throw new Error(`${field} must be at least ${rule.minLength} characters`);
+      }
 
-    if (
-      rule.maxLength !== undefined &&
-      typeof value === 'string' &&
-      value.length > rule.maxLength
-    ) {
-      throw new Error(`${field} must be at most ${rule.maxLength} characters`);
-    }
+      if (
+        rule.maxLength !== undefined &&
+        typeof value === 'string' &&
+        value.length > rule.maxLength
+      ) {
+        throw new Error(`${field} must be at most ${rule.maxLength} characters`);
+      }
 
-    if (rule.min !== undefined && typeof value === 'number' && value < rule.min) {
-      throw new Error(`${field} must be at least ${rule.min}`);
-    }
+      if (rule.min !== undefined && typeof value === 'number' && value < rule.min) {
+        throw new Error(`${field} must be at least ${rule.min}`);
+      }
 
-    if (rule.max !== undefined && typeof value === 'number' && value > rule.max) {
-      throw new Error(`${field} must be at most ${rule.max}`);
-    }
+      if (rule.max !== undefined && typeof value === 'number' && value > rule.max) {
+        throw new Error(`${field} must be at most ${rule.max}`);
+      }
 
-    if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
-      throw new Error(`${field} has invalid format`);
+      if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
+        throw new Error(`${field} has invalid format`);
+      }
     }
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'crud-service-factory.validateData', {
+      dataFieldCount: Object.keys(data).length,
+      ruleCount: Object.keys(rules).length,
+      isUpdate,
+    });
+    throw error;
   }
 }
 

@@ -12,6 +12,7 @@ import {
   ErrorTypes,
   ErrorFactory,
 } from './simple-wrapper.js';
+import * as qerrors from 'qerrors';
 
 type HttpErrorType =
   | 'BAD_REQUEST'
@@ -104,6 +105,13 @@ const sendErrorResponse = (
     }
     return res.status(statusCode).json(response); // Send deterministic structure to the caller
   } catch (err) {
+    qerrors.qerrors(err as Error, 'http-utils.sendJsonResponse', {
+      statusCode,
+      hasError: error !== undefined,
+      errorType:
+        error && typeof error === 'object' && 'type' in error ? (error as any).type : undefined,
+      responseSent: false,
+    });
     console.error(`Failed to send ${statusCode} response:`, (err as Error).message); // Log failure so we know when serialization breaks
     return res.status(500).json({
       error: {
@@ -171,6 +179,11 @@ const sanitizeResponseMessage = (message: unknown, fallback: string): string => 
     }
     return fallback; // Absent message resolves to standard copy
   } catch (error) {
+    qerrors.qerrors(error as Error, 'http-utils.sanitizeResponseMessage', {
+      messageType: typeof message,
+      hasFallback: fallback !== undefined,
+      messageLength: typeof message === 'string' ? message.length : undefined,
+    });
     console.warn('Response message sanitization failed, using fallback', {
       originalMessage: typeof message === 'string' ? message.substring(0, 100) : 'non-string',
       fallback,
@@ -285,6 +298,12 @@ const sendAuthError = (res: Response, message?: unknown): Response<ErrorEnvelope
     }; // Align payload with other helpers for predictability
     return res.status(401).json(response); // Respond with 401 to trigger client auth flows
   } catch (error) {
+    qerrors.qerrors(error as Error, 'http-utils.sendAuthenticationErrorResponse', {
+      statusCode: 401,
+      hasMessage: message !== undefined,
+      hasRequestId: requestId !== undefined,
+      securityEvent: true,
+    });
     console.error('Failed to send authentication error response', {
       requestId,
       originalMessage: message,

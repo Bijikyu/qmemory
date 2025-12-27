@@ -19,6 +19,7 @@ import {
   sendConflict,
   sendValidationError,
 } from './http-utils.js';
+import * as qerrors from 'qerrors';
 
 interface Logger {
   logDebug(message: string, context?: Record<string, unknown>): void;
@@ -77,6 +78,9 @@ export const ensureMongoDB = (res: Response): boolean => {
     logger.logDebug('ensureMongoDB confirmed healthy database connection');
     return true;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'database-utils.ensureMongoDB', {
+      readyState: mongoose.connection.readyState,
+    });
     logger.error('Database availability check error', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
@@ -115,6 +119,9 @@ export const ensureUnique = async <TSchema extends AnyDocumentShape>(
     logger.logDebug('ensureUnique completed without detecting duplicates');
     return true;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'database-utils.ensureUnique', {
+      queryKeys: Object.keys(query),
+    });
     logger.error('Error checking document uniqueness', {
       query,
       message: error instanceof Error ? error.message : String(error),
@@ -132,6 +139,13 @@ export const ensureUnique = async <TSchema extends AnyDocumentShape>(
  * @param operation Name of the operation in-flight for logging correlation.
  */
 export const handleMongoError = (error: unknown, res: Response | null, operation: string): void => {
+  qerrors.qerrors(error as Error, 'database-utils.handleMongoError', {
+    operation,
+    isMongoServerError: isMongoServerError(error),
+    errorCode: isMongoServerError(error) ? error.code : undefined,
+    hasResponse: res !== null,
+  });
+
   logger.error(`MongoDB error during ${operation}`, {
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
@@ -185,6 +199,10 @@ export const safeDbOperation = async <TResult>(
     logger.logDebug('safeDbOperation completed successfully', { operationName });
     return result;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'database-utils.safeDbOperation', {
+      operationName,
+      hasResponse: res !== null,
+    });
     logger.error('safeDbOperation failed', {
       operationName,
       message: error instanceof Error ? error.message : String(error),
@@ -216,6 +234,12 @@ export const retryDbOperation = async <TResult>(
       return result;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      qerrors.qerrors(lastError, 'database-utils.retryDbOperation', {
+        attempt,
+        maxRetries,
+        delay,
+        isFinalAttempt: attempt === maxRetries,
+      });
       logger.warn('retryDbOperation attempt failed', {
         attempt,
         maxRetries,
@@ -265,6 +289,10 @@ export const ensureIdempotency = async <TResult, TRecord extends IdempotencyReco
     logger.logDebug('ensureIdempotency stored new result', { idempotencyKey });
     return result;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'database-utils.ensureIdempotency', {
+      idempotencyKey,
+      operationType: typeof operation,
+    });
     logger.error('ensureIdempotency operation failed', {
       idempotencyKey,
       message: error instanceof Error ? error.message : String(error),

@@ -11,6 +11,7 @@ import {
   DatabaseConnectionPool,
   databaseConnectionPool as sharedDatabaseConnectionPool,
 } from './database/connection-pool-manager.js';
+import * as qerrors from 'qerrors';
 
 export interface DatabasePoolConfig {
   maxConnections?: number;
@@ -62,7 +63,7 @@ interface DatabaseConnectionPoolAPI {
   getPool(databaseUrl: string): SimpleDatabasePoolInstance | null | undefined;
   getOrCreatePool(
     databaseUrl: string,
-    config?: DatabasePoolConfig,
+    config?: DatabasePoolConfig
   ): Promise<SimpleDatabasePoolInstance | null | undefined>;
   removePool(databaseUrl: string): Promise<void>;
   getPoolUrls(): unknown;
@@ -74,12 +75,9 @@ interface DatabaseConnectionPoolAPI {
     databaseUrl: string,
     query: QueryDefinition,
     params?: unknown[],
-    config?: DatabasePoolConfig,
+    config?: DatabasePoolConfig
   ): Promise<unknown>;
-  acquireConnection(
-    databaseUrl: string,
-    config?: DatabasePoolConfig,
-  ): Promise<unknown>;
+  acquireConnection(databaseUrl: string, config?: DatabasePoolConfig): Promise<unknown>;
   releaseConnection(databaseUrl: string, connection: unknown): Promise<void>;
   performGlobalHealthCheck(): unknown;
   shutdown(): Promise<void>;
@@ -147,24 +145,15 @@ function assertStringArray(value: unknown, context: string): string[] {
 }
 
 // Validate that every entry is a SimpleDatabasePool instance for safe method access.
-function assertSimplePoolArray(
-  value: unknown,
-  context: string,
-): SimpleDatabasePoolInstance[] {
-  if (
-    !Array.isArray(value) ||
-    value.some(pool => !isSimplePoolInstance(pool))
-  ) {
+function assertSimplePoolArray(value: unknown, context: string): SimpleDatabasePoolInstance[] {
+  if (!Array.isArray(value) || value.some(pool => !isSimplePoolInstance(pool))) {
     throw new Error(`${context} must be an array of SimpleDatabasePool instances`);
   }
   return value as SimpleDatabasePoolInstance[];
 }
 
 // Map database type tallies while enforcing numeric counts.
-function assertPoolsByTypeRecord(
-  value: unknown,
-  context: string,
-): Record<string, number> {
+function assertPoolsByTypeRecord(value: unknown, context: string): Record<string, number> {
   if (value === undefined) {
     return {};
   }
@@ -199,7 +188,7 @@ function assertPoolStatistics(value: unknown, context: string): PoolStatistics {
 // Translate arbitrary records into strongly typed stats dictionaries.
 function assertPoolStatisticsRecord(
   value: unknown,
-  context: string,
+  context: string
 ): Record<string, PoolStatistics> {
   if (value === null || typeof value !== 'object') {
     throw new Error(`${context} must return an object keyed by database URL`);
@@ -212,10 +201,7 @@ function assertPoolStatisticsRecord(
 }
 
 // Validate per-pool health entries, including nested statistics and textual issue details.
-function assertHealthStatus(
-  value: unknown,
-  context: string,
-): PoolHealthStatus {
+function assertHealthStatus(value: unknown, context: string): PoolHealthStatus {
   if (value === null || typeof value !== 'object') {
     throw new Error(`${context} must be an object containing pool health data`);
   }
@@ -232,10 +218,7 @@ function assertHealthStatus(
 }
 
 // Guard health maps to ensure each database URL yields a valid health snapshot.
-function assertPoolHealthRecord(
-  value: unknown,
-  context: string,
-): Record<string, PoolHealthStatus> {
+function assertPoolHealthRecord(value: unknown, context: string): Record<string, PoolHealthStatus> {
   if (value === null || typeof value !== 'object') {
     throw new Error(`${context} must return an object keyed by database URL`);
   }
@@ -249,7 +232,7 @@ function assertPoolHealthRecord(
 // Restrict health strings to the sanctioned set emitted by the pool layer.
 function assertOverallHealth(
   value: unknown,
-  context: string,
+  context: string
 ): GlobalPoolStatistics['overallHealth'] {
   const status = assertNonEmptyString(value, context);
   if (!HEALTH_STATUSES.has(status as PoolHealthStatus['status'])) {
@@ -259,27 +242,21 @@ function assertOverallHealth(
 }
 
 // Validate the aggregated statistics payload pulled from the connection manager.
-function assertGlobalStatistics(
-  value: unknown,
-  context: string,
-): GlobalPoolStatistics {
+function assertGlobalStatistics(value: unknown, context: string): GlobalPoolStatistics {
   if (value === null || typeof value !== 'object') {
     throw new Error(`${context} must return an object with global statistics`);
   }
   const stats = value as Record<string, unknown>;
   return {
     totalPools: assertFiniteNumber(stats.totalPools, `${context}.totalPools`),
-    totalConnections: assertFiniteNumber(
-      stats.totalConnections,
-      `${context}.totalConnections`,
-    ),
+    totalConnections: assertFiniteNumber(stats.totalConnections, `${context}.totalConnections`),
     totalActiveConnections: assertFiniteNumber(
       stats.totalActiveConnections,
-      `${context}.totalActiveConnections`,
+      `${context}.totalActiveConnections`
     ),
     totalWaitingRequests: assertFiniteNumber(
       stats.totalWaitingRequests,
-      `${context}.totalWaitingRequests`,
+      `${context}.totalWaitingRequests`
     ),
     poolsByType: assertPoolsByTypeRecord(stats.poolsByType, `${context}.poolsByType`),
     overallHealth: assertOverallHealth(stats.overallHealth, `${context}.overallHealth`),
@@ -294,35 +271,59 @@ const connectionPoolManager: DatabaseConnectionPoolAPI =
 const databaseConnectionPool = new DatabaseConnectionPool();
 
 // Provision a pool for the provided database URL, delegating configuration as-is.
-function createDatabasePool(
-  databaseUrl: string,
-  config: DatabasePoolConfig = {},
-): Promise<void> {
-  return connectionPoolManager.createPool(databaseUrl, config);
+function createDatabasePool(databaseUrl: string, config: DatabasePoolConfig = {}): Promise<void> {
+  try {
+    return connectionPoolManager.createPool(databaseUrl, config);
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'database-pool.createDatabasePool', {
+      databaseUrl: databaseUrl.replace(/\/\/.*@/, '//***:***@'), // Sanitize potential credentials
+      configKeys: Object.keys(config),
+      hasMaxConnections: config.maxConnections !== undefined,
+      hasMinConnections: config.minConnections !== undefined,
+    });
+    throw error;
+  }
 }
 
 // Fetch an existing pool while ensuring the returned instance matches the expected class.
 function getDatabasePool(databaseUrl: string): SimpleDatabasePoolInstance | null {
-  const pool = connectionPoolManager.getPool(databaseUrl);
-  if (pool == null) {
-    return null;
+  try {
+    const pool = connectionPoolManager.getPool(databaseUrl);
+    if (pool == null) {
+      return null;
+    }
+    if (!isSimplePoolInstance(pool)) {
+      throw new Error('Retrieved pool does not match SimpleDatabasePool instance');
+    }
+    return pool;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'database-pool.getDatabasePool', {
+      databaseUrl: databaseUrl.replace(/\/\/.*@/, '//***:***@'), // Sanitize potential credentials
+    });
+    throw error;
   }
-  if (!isSimplePoolInstance(pool)) {
-    throw new Error('Retrieved pool does not match SimpleDatabasePool instance');
-  }
-  return pool;
 }
 
 // Lazily create or fetch a pool, guaranteeing a valid SimpleDatabasePool is returned.
 async function createOrGetDatabasePool(
   databaseUrl: string,
-  config: DatabasePoolConfig = {},
+  config: DatabasePoolConfig = {}
 ): Promise<SimpleDatabasePoolInstance> {
-  const pool = await connectionPoolManager.getOrCreatePool(databaseUrl, config);
-  if (!isSimplePoolInstance(pool)) {
-    throw new Error('getOrCreatePool must return a SimpleDatabasePool instance');
+  try {
+    const pool = await connectionPoolManager.getOrCreatePool(databaseUrl, config);
+    if (!isSimplePoolInstance(pool)) {
+      throw new Error('getOrCreatePool must return a SimpleDatabasePool instance');
+    }
+    return pool;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'database-pool.createOrGetDatabasePool', {
+      databaseUrl: databaseUrl.replace(/\/\/.*@/, '//***:***@'), // Sanitize potential credentials
+      configKeys: Object.keys(config),
+      hasMaxConnections: config.maxConnections !== undefined,
+      hasMinConnections: config.minConnections !== undefined,
+    });
+    throw error;
   }
-  return pool;
 }
 
 // Remove a pool and trigger graceful teardown on the manager layer.
@@ -333,17 +334,32 @@ function removeDatabasePool(databaseUrl: string): Promise<void> {
 // Acquire a connection proxy from the appropriate pool.
 function acquireDatabaseConnection(
   databaseUrl: string,
-  config?: DatabasePoolConfig,
+  config?: DatabasePoolConfig
 ): Promise<unknown> {
-  return connectionPoolManager.acquireConnection(databaseUrl, config);
+  try {
+    return connectionPoolManager.acquireConnection(databaseUrl, config);
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'database-pool.acquireDatabaseConnection', {
+      databaseUrl: databaseUrl.replace(/\/\/.*@/, '//***:***@'), // Sanitize potential credentials
+      hasConfig: config !== undefined,
+      configKeys: config ? Object.keys(config) : undefined,
+    });
+    throw error;
+  }
 }
 
 // Release a connection back to its pool, mirroring the manager contract.
-function releaseDatabaseConnection(
-  databaseUrl: string,
-  connection: unknown,
-): Promise<void> {
-  return connectionPoolManager.releaseConnection(databaseUrl, connection);
+function releaseDatabaseConnection(databaseUrl: string, connection: unknown): Promise<void> {
+  try {
+    return connectionPoolManager.releaseConnection(databaseUrl, connection);
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'database-pool.releaseDatabaseConnection', {
+      databaseUrl: databaseUrl.replace(/\/\/.*@/, '//***:***@'), // Sanitize potential credentials
+      hasConnection: connection !== undefined && connection !== null,
+      connectionType: typeof connection,
+    });
+    throw error;
+  }
 }
 
 // Execute a query or queued operation, enforcing parameter list integrity.
@@ -351,28 +367,37 @@ function executeDatabaseQuery(
   databaseUrl: string,
   query: QueryDefinition,
   params: unknown[] = [],
-  config?: DatabasePoolConfig,
+  config?: DatabasePoolConfig
 ): Promise<unknown> {
-  if (!Array.isArray(params)) {
-    throw new Error('Query parameters must be supplied as an array');
+  try {
+    if (!Array.isArray(params)) {
+      throw new Error('Query parameters must be supplied as an array');
+    }
+    return connectionPoolManager.executeQuery(databaseUrl, query, params, config);
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'database-pool.executeDatabaseQuery', {
+      databaseUrl: databaseUrl.replace(/\/\/.*@/, '//***:***@'), // Sanitize potential credentials
+      queryType: typeof query,
+      isStringQuery: typeof query === 'string',
+      isMethodDescriptor: query && typeof query === 'object' && 'method' in query,
+      paramCount: Array.isArray(params) ? params.length : -1,
+      hasConfig: config !== undefined,
+    });
+    throw error;
   }
-  return connectionPoolManager.executeQuery(databaseUrl, query, params, config);
 }
 
 // Retrieve statistics for every registered pool.
 function getDatabasePoolStats(): Record<string, PoolStatistics> {
   return assertPoolStatisticsRecord(
     connectionPoolManager.getAllStats(),
-    'database pool statistics',
+    'database pool statistics'
   );
 }
 
 // Retrieve health snapshots for every registered pool.
 function getDatabasePoolHealth(): Record<string, PoolHealthStatus> {
-  return assertPoolHealthRecord(
-    connectionPoolManager.getAllHealthStatus(),
-    'database pool health',
-  );
+  return assertPoolHealthRecord(connectionPoolManager.getAllHealthStatus(), 'database pool health');
 }
 
 // Request a global shutdown across every pool.
@@ -382,25 +407,19 @@ function shutdownDatabasePools(): Promise<void> {
 
 // Enumerate every pooled database URL.
 function getAllDatabasePoolUrls(): string[] {
-  return assertStringArray(
-    connectionPoolManager.getPoolUrls(),
-    'connection pool URLs',
-  );
+  return assertStringArray(connectionPoolManager.getPoolUrls(), 'connection pool URLs');
 }
 
 // Enumerate every SimpleDatabasePool instance.
 function getAllDatabasePools(): SimpleDatabasePoolInstance[] {
-  return assertSimplePoolArray(
-    connectionPoolManager.getAllPools(),
-    'connection pool list',
-  );
+  return assertSimplePoolArray(connectionPoolManager.getAllPools(), 'connection pool list');
 }
 
 // Aggregate cross-pool statistics into a single object.
 function getGlobalDatabaseStatistics(): GlobalPoolStatistics {
   return assertGlobalStatistics(
     connectionPoolManager.getGlobalStats(),
-    'global database statistics',
+    'global database statistics'
   );
 }
 
@@ -408,7 +427,7 @@ function getGlobalDatabaseStatistics(): GlobalPoolStatistics {
 function performGlobalDatabaseHealthCheck(): Record<string, PoolHealthStatus> {
   return assertPoolHealthRecord(
     connectionPoolManager.performGlobalHealthCheck(),
-    'global health check results',
+    'global health check results'
   );
 }
 
@@ -417,16 +436,13 @@ function getDatabasePoolUrlsByType(dbType: string): string[] {
   const normalizedType = assertNonEmptyString(dbType, 'database type');
   return assertStringArray(
     connectionPoolManager.getPoolUrlsByType(normalizedType),
-    `connection pool URLs filtered by type ${normalizedType}`,
+    `connection pool URLs filtered by type ${normalizedType}`
   );
 }
 
 // Count the number of active pools across all types.
 function getDatabasePoolCount(): number {
-  return assertFiniteNumber(
-    connectionPoolManager.getPoolCount(),
-    'database pool count',
-  );
+  return assertFiniteNumber(connectionPoolManager.getPoolCount(), 'database pool count');
 }
 
 // Determine whether a pool already exists for the requested URL.
@@ -443,7 +459,7 @@ function getDatabasePoolsByType(dbType: string): SimpleDatabasePoolInstance[] {
   const normalizedType = assertNonEmptyString(dbType, 'database type');
   return assertSimplePoolArray(
     connectionPoolManager.getPoolsByType(normalizedType),
-    `connection pools filtered by type ${normalizedType}`,
+    `connection pools filtered by type ${normalizedType}`
   );
 }
 
