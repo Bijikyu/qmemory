@@ -52,8 +52,17 @@ export class MemStorage {
    * @param id - Auto-incremented identifier assigned to the user.
    * @returns Stored user or undefined when not found.
    */
-  getUser = async (id: number): Promise<User | undefined> =>
-    typeof id !== 'number' || id < 1 ? undefined : this.users.get(id); // direct Map lookup for performance
+  getUser = async (id: number): Promise<User | undefined> => {
+    try {
+      return typeof id !== 'number' || id < 1 ? undefined : this.users.get(id); // direct Map lookup for performance
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'storage.getUser', {
+        id,
+        operation: 'get',
+      });
+      throw error; // Re-throw to preserve error propagation
+    }
+  };
 
   /**
    * Retrieves a user by username, trimming whitespace for consistency.
@@ -61,10 +70,19 @@ export class MemStorage {
    * @param username - Username to match against existing records.
    * @returns Stored user or undefined when not found.
    */
-  getUserByUsername = async (username: string): Promise<User | undefined> =>
-    typeof username !== 'string' || !username.trim().length
-      ? undefined
-      : Array.from(this.users.values()).find(user => user.username === username.trim()); // O(n) search but necessary for username lookup
+  getUserByUsername = async (username: string): Promise<User | undefined> => {
+    try {
+      return typeof username !== 'string' || !username.trim().length
+        ? undefined
+        : Array.from(this.users.values()).find(user => user.username === username.trim()); // O(n) search but necessary for username lookup
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'storage.getUserByUsername', {
+        username: typeof username === 'string' ? username.trim() : username,
+        operation: 'getByUsername',
+      });
+      throw error; // Re-throw to preserve error propagation
+    }
+  };
 
   private normalizeUserFields = (insertUser: InsertUser): Omit<User, 'id'> => ({
     username: insertUser.username.trim(),
@@ -113,7 +131,17 @@ export class MemStorage {
   /**
    * @returns Snapshot of the current users stored in memory.
    */
-  getAllUsers = async (): Promise<User[]> => Array.from(this.users.values());
+  getAllUsers = async (): Promise<User[]> => {
+    try {
+      return Array.from(this.users.values());
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'storage.getAllUsers', {
+        userCount: this.users.size,
+        operation: 'getAll',
+      });
+      throw error; // Re-throw to preserve error propagation
+    }
+  };
 
   /**
    * Updates a user record by identifier.
@@ -163,16 +191,32 @@ export class MemStorage {
    * @returns True when deletion occurred, otherwise false.
    */
   deleteUser = async (id: number): Promise<boolean> => {
-    if (typeof id !== 'number' || id < 1) return false;
-    return this.users.delete(id);
+    try {
+      if (typeof id !== 'number' || id < 1) return false;
+      return this.users.delete(id);
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'storage.deleteUser', {
+        id,
+        operation: 'delete',
+      });
+      throw error; // Re-throw to preserve error propagation
+    }
   };
 
   /**
    * Clears the storage and resets the auto-incrementing counter.
    */
   clear = async (): Promise<void> => {
-    this.users.clear();
-    this.currentId = 1;
+    try {
+      this.users.clear();
+      this.currentId = 1;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'storage.clear', {
+        userCount: this.users.size,
+        operation: 'clear',
+      });
+      throw error;
+    }
   };
 }
 

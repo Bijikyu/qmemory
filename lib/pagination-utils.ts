@@ -33,6 +33,7 @@ import {
   sendErrorResponse,
 } from './http-utils.js';
 import { logFunctionEntry } from './logging-utils.js';
+import * as qerrors from 'qerrors';
 const parseIntegerParam = (paramValue, paramName) => {
   const paramStr = String(paramValue).trim();
   const paramNum = parseInt(paramStr, 10);
@@ -107,7 +108,7 @@ function validatePagination(req: any, res: any, options: any = {}) {
     } = options;
     // Ensure query object exists to prevent property access errors
     // Defensive programming prevents crashes when query is undefined
-    req.query = req.query || {};
+    req.query = req.query ?? {};
     // Extract and convert pagination parameters with proper validation
     // Handle string inputs and check for valid numeric values
     let page = defaultPage;
@@ -167,6 +168,11 @@ function validatePagination(req: any, res: any, options: any = {}) {
   } catch (error) {
     // Handle unexpected errors using existing HTTP utility for consistency
     // This maintains the same error handling patterns used throughout the library
+    qerrors.qerrors(error as Error, 'pagination-utils.validatePagination', {
+      operation: 'pagination-validation',
+      hasQuery: req && req.query !== undefined,
+      queryKeys: req && req.query ? Object.keys(req.query) : [],
+    });
     console.error('Pagination validation error:', error);
     sendInternalServerError(res, 'Internal server error during pagination validation');
     return null;
@@ -357,6 +363,11 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
     console.log(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
     return pagination;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'pagination-utils.validateCursorPagination', {
+      operation: 'cursor-pagination-validation',
+      hasQuery: req && req.query !== undefined,
+      queryKeys: req && req.query ? Object.keys(req.query) : [],
+    });
     console.error('Cursor pagination validation error:', error);
     sendInternalServerError(res, 'Internal server error during cursor pagination validation');
     return null;
@@ -379,18 +390,29 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
  * @returns Base64 encoded cursor string
  */
 function createCursor(record, sortField = 'id') {
-  if (!record) return null;
-  const cursorData = {
-    [sortField]: record[sortField],
-    id: record.id || record._id, // Support both SQL and MongoDB style IDs
-    timestamp: new Date().toISOString(),
-  };
-  const cursorJson = JSON.stringify(cursorData);
-  const encodedCursor = Buffer.from(cursorJson, 'utf-8').toString('base64');
-  console.log(
-    `createCursor generated cursor for ${sortField}=${record[sortField]}: ${encodedCursor}`
-  );
-  return encodedCursor;
+  try {
+    if (!record) return null;
+    const cursorData = {
+      [sortField]: record[sortField],
+      id: record.id || record._id, // Support both SQL and MongoDB style IDs
+      timestamp: new Date().toISOString(),
+    };
+    const cursorJson = JSON.stringify(cursorData);
+    const encodedCursor = Buffer.from(cursorJson, 'utf-8').toString('base64');
+    console.log(
+      `createCursor generated cursor for ${sortField}=${record[sortField]}: ${encodedCursor}`
+    );
+    return encodedCursor;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'pagination-utils.createCursor', {
+      sortField,
+      hasRecord: record !== undefined,
+      recordType: typeof record,
+      operation: 'cursor-creation',
+    });
+    console.error('Cursor creation error:', error);
+    return null;
+  }
 }
 /**
  * Creates cursor-based pagination metadata for API responses
@@ -522,6 +544,11 @@ function validateSorting(req: any, res: any, options: any = {}) {
     console.log(`validateSorting is returning: ${JSON.stringify(result)}`);
     return result;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'pagination-utils.validateSorting', {
+      operation: 'sorting-validation',
+      hasQuery: req && req.query !== undefined,
+      queryKeys: req && req.query ? Object.keys(req.query) : [],
+    });
     console.error('Sorting validation error:', error);
     sendInternalServerError(res, 'Internal server error during sorting validation');
     return null;

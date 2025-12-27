@@ -194,10 +194,10 @@ export class AsyncQueueWrapper extends EventEmitter {
             jobType: job.data?.type || 'default',
             activeJobsCount: this.activeJobs.size,
           });
+          this.activeJobs.delete(String(job.id));
+          this.emit('jobError', { jobId: String(job.id), error: error as Error, state });
+          throw error;
         }
-        this.activeJobs.delete(String(job.id));
-        this.emit('jobError', { jobId: String(job.id), error, state });
-        throw error;
       });
 
       this.queues.set(state, queue);
@@ -229,6 +229,7 @@ export class AsyncQueueWrapper extends EventEmitter {
     return job;
   }
 
+  clear(): void {
     this.queues.clear();
     this.processors.clear();
     this.activeJobs.clear();
@@ -239,7 +240,8 @@ export class AsyncQueueWrapper extends EventEmitter {
   }
 
   async getStats(): Promise<QueueStats> {
-    const allJobs = await this.getJobs();
+    const defaultQueue = this.getQueue('default');
+    const allJobs = defaultQueue ? await defaultQueue.getJobs() : [];
     const waitingJobs = allJobs.filter(job => job.data.status === 'waiting');
     const activeJobs = allJobs.filter(job => job.data.status === 'active');
 

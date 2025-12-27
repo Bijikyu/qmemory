@@ -22,6 +22,7 @@ import type { FilterQuery, Model, Types } from 'mongoose';
 type LeanDocument<T> = T;
 import type { MongoServerError } from 'mongodb';
 import type { Request, Response, NextFunction } from 'express';
+import * as qerrors from 'qerrors';
 
 type DocumentShape = Record<string, unknown>;
 type MaybeObjectId = Types.ObjectId | string;
@@ -107,27 +108,39 @@ export async function checkDuplicateByField<
   excludeId: MaybeObjectId | null = null,
   resourceType: string = 'resource' // kept for backward compatibility / logging
 ): Promise<LeanDocument<TDoc> | null> {
-  if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
-    return null;
+  try {
+    if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+      return null;
+    }
+
+    const query: FilterQuery<TDoc> = {};
+
+    // Use case-insensitive search for string values to prevent casing duplicates.
+    if (typeof fieldValue === 'string') {
+      query[fieldName] = {
+        $regex: new RegExp(`^${escapeRegex(fieldValue)}$`, 'i'),
+      } as FilterQuery<TDoc>[TField];
+    } else {
+      query[fieldName] = fieldValue as FilterQuery<TDoc>[TField];
+    }
+
+    if (excludeId) {
+      query._id = { $ne: excludeId } as unknown as FilterQuery<TDoc>['_id'];
+    }
+
+    const existing = await Model.findOne(query).lean<TDoc>();
+    return existing;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'unique-validator.checkDuplicateByField', {
+      fieldName,
+      resourceType,
+      hasExcludeId: excludeId !== null,
+      fieldValue:
+        typeof fieldValue === 'string' ? fieldValue.substring(0, 100) : String(fieldValue),
+      operation: 'duplicate-check',
+    });
+    throw error;
   }
-
-  const query: FilterQuery<TDoc> = {};
-
-  // Use case-insensitive search for string values to prevent casing duplicates.
-  if (typeof fieldValue === 'string') {
-    query[fieldName] = {
-      $regex: new RegExp(`^${escapeRegex(fieldValue)}$`, 'i'),
-    } as FilterQuery<TDoc>[TField];
-  } else {
-    query[fieldName] = fieldValue as FilterQuery<TDoc>[TField];
-  }
-
-  if (excludeId) {
-    query._id = { $ne: excludeId } as unknown as FilterQuery<TDoc>['_id'];
-  }
-
-  const existing = await Model.findOne(query).lean<TDoc>();
-  return existing;
 }
 
 /**
@@ -143,24 +156,36 @@ export async function validateUniqueField<
   excludeId: MaybeObjectId | null = null,
   resourceType: string = 'resource'
 ): Promise<void> {
-  const existing = await checkDuplicateByField(
-    Model,
-    fieldName,
-    fieldValue,
-    excludeId,
-    resourceType
-  );
+  try {
+    const existing = await checkDuplicateByField(
+      Model,
+      fieldName,
+      fieldValue,
+      excludeId,
+      resourceType
+    );
 
-  if (existing) {
-    const duplicateError = new Error(
-      `A ${resourceType} with this ${fieldName} already exists`
-    ) as DuplicateError;
-    duplicateError.code = 'DUPLICATE';
-    duplicateError.status = 409;
-    duplicateError.field = fieldName;
-    duplicateError.value = fieldValue;
-    duplicateError.existingId = existing._id;
-    throw duplicateError;
+    if (existing) {
+      const duplicateError = new Error(
+        `A ${resourceType} with this ${fieldName} already exists`
+      ) as DuplicateError;
+      duplicateError.code = 'DUPLICATE';
+      duplicateError.status = 409;
+      duplicateError.field = fieldName;
+      duplicateError.value = fieldValue;
+      duplicateError.existingId = existing._id;
+      throw duplicateError;
+    }
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'unique-validator.validateUniqueField', {
+      fieldName,
+      resourceType,
+      hasExcludeId: excludeId !== null,
+      fieldValue:
+        typeof fieldValue === 'string' ? fieldValue.substring(0, 100) : String(fieldValue),
+      operation: 'unique-validation',
+    });
+    throw error;
   }
 }
 
@@ -177,23 +202,34 @@ export async function validateUniqueFields<TDoc extends DocumentShape>(
   excludeId: MaybeObjectId | null = null,
   resourceType: string = 'resource'
 ): Promise<void> {
-  const validationPromises: Array<Promise<void>> = [];
+  try {
+    const validationPromises: Array<Promise<void>> = [];
 
-  for (const [fieldName, fieldValue] of Object.entries(fieldValueMap)) {
-    if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
-      validationPromises.push(
-        validateUniqueField(
-          Model,
-          fieldName as keyof TDoc & string,
-          fieldValue as TDoc[keyof TDoc & string],
-          excludeId,
-          resourceType
-        )
-      );
+    for (const [fieldName, fieldValue] of Object.entries(fieldValueMap)) {
+      if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+        validationPromises.push(
+          validateUniqueField(
+            Model,
+            fieldName as keyof TDoc & string,
+            fieldValue as TDoc[keyof TDoc & string],
+            excludeId,
+            resourceType
+          )
+        );
+      }
     }
-  }
 
-  await Promise.all(validationPromises);
+    await Promise.all(validationPromises);
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'unique-validator.validateUniqueFields', {
+      fieldCount: Object.keys(fieldValueMap).length,
+      fieldNames: Object.keys(fieldValueMap),
+      resourceType,
+      hasExcludeId: excludeId !== null,
+      operation: 'multi-field-validation',
+    });
+    throw error;
+  }
 }
 
 /**
@@ -282,7 +318,16 @@ function isMongoDuplicateError(
  */
 export function handleDuplicateKeyError(error: unknown, resourceType: string = 'resource'): Error {
   if (isMongoDuplicateError(error)) {
-    const field = Object.keys(error.keyValue)[0];
+    // Safe check for keyValue existence and type
+    const keyValue = (error as any).keyValue;
+    if (!keyValue || typeof keyValue !== 'object') {
+      const duplicateError = new Error(`Duplicate ${resourceType} detected`) as DuplicateError;
+      duplicateError.code = 'DUPLICATE';
+      duplicateError.status = 409;
+      return duplicateError;
+    }
+
+    const field = Object.keys(keyValue)[0];
 
     if (field) {
       const duplicateError = new Error(
@@ -291,9 +336,8 @@ export function handleDuplicateKeyError(error: unknown, resourceType: string = '
       duplicateError.code = 'DUPLICATE';
       duplicateError.status = 409;
       duplicateError.field = field;
-      duplicateError.value = error.keyValue[field];
-      duplicateError.isDuplicate = true;
-      duplicateError.originalError = error as Error;
+      duplicateError.value = keyValue[field];
+      duplicateError.existingId = (error as any).writeErrors?.[0]?.op?._id;
       return duplicateError;
     }
   }
@@ -312,6 +356,12 @@ export function withDuplicateKeyHandling<TArgs extends unknown[], TResult>(
     try {
       return await fn.apply(this, args);
     } catch (error) {
+      qerrors.qerrors(error as Error, 'unique-validator.withDuplicateKeyHandling', {
+        resourceType,
+        argCount: args.length,
+        functionName: fn.name || 'anonymous',
+        operation: 'duplicate-key-wrapper',
+      });
       throw handleDuplicateKeyError(error, resourceType);
     }
   };
@@ -457,26 +507,46 @@ export function createBatchUniqueChecker<
 ): BatchUniqueChecker<TDoc[TField]> {
   return {
     async checkMany(values: Array<TDoc[TField]>): Promise<BatchCheckResults<TDoc[TField]>> {
-      const results: BatchCheckResults<TDoc[TField]> = {
-        unique: [],
-        duplicates: [],
-      };
+      try {
+        const results: BatchCheckResults<TDoc[TField]> = {
+          unique: [],
+          duplicates: [],
+        };
 
-      for (const value of values) {
-        const existing = await checkDuplicateByField(Model, fieldName, value, null, resourceType);
-        if (existing) {
-          results.duplicates.push({ value, existingId: existing._id });
-        } else {
-          results.unique.push(value);
+        for (const value of values) {
+          const existing = await checkDuplicateByField(Model, fieldName, value, null, resourceType);
+          if (existing) {
+            results.duplicates.push({ value, existingId: existing._id });
+          } else {
+            results.unique.push(value);
+          }
         }
-      }
 
-      return results;
+        return results;
+      } catch (error) {
+        qerrors.qerrors(error as Error, 'unique-validator.createBatchUniqueChecker.checkMany', {
+          fieldName,
+          resourceType,
+          valueCount: values.length,
+          operation: 'batch-duplicate-check',
+        });
+        throw error;
+      }
     },
 
     async filterUnique(values: Array<TDoc[TField]>): Promise<Array<TDoc[TField]>> {
-      const results = await this.checkMany(values);
-      return results.unique;
+      try {
+        const results = await this.checkMany(values);
+        return results.unique;
+      } catch (error) {
+        qerrors.qerrors(error as Error, 'unique-validator.createBatchUniqueChecker.filterUnique', {
+          fieldName,
+          resourceType,
+          valueCount: values.length,
+          operation: 'batch-filter-unique',
+        });
+        throw error;
+      }
     },
   };
 }

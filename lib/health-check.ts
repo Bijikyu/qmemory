@@ -26,6 +26,7 @@ import { totalmem, freemem, cpus as getCpuInfo, loadavg as getLoadAverage } from
 import { createTerminus, HealthCheck } from '@godaddy/terminus';
 import { Server } from 'http';
 import { Request, Response } from 'express';
+import * as qerrors from 'qerrors';
 
 interface MemoryUsage {
   rss: number;
@@ -155,6 +156,9 @@ const getFilesystemUsage = async (): Promise<FilesystemUsage> => {
     await fs.stat('.');
     return { status: 'pass', message: 'Filesystem accessible' };
   } catch (error) {
+    qerrors.qerrors(error as Error, 'health-check.getFilesystemUsage', {
+      operation: 'filesystem-check',
+    });
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { status: 'fail', message: `Filesystem error: ${errorMessage}` };
   }
@@ -181,81 +185,88 @@ function getRequestMetrics(): RequestMetrics {
  * @returns {Promise<HealthCheckResult>} Health check results
  */
 async function performHealthCheck() {
-  const memUsage = getMemoryUsage();
-  const cpuUsage = getCpuUsage();
-  const fsUsage = await getFilesystemUsage();
-  const requestMetrics = getRequestMetrics();
-  // Determine overall health status
-  const memoryUsagePercent = parseFloat(memUsage.systemUsagePercent);
-  const load1Min = cpuUsage.loadAverage['1min'];
-  const errorRate = requestMetrics.errorRate;
-  let overallStatus = 'pass';
-  const checks = [];
-  let hasFailed = false;
-  // Memory check
-  if (memoryUsagePercent > 90) {
-    overallStatus = 'fail';
-    hasFailed = true;
-    checks.push({
-      name: 'memory',
-      status: 'fail',
-      message: `Memory usage: ${memoryUsagePercent}%`,
-    });
-  } else if (memoryUsagePercent > 75) {
-    if (!hasFailed) {
-      overallStatus = 'warn';
+  try {
+    const memUsage = getMemoryUsage();
+    const cpuUsage = getCpuUsage();
+    const fsUsage = await getFilesystemUsage();
+    const requestMetrics = getRequestMetrics();
+    // Determine overall health status
+    const memoryUsagePercent = parseFloat(memUsage.systemUsagePercent);
+    const load1Min = cpuUsage.loadAverage['1min'];
+    const errorRate = requestMetrics.errorRate;
+    let overallStatus = 'pass';
+    const checks = [];
+    let hasFailed = false;
+    // Memory check
+    if (memoryUsagePercent > 90) {
+      overallStatus = 'fail';
+      hasFailed = true;
+      checks.push({
+        name: 'memory',
+        status: 'fail',
+        message: `Memory usage: ${memoryUsagePercent}%`,
+      });
+    } else if (memoryUsagePercent > 75) {
+      if (!hasFailed) {
+        overallStatus = 'warn';
+      }
+      checks.push({
+        name: 'memory',
+        status: 'warn',
+        message: `Memory usage: ${memoryUsagePercent}%`,
+      });
+    } else {
+      checks.push({
+        name: 'memory',
+        status: 'pass',
+        message: `Memory usage: ${memoryUsagePercent}%`,
+      });
     }
-    checks.push({
-      name: 'memory',
-      status: 'warn',
-      message: `Memory usage: ${memoryUsagePercent}%`,
-    });
-  } else {
-    checks.push({
-      name: 'memory',
-      status: 'pass',
-      message: `Memory usage: ${memoryUsagePercent}%`,
-    });
-  }
-  // CPU check
-  if (load1Min > cpuUsage.cores * 2) {
-    overallStatus = 'fail';
-    checks.push({ name: 'cpu', status: 'fail', message: `Load average: ${load1Min.toFixed(2)}` });
-  } else if (load1Min > cpuUsage.cores) {
-    overallStatus = overallStatus === 'fail' ? 'fail' : 'warn';
-    checks.push({ name: 'cpu', status: 'warn', message: `Load average: ${load1Min.toFixed(2)}` });
-  } else {
-    checks.push({ name: 'cpu', status: 'pass', message: `Load average: ${load1Min.toFixed(2)}` });
-  }
-  // Filesystem check
-  checks.push({ name: 'filesystem', status: fsUsage.status, message: fsUsage.message });
-  if (fsUsage.status === 'fail') {
-    overallStatus = 'fail';
-    hasFailed = true;
-  }
-  // Error rate check
-  if (errorRate > 50) {
-    overallStatus = 'fail';
-    checks.push({ name: 'error_rate', status: 'fail', message: `Error rate: ${errorRate}%` });
-  } else if (errorRate > 10) {
-    if (!hasFailed) {
-      overallStatus = 'warn';
+    // CPU check
+    if (load1Min > cpuUsage.cores * 2) {
+      overallStatus = 'fail';
+      checks.push({ name: 'cpu', status: 'fail', message: `Load average: ${load1Min.toFixed(2)}` });
+    } else if (load1Min > cpuUsage.cores) {
+      overallStatus = overallStatus === 'fail' ? 'fail' : 'warn';
+      checks.push({ name: 'cpu', status: 'warn', message: `Load average: ${load1Min.toFixed(2)}` });
+    } else {
+      checks.push({ name: 'cpu', status: 'pass', message: `Load average: ${load1Min.toFixed(2)}` });
     }
-    checks.push({ name: 'error_rate', status: 'warn', message: `Error rate: ${errorRate}%` });
-  } else {
-    checks.push({ name: 'error_rate', status: 'pass', message: `Error rate: ${errorRate}%` });
+    // Filesystem check
+    checks.push({ name: 'filesystem', status: fsUsage.status, message: fsUsage.message });
+    if (fsUsage.status === 'fail') {
+      overallStatus = 'fail';
+      hasFailed = true;
+    }
+    // Error rate check
+    if (errorRate > 50) {
+      overallStatus = 'fail';
+      checks.push({ name: 'error_rate', status: 'fail', message: `Error rate: ${errorRate}%` });
+    } else if (errorRate > 10) {
+      if (!hasFailed) {
+        overallStatus = 'warn';
+      }
+      checks.push({ name: 'error_rate', status: 'warn', message: `Error rate: ${errorRate}%` });
+    } else {
+      checks.push({ name: 'error_rate', status: 'pass', message: `Error rate: ${errorRate}%` });
+    }
+    return {
+      status: overallStatus,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      checks,
+      metrics: {
+        memory: memUsage,
+        cpu: cpuUsage,
+        requests: requestMetrics,
+      },
+    };
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'health-check.performHealthCheck', {
+      operation: 'comprehensive-health-check',
+    });
+    throw error;
   }
-  return {
-    status: overallStatus,
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    checks,
-    metrics: {
-      memory: memUsage,
-      cpu: cpuUsage,
-      requests: requestMetrics,
-    },
-  };
 }
 /**
  * Create liveness health check function for Kubernetes
@@ -267,20 +278,27 @@ async function performHealthCheck() {
  */
 function createLivenessCheck() {
   return async () => {
-    const health = await performHealthCheck();
-    // For liveness, we only care if the process is responsive
-    // Critical failures only
-    if (
-      health.status === 'fail' &&
-      health.checks.some(check => check.name === 'filesystem' && check.status === 'fail')
-    ) {
-      throw new Error('Application is not in a recoverable state');
+    try {
+      const health = await performHealthCheck();
+      // For liveness, we only care if the process is responsive
+      // Critical failures only
+      if (
+        health.status === 'fail' &&
+        health.checks.some(check => check.name === 'filesystem' && check.status === 'fail')
+      ) {
+        throw new Error('Application is not in a recoverable state');
+      }
+      return {
+        status: 'ok',
+        timestamp: health.timestamp,
+        uptime: health.uptime,
+      };
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'health-check.createLivenessCheck', {
+        operation: 'liveness-check',
+      });
+      throw error;
     }
-    return {
-      status: 'ok',
-      timestamp: health.timestamp,
-      uptime: health.uptime,
-    };
   };
 }
 /**
@@ -292,27 +310,34 @@ function createLivenessCheck() {
  */
 function createReadinessCheck() {
   return async () => {
-    const health = await performHealthCheck();
-    // For readiness, we check if we can handle traffic
-    // High memory usage or high error rates make us not ready
-    if (health.status === 'fail') {
-      throw new Error('Application is not ready to serve traffic');
+    try {
+      const health = await performHealthCheck();
+      // For readiness, we check if we can handle traffic
+      // High memory usage or high error rates make us not ready
+      if (health.status === 'fail') {
+        throw new Error('Application is not ready to serve traffic');
+      }
+      if (
+        health.status === 'warn' &&
+        health.checks.some(
+          check =>
+            (check.name === 'memory' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 85) ||
+            (check.name === 'error_rate' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 20)
+        )
+      ) {
+        throw new Error('Application is degraded and not ready for full traffic');
+      }
+      return {
+        status: 'ok',
+        timestamp: health.timestamp,
+        uptime: health.uptime,
+      };
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'health-check.createReadinessCheck', {
+        operation: 'readiness-check',
+      });
+      throw error;
     }
-    if (
-      health.status === 'warn' &&
-      health.checks.some(
-        check =>
-          (check.name === 'memory' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 85) ||
-          (check.name === 'error_rate' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 20)
-      )
-    ) {
-      throw new Error('Application is degraded and not ready for full traffic');
-    }
-    return {
-      status: 'ok',
-      timestamp: health.timestamp,
-      uptime: health.uptime,
-    };
   };
 }
 /**
@@ -379,10 +404,22 @@ function setupHealthChecks(
  * @param {any} res - Express response object
  */
 function createHealthEndpoint(req: Request, res: Response): void {
-  performHealthCheck().then(health => {
-    const statusCode = health.status === 'pass' ? 200 : health.status === 'warn' ? 200 : 503;
-    res.status(statusCode).json(health);
-  });
+  performHealthCheck()
+    .then(health => {
+      const statusCode = health.status === 'pass' ? 200 : health.status === 'warn' ? 200 : 503;
+      res.status(statusCode).json(health);
+    })
+    .catch(error => {
+      qerrors.qerrors(error as Error, 'health-check.createHealthEndpoint', {
+        operation: 'health-endpoint',
+        hasRequest: req !== undefined,
+        hasResponse: res !== undefined,
+      });
+      res.status(503).json({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
 }
 /**
  * Create liveness endpoint (legacy compatibility)
@@ -393,12 +430,17 @@ function createHealthEndpoint(req: Request, res: Response): void {
 function createLivenessEndpoint(req: Request, res: Response): void {
   createLivenessCheck()()
     .then(result => res.json(result))
-    .catch(error =>
+    .catch(error => {
+      qerrors.qerrors(error as Error, 'health-check.createLivenessEndpoint', {
+        operation: 'liveness-endpoint',
+        hasRequest: req !== undefined,
+        hasResponse: res !== undefined,
+      });
       res.status(503).json({
         status: 'error',
         message: error instanceof Error ? error.message : String(error),
-      })
-    );
+      });
+    });
 }
 /**
  * Create readiness endpoint (legacy compatibility)
@@ -409,12 +451,17 @@ function createLivenessEndpoint(req: Request, res: Response): void {
 function createReadinessEndpoint(req: Request, res: Response): void {
   createReadinessCheck()()
     .then(result => res.json(result))
-    .catch(error =>
+    .catch(error => {
+      qerrors.qerrors(error as Error, 'health-check.createReadinessEndpoint', {
+        operation: 'readiness-endpoint',
+        hasRequest: req !== undefined,
+        hasResponse: res !== undefined,
+      });
       res.status(503).json({
         status: 'error',
         message: error instanceof Error ? error.message : String(error),
-      })
-    );
+      });
+    });
 }
 // Export all functions
 export {

@@ -65,9 +65,19 @@ const findDocumentById = async <TSchema extends AnyDocumentShape>(
     throw new Error('Model is required');
   }
   logger.logFunctionEntry('findDocumentById', { model: model.modelName, id });
-  const result = await safeDbOperation(() => model.findById(id).exec(), null, 'findDocumentById');
-  logger.logDebug('findDocumentById returning result', { hasResult: Boolean(result) });
-  return result;
+  try {
+    const result = await safeDbOperation(() => model.findById(id).exec(), null, 'findDocumentById');
+    logger.logDebug('findDocumentById returning result', { hasResult: Boolean(result) });
+    return result;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'document-helpers.findDocumentById', {
+      modelName: model.modelName,
+      id,
+      operation: 'findById',
+    });
+    logger.logError('findDocumentById encountered an error', error);
+    throw error; // Re-throw to preserve error propagation
+  }
 };
 
 /**
@@ -90,13 +100,24 @@ const updateDocumentById = async <TSchema extends AnyDocumentShape>(
     id,
     updateFields: Object.keys(updates ?? {}),
   });
-  const result = await safeDbOperation(
-    () => model.findByIdAndUpdate(id, updates, { new: true }).exec(),
-    null,
-    'updateDocumentById'
-  );
-  logger.logDebug('updateDocumentById returning result', { hasResult: Boolean(result) });
-  return result;
+  try {
+    const result = await safeDbOperation(
+      () => model.findByIdAndUpdate(id, updates, { new: true }).exec(),
+      null,
+      'updateDocumentById'
+    );
+    logger.logDebug('updateDocumentById returning result', { hasResult: Boolean(result) });
+    return result;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'document-helpers.updateDocumentById', {
+      modelName: model.modelName,
+      id,
+      updateFieldCount: Object.keys(updates ?? {}).length,
+      operation: 'findByIdAndUpdate',
+    });
+    logger.logError('updateDocumentById encountered an error', error);
+    throw error; // Re-throw to preserve error propagation
+  }
 };
 
 /**
@@ -189,9 +210,19 @@ const createDocument = async <TSchema extends AnyDocumentShape>(
     model: model.modelName,
     dataFields: Object.keys((data as Record<string, unknown>) ?? {}),
   });
-  const result = await safeDbOperation(() => model.create(data), null, 'createDocument');
-  logger.logDebug('createDocument returning result', { hasResult: Boolean(result) });
-  return result;
+  try {
+    const result = await safeDbOperation(() => model.create(data), null, 'createDocument');
+    logger.logDebug('createDocument returning result', { hasResult: Boolean(result) });
+    return result;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'document-helpers.createDocument', {
+      modelName: model.modelName,
+      dataFieldCount: Object.keys((data as Record<string, unknown>) ?? {}).length,
+      operation: 'create',
+    });
+    logger.logError('createDocument encountered an error', error);
+    throw error; // Re-throw to preserve error propagation
+  }
 };
 
 /**
@@ -207,30 +238,44 @@ const findDocuments = async <TSchema extends AnyDocumentShape>(
   options: FindDocumentsOptions<TSchema> = {}
 ): Promise<Array<LeanDocument<TSchema>>> => {
   logger.logFunctionEntry('findDocuments', { model: model.modelName, query, options });
-  const result = await safeDbOperation(
-    async () => {
-      let queryBuilder = model.find(query);
-      if (options.sort) {
-        queryBuilder = queryBuilder.sort(options.sort);
-      }
-      if (options.limit) {
-        queryBuilder = queryBuilder.limit(options.limit);
-      }
-      if (options.skip) {
-        queryBuilder = queryBuilder.skip(options.skip);
-      }
-      if (options.select) {
-        queryBuilder = queryBuilder.select(options.select);
-      }
-      return queryBuilder.lean().exec();
-    },
-    null,
-    'findDocuments'
-  );
-  logger.logDebug('findDocuments returning documents', {
-    count: Array.isArray(result) ? result.length : 0,
-  });
-  return (result ?? []) as TSchema[];
+  try {
+    const result = await safeDbOperation(
+      async () => {
+        let queryBuilder = model.find(query);
+        if (options.sort) {
+          queryBuilder = queryBuilder.sort(options.sort);
+        }
+        if (options.limit) {
+          queryBuilder = queryBuilder.limit(options.limit);
+        }
+        if (options.skip) {
+          queryBuilder = queryBuilder.skip(options.skip);
+        }
+        if (options.select) {
+          queryBuilder = queryBuilder.select(options.select);
+        }
+        return queryBuilder.lean().exec();
+      },
+      null,
+      'findDocuments'
+    );
+    logger.logDebug('findDocuments returning documents', {
+      count: Array.isArray(result) ? result.length : 0,
+    });
+    return (result ?? []) as TSchema[];
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'document-helpers.findDocuments', {
+      modelName: model.modelName,
+      queryFieldCount: Object.keys(query).length,
+      hasSort: options.sort !== undefined,
+      hasLimit: options.limit !== undefined,
+      hasSkip: options.skip !== undefined,
+      hasSelect: options.select !== undefined,
+      operation: 'find',
+    });
+    logger.logError('findDocuments encountered an error', error);
+    throw error; // Re-throw to preserve error propagation
+  }
 };
 
 /**
@@ -244,13 +289,23 @@ const findOneDocument = async <TSchema extends AnyDocumentShape>(
   query: FilterQuery<TSchema>
 ): Promise<LeanDocument<TSchema> | null> => {
   logger.logFunctionEntry('findOneDocument', { model: model.modelName, query });
-  const result = await safeDbOperation(
-    () => model.findOne(query).lean().exec(),
-    null,
-    'findOneDocument'
-  );
-  logger.logDebug('findOneDocument returning result', { hasResult: Boolean(result) });
-  return result as LeanDocument<TSchema> | null;
+  try {
+    const result = await safeDbOperation(
+      () => model.findOne(query).lean().exec(),
+      null,
+      'findOneDocument'
+    );
+    logger.logDebug('findOneDocument returning result', { hasResult: Boolean(result) });
+    return result as LeanDocument<TSchema> | null;
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'document-helpers.findOneDocument', {
+      modelName: model.modelName,
+      queryFieldCount: Object.keys(query).length,
+      operation: 'findOne',
+    });
+    logger.logError('findOneDocument encountered an error', error);
+    throw error; // Re-throw to preserve error propagation
+  }
 };
 
 /**

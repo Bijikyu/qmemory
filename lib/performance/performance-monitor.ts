@@ -7,6 +7,7 @@
 import DatabaseMetrics from './database-metrics.js';
 import RequestMetricsDefault from './request-metrics.js';
 import SystemMetricsDefault from './system-metrics.js';
+import * as qerrors from 'qerrors';
 
 // Interface definitions
 interface PerformanceMonitorOptions {
@@ -127,6 +128,7 @@ class PerformanceMonitor {
   private database: DatabaseMetrics;
   private requests: RequestMetricsDefault;
   private system: SystemMetricsDefault;
+  private _slowQueryHandler: (query: any) => void;
 
   constructor(options: PerformanceMonitorOptions = {}) {
     console.log('PerformanceMonitor initializing comprehensive monitoring system');
@@ -135,11 +137,12 @@ class PerformanceMonitor {
     this.requests = new RequestMetricsDefault(options.requests || {});
     this.system = new SystemMetricsDefault(options.system || {});
     // Configure alerting for critical performance issues
-    this.database.on('slowQuery', query => {
+    this._slowQueryHandler = query => {
       console.warn(
         `PERFORMANCE_ALERT: Slow query detected - ${query.queryName} took ${query.duration}ms at ${query.timestamp}`
       );
-    });
+    };
+    this.database.on('slowQuery', this._slowQueryHandler);
     console.log(
       'PerformanceMonitor initialization completed with all monitoring components active'
     );
@@ -194,6 +197,12 @@ class PerformanceMonitor {
       } catch (error) {
         // Track operation failure for reliability monitoring
         success = false;
+        qerrors.qerrors(error as Error, 'performance-monitor.wrapDatabaseOperation', {
+          operationName,
+          argCount: args.length,
+          operationType: typeof operation,
+          success: false,
+        });
         throw error; // Re-throw original error without modification
       } finally {
         // Record performance metrics regardless of operation outcome
@@ -209,15 +218,43 @@ class PerformanceMonitor {
    * @returns {ComprehensiveMetrics} Comprehensive performance metrics across all monitoring dimensions
    */
   getComprehensiveMetrics(): ComprehensiveMetrics {
-    console.log('PerformanceMonitor generating comprehensive performance report');
-    const report: ComprehensiveMetrics = {
-      timestamp: new Date().toISOString(), // temporal context for report correlation
-      database: this.database.getMetrics(), // database performance analysis
-      requests: this.requests.getMetrics(), // HTTP endpoint performance analysis
-      system: this.system.getMetrics(), // system resource utilization analysis
-    };
-    console.log('PerformanceMonitor comprehensive report generated successfully');
-    return report;
+    try {
+      console.log('PerformanceMonitor generating comprehensive performance report');
+      const report: ComprehensiveMetrics = {
+        timestamp: new Date().toISOString(), // temporal context for report correlation
+        database: this.database.getMetrics(), // database performance analysis
+        requests: this.requests.getMetrics(), // HTTP endpoint performance analysis
+        system: this.system.getMetrics(), // system resource utilization analysis
+      };
+      console.log('PerformanceMonitor comprehensive report generated successfully');
+      return report;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'performance-monitor.getComprehensiveMetrics', {
+        operation: 'metrics-generation',
+        hasDatabase: this.database !== undefined,
+        hasRequests: this.requests !== undefined,
+        hasSystem: this.system !== undefined,
+      });
+      console.error('PerformanceMonitor failed to generate comprehensive report:', error);
+      // Return minimal report on error
+      return {
+        timestamp: new Date().toISOString(),
+        database: {
+          totalQueries: 0,
+          slowQueries: 0,
+          connectionPool: { active: 0, available: 0, created: 0, destroyed: 0 },
+          queryStats: {},
+          recentSlowQueries: [],
+        },
+        requests: { totalRequests: 0, requestsPerSecond: 0, uptime: 0, endpoints: {} },
+        system: {
+          memory: { current: { rss: 0, heapUsed: 0, heapTotal: 0, external: 0 }, history: [] },
+          cpu: { current: 0, history: [] },
+          uptime: 0,
+          nodeVersion: process.version,
+        },
+      };
+    }
   }
   /**
    * Generates performance health check summary for monitoring system integration
@@ -225,48 +262,78 @@ class PerformanceMonitor {
    * @returns {HealthCheckResult} Performance health check summary with component status breakdown
    */
   getHealthCheck() {
-    console.log('PerformanceMonitor generating performance health check');
-    // Collect current metrics from all monitoring components
-    const dbMetrics = this.database.getMetrics();
-    const reqMetrics = this.requests.getMetrics();
-    const sysMetrics = this.system.getMetrics();
-    // Evaluate individual component health against performance thresholds
-    const health = {
-      status: 'healthy', // overall system performance status
-      timestamp: new Date().toISOString(), // health check temporal context
-      checks: {
-        database: {
-          status: dbMetrics.slowQueries < 10 ? 'healthy' : 'degraded',
-          slowQueries: dbMetrics.slowQueries,
-          totalQueries: dbMetrics.totalQueries,
+    try {
+      console.log('PerformanceMonitor generating performance health check');
+      // Collect current metrics from all monitoring components
+      const dbMetrics = this.database.getMetrics();
+      const reqMetrics = this.requests.getMetrics();
+      const sysMetrics = this.system.getMetrics();
+      // Evaluate individual component health against performance thresholds
+      const health = {
+        status: 'healthy' as 'healthy' | 'warning' | 'degraded', // overall system performance status
+        timestamp: new Date().toISOString(), // health check temporal context
+        checks: {
+          database: {
+            status: dbMetrics.slowQueries < 10 ? 'healthy' : ('degraded' as 'healthy' | 'degraded'),
+            slowQueries: dbMetrics.slowQueries,
+            totalQueries: dbMetrics.totalQueries,
+          },
+          requests: {
+            status:
+              reqMetrics.requestsPerSecond < 1000
+                ? 'healthy'
+                : ('high_load' as 'healthy' | 'high_load'),
+            requestsPerSecond: reqMetrics.requestsPerSecond,
+            totalRequests: reqMetrics.totalRequests,
+          },
+          memory: {
+            status:
+              sysMetrics.memory.current.heapUsed < 512
+                ? 'healthy'
+                : ('high_usage' as 'healthy' | 'high_usage'),
+            heapUsedMB: sysMetrics.memory.current.heapUsed,
+            cpuPercent: sysMetrics.cpu.current,
+          },
         },
-        requests: {
-          status: reqMetrics.requestsPerSecond < 1000 ? 'healthy' : 'high_load',
-          requestsPerSecond: reqMetrics.requestsPerSecond,
-          totalRequests: reqMetrics.totalRequests,
+      };
+      // Determine overall system health based on worst component status
+      const statuses = Object.values(health.checks).map(check => check.status);
+      if (statuses.includes('degraded')) {
+        health.status = 'degraded';
+      } else if (statuses.includes('high_load') || statuses.includes('high_usage')) {
+        health.status = 'warning';
+      }
+      console.log(`PerformanceMonitor health check completed with status: ${health.status}`);
+      return health;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'performance-monitor.getHealthCheck', {
+        operation: 'health-check-generation',
+        hasDatabase: this.database !== undefined,
+        hasRequests: this.requests !== undefined,
+        hasSystem: this.system !== undefined,
+      });
+      console.error('PerformanceMonitor failed to generate health check:', error);
+      // Return minimal health check on error
+      return {
+        status: 'degraded',
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: { status: 'degraded', slowQueries: 0, totalQueries: 0 },
+          requests: { status: 'degraded', requestsPerSecond: 0, totalRequests: 0 },
+          memory: { status: 'degraded', heapUsedMB: 0, cpuPercent: 0 },
         },
-        memory: {
-          status: sysMetrics.memory.current.heapUsed < 512 ? 'healthy' : 'high_usage',
-          heapUsedMB: sysMetrics.memory.current.heapUsed,
-          cpuPercent: sysMetrics.cpu.current,
-        },
-      },
-    };
-    // Determine overall system health based on worst component status
-    const statuses = Object.values(health.checks).map(check => check.status);
-    if (statuses.includes('degraded')) {
-      health.status = 'degraded';
-    } else if (statuses.includes('high_load') || statuses.includes('high_usage')) {
-      health.status = 'warning';
+      };
     }
-    console.log(`PerformanceMonitor health check completed with status: ${health.status}`);
-    return health;
   }
   /**
    * Stops all monitoring components and cleans up resources
    */
   stop() {
     console.log('PerformanceMonitor stopping all monitoring components');
+    // Clean up event listeners to prevent memory leaks
+    if (this._slowQueryHandler) {
+      this.database.off('slowQuery', this._slowQueryHandler);
+    }
     this.system.stop(); // Stop system metrics collection timer
     console.log('PerformanceMonitor cleanup completed');
   }
