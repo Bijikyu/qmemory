@@ -39,6 +39,7 @@ import {
   sendAuthError,
 } from './lib/http-utils.js';
 import type { Server } from 'http';
+import * as qerrors from 'qerrors';
 
 // Define interfaces for complex objects
 interface CreateUserRequest extends Request {
@@ -169,7 +170,12 @@ app.get('/validation/rules', (req: Request, res: Response) => {
     };
     sendSuccess(res, 'Validation rules retrieved', validationRules);
   } catch (error) {
-    logError('Failed to get validation rules', String(error));
+    qerrors.qerrors(error as Error, 'demo-app.validationRules', {
+      endpoint: '/validation/rules',
+      method: 'GET',
+      userAgent: req.get('User-Agent'),
+    });
+    // qerrors already handles error logging and analysis
     sendInternalServerError(res, 'Failed to get validation rules');
   }
 });
@@ -188,7 +194,12 @@ app.get('/health', async (req: Request, res: Response) => {
     };
     sendSuccess(res, 'Service is healthy', health); // send standardized success
   } catch (error) {
-    logError('Health check failed', String(error)); // log for operator visibility
+    qerrors.qerrors(error as Error, 'demo-app.healthCheck', {
+      endpoint: '/health',
+      method: 'GET',
+      userAgent: req.get('User-Agent'),
+    });
+    // qerrors already handles error logging and analysis // log for operator visibility
     sendInternalServerError(res, 'Health check failed');
   }
 });
@@ -252,6 +263,12 @@ app.get('/users', async (req: Request, res: Response) => {
     );
     res.status(200).json(response);
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.listUsers', {
+      endpoint: '/users',
+      method: 'GET',
+      userAgent: req.get('User-Agent'),
+      hasPagination: true,
+    });
     logError('Failed to fetch users', String(error));
     sendInternalServerError(res, 'Failed to fetch users');
   }
@@ -274,9 +291,23 @@ app.post('/users', async (req: CreateUserRequest, res: Response) => {
     sendSuccess(res, 'User created successfully', user);
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes('already exists')) {
+      qerrors.qerrors(error as Error, 'demo-app.createUser', {
+        endpoint: '/users',
+        method: 'POST',
+        username: req.body.username,
+        errorType: 'duplicate',
+        userAgent: req.get('User-Agent'),
+      });
       sendBadRequest(res, error.message); // duplicate user results in 400
     } else {
-      logError('Failed to create user', String(error)); // other errors flagged as 500
+      qerrors.qerrors(error as Error, 'demo-app.createUser', {
+        endpoint: '/users',
+        method: 'POST',
+        username: req.body.username,
+        errorType: 'server',
+        userAgent: req.get('User-Agent'),
+      });
+      // qerrors already handles error logging and analysis
       sendInternalServerError(res, 'Failed to create user');
     }
   }
@@ -299,6 +330,12 @@ app.get('/users/:id', async (req: Request, res: Response) => {
 
     sendSuccess(res, 'User found', user);
   } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.getUserById', {
+      endpoint: '/users/:id',
+      method: 'GET',
+      userId: req.params.id,
+      userAgent: req.get('User-Agent'),
+    });
     logError('Failed to fetch user', String(error)); // log before sending generic error
     sendInternalServerError(res, 'Failed to fetch user');
   }

@@ -18,6 +18,7 @@ import {
 type LeanDocument<T> = T;
 import type { UpdateResult } from 'mongodb';
 import { safeDbOperation } from './database-utils.js';
+import * as qerrors from 'qerrors';
 
 interface Logger {
   logFunctionEntry(functionName: string, data?: Record<string, unknown>): void;
@@ -160,6 +161,12 @@ const cascadeDeleteDocument = async <
     logger.logDebug('cascadeDeleteDocument removed primary and related documents');
     return true;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-helpers.cascadeDeleteDocument', {
+      modelName: model.modelName,
+      id,
+      relatedModelCount: relatedModels.length,
+      relatedModelNames: relatedModels.map(m => m.modelName),
+    });
     logger.logError('cascadeDeleteDocument encountered an error', error);
     return false;
   }
@@ -265,14 +272,19 @@ const bulkUpdateDocuments = async <TSchema extends AnyDocumentShape>(
   });
   try {
     const results = await Promise.all(
-      updates.map(updateInstruction => {
+      updates.map(async updateInstruction => {
         const { filter, data, options = {} } = updateInstruction;
-        return model.updateMany(filter, data, options as any).exec();
+        return await model.updateMany(filter, data, options as any).exec();
       })
     );
     logger.logDebug('bulkUpdateDocuments returning batch results', { count: results.length });
     return results;
   } catch (error) {
+    qerrors.qerrors(error as Error, 'document-helpers.bulkUpdateDocuments', {
+      modelName: model.modelName,
+      updateCount: updates.length,
+      updateFields: updates.map(u => (u.filter ? Object.keys(u.filter) : [])),
+    });
     logger.logError('bulkUpdateDocuments error', error);
     return null;
   }

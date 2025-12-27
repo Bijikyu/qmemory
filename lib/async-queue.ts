@@ -1,5 +1,6 @@
 import BeeQueue from 'bee-queue';
 import { EventEmitter } from 'events';
+import * as qerrors from 'qerrors';
 
 type BeeQueueJob<T extends JobData> = BeeQueue.Job<T> & {
   jobType?: string;
@@ -136,11 +137,24 @@ export class AsyncQueueWrapper extends EventEmitter {
       ) as BeeQueueInstance<JobData>;
 
       queue.on('error', (error: Error) => {
+        qerrors.qerrors(error, 'async-queue.queueError', {
+          queueState: state,
+          queueName: `qmemory-${state}`,
+          activeJobsCount: this.activeJobs.size,
+          concurrency: this.concurrency,
+        });
         console.error(`Queue error for ${state}:`, error);
         this.emit('error', error);
       });
 
       queue.on('failed', (job: BeeQueueJob<JobData>, error: Error) => {
+        qerrors.qerrors(error, 'async-queue.jobFailed', {
+          queueState: state,
+          jobId: String(job.id),
+          jobType: job.data?.type || 'default',
+          activeJobsCount: this.activeJobs.size,
+          concurrency: this.concurrency,
+        });
         console.error(`Job failed for ${state}:`, error);
         this.activeJobs.delete(String(job.id));
         this.emit('failed', { job, error });
@@ -151,21 +165,39 @@ export class AsyncQueueWrapper extends EventEmitter {
       });
 
       queue.process(this.concurrency, async (job: BeeQueueJob<JobData>) => {
-        const jobType = typeof job.data?.type === 'string' ? job.data.type : 'default';
-        const processor = this.processors.get(jobType);
-        if (!processor) {
-          throw new Error(`No processor registered for job type: ${jobType}`);
+        try {
+          const jobType = typeof job.data?.type === 'string' ? job.data.type : 'default';
+          const processor = this.processors.get(jobType);
+          if (!processor) {
+            const error = new Error(`No processor registered for job type: ${jobType}`);
+            qerrors.qerrors(error, 'async-queue.jobProcessor', {
+              queueState: state,
+              jobId: String(job.id),
+              jobType,
+              availableProcessors: Array.from(this.processors.keys()),
+            });
+          }
+
+          this.activeJobs.add(String(job.id));
+
+          const result = await processor(job);
+          if (Array.isArray(result)) {
+            const resolved = await Promise.all(result);
+            return resolved.length > 0 ? resolved[0] : null;
+          }
+
+          return result ?? null;
+        } catch (error) {
+          qerrors.qerrors(error as Error, 'async-queue.jobProcessor', {
+            queueState: state,
+            jobId: String(job.id),
+            jobType: job.data?.type || 'default',
+            activeJobsCount: this.activeJobs.size,
+          });
         }
-
-        this.activeJobs.add(String(job.id));
-
-        const result = await processor(job);
-        if (Array.isArray(result)) {
-          const resolved = await Promise.all(result);
-          return resolved.length > 0 ? resolved[0] : null;
-        }
-
-        return result ?? null;
+        this.activeJobs.delete(String(job.id));
+        this.emit('jobError', { jobId: String(job.id), error, state });
+        throw error;
       });
 
       this.queues.set(state, queue);
@@ -197,33 +229,6 @@ export class AsyncQueueWrapper extends EventEmitter {
     return job;
   }
 
-  async addJob(data: JobData, options: JobOptions = {}): Promise<BeeQueueJob<JobData>> {
-    const job = await this.createJob(data, options);
-    return job.save();
-  }
-
-  async getJobs(
-    start: number = 0,
-    end: number = 25,
-    state?: string
-  ): Promise<BeeQueueJob<JobData>[]> {
-    const queue = this.getQueue(state ?? 'default');
-    return queue.getJobs(start, end);
-  }
-
-  async getJob(jobId: string): Promise<BeeQueueJob<JobData> | null> {
-    for (const [, queue] of this.queues) {
-      const job = await queue.getJob(jobId);
-      if (job) {
-        return job;
-      }
-    }
-    return null;
-  }
-
-  async close(): Promise<void> {
-    const closing = Array.from(this.queues.values()).map(queue => queue.close());
-    await Promise.all(closing);
     this.queues.clear();
     this.processors.clear();
     this.activeJobs.clear();

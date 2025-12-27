@@ -1,4 +1,5 @@
 import CircuitBreakerBase from 'opossum';
+import * as qerrors from 'qerrors';
 
 export const STATES = { CLOSED: 'closed', OPEN: 'open', HALF_OPEN: 'half-open' };
 
@@ -29,6 +30,11 @@ export class CircuitBreakerWrapper {
         );
       }, opossumOptions);
     } catch (error) {
+      qerrors.qerrors(error as Error, 'circuit-breaker.constructor', {
+        timeout: opossumOptions.timeout,
+        errorThresholdPercentage: opossumOptions.errorThresholdPercentage,
+        resetTimeout: opossumOptions.resetTimeout,
+      });
       throw new Error(
         `Failed to initialize circuit breaker: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -56,10 +62,15 @@ export class CircuitBreakerWrapper {
     try {
       return await operationBreaker.fire(...args);
     } catch (error) {
+      qerrors.qerrors(error as Error, 'circuit-breaker.execute', {
+        operationName: operation.name || 'anonymous',
+        isOpen: operationBreaker.opened,
+        isHalfOpen: operationBreaker.halfOpen,
+        argCount: args.length,
+      });
       if (operationBreaker.opened) {
         throw new Error('Circuit breaker is OPEN');
       }
-      throw error;
     }
   }
 

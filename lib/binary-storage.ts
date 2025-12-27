@@ -21,6 +21,7 @@ import {
   BINARY_STORAGE_DIR,
   BINARY_STORAGE_MAX_SIZE,
 } from '../config/localVars.js';
+import * as qerrors from 'qerrors';
 
 interface StorageStats {
   type: string;
@@ -216,6 +217,14 @@ export class FileSystemBinaryStorage extends IStorage {
     try {
       await fs.mkdir(this.storageDir, { recursive: true });
     } catch (error) {
+      qerrors.qerrors(
+        error as Error,
+        'binary-storage.FileSystemBinaryStorage._ensureDirectoryExists',
+        {
+          storageDir: this.storageDir,
+          errorCode: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+        }
+      );
       throw new Error(`Failed to create storage directory: ${error.message}`);
     }
   }
@@ -254,6 +263,13 @@ export class FileSystemBinaryStorage extends IStorage {
       await fs.writeFile(metaPath, JSON.stringify(metadata));
       console.log(`Stored ${data.length} bytes at key '${key}' in file system`);
     } catch (error) {
+      qerrors.qerrors(error as Error, 'binary-storage.FileSystemBinaryStorage.save', {
+        key,
+        dataSize: data.length,
+        filePath,
+        tempPath,
+        storageDir: this.storageDir,
+      });
       // Clean up temp file if it exists
       try {
         await fs.unlink(tempPath);
@@ -270,9 +286,15 @@ export class FileSystemBinaryStorage extends IStorage {
       const data = await fs.readFile(filePath);
       return data;
     } catch (error) {
-      if (error.code === 'ENOENT') {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
         return null; // File doesn't exist
       }
+      qerrors.qerrors(error as Error, 'binary-storage.FileSystemBinaryStorage.get', {
+        key,
+        filePath,
+        storageDir: this.storageDir,
+        errorCode: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      });
       throw new Error(`Failed to read data: ${error.message}`);
     }
   }
@@ -289,7 +311,14 @@ export class FileSystemBinaryStorage extends IStorage {
       }
       console.log(`Deleted data at key '${key}' from file system`);
     } catch (error) {
-      if (error.code !== 'ENOENT') {
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'ENOENT') {
+        qerrors.qerrors(error as Error, 'binary-storage.FileSystemBinaryStorage.delete', {
+          key,
+          filePath,
+          metaPath,
+          storageDir: this.storageDir,
+          errorCode: (error && typeof error === 'object' && 'code' in error) ? error.code : undefined,
+        });
         throw new Error(`Failed to delete data: ${error.message}`);
       }
       // File doesn't exist, which is fine for delete operation

@@ -2,6 +2,7 @@
  * Storage Implementations
  * Various storage mechanisms for user data
  */
+import * as qerrors from 'qerrors';
 
 /**
  * User record persisted within the in-memory storage system.
@@ -79,21 +80,34 @@ export class MemStorage {
    * @returns Persisted user record with generated identifier.
    */
   createUser = async (insertUser: InsertUser): Promise<User> => {
-    if (
-      !insertUser ||
-      typeof insertUser.username !== 'string' ||
-      !insertUser.username.trim().length
-    )
-      throw new Error('Username is required and must be a non-empty string');
-    const trimmedUsername = insertUser.username.trim(); // consistent storage prevents spacing issues
-    if (this.users.size >= this.maxUsers) throw new Error('Maximum user limit reached');
-    const existingUser = await this.getUserByUsername(trimmedUsername);
-    if (existingUser) throw new Error(`Username '${trimmedUsername}' already exists`); // uniqueness constraint
-    const id = this.currentId++; // atomic increment ensures unique IDs
-    const normalizedFields = this.normalizeUserFields({ ...insertUser, username: trimmedUsername });
-    const user = { id, ...normalizedFields }; // spread operator combines ID with normalized fields
-    this.users.set(id, user); // Map storage for O(1) retrieval
-    return user;
+    try {
+      if (
+        !insertUser ||
+        typeof insertUser.username !== 'string' ||
+        !insertUser.username.trim().length
+      )
+        throw new Error('Username is required and must be a non-empty string');
+      const trimmedUsername = insertUser.username.trim(); // consistent storage prevents spacing issues
+      if (this.users.size >= this.maxUsers) throw new Error('Maximum user limit reached');
+      const existingUser = await this.getUserByUsername(trimmedUsername);
+      if (existingUser) throw new Error(`Username '${trimmedUsername}' already exists`); // uniqueness constraint
+      const id = this.currentId++; // atomic increment ensures unique IDs
+      const normalizedFields = this.normalizeUserFields({
+        ...insertUser,
+        username: trimmedUsername,
+      });
+      const user = { id, ...normalizedFields }; // spread operator combines ID with normalized fields
+      this.users.set(id, user); // Map storage for O(1) retrieval
+      return user;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'storage.createUser', {
+        username: insertUser?.username,
+        currentUsers: this.users.size,
+        maxUsers: this.maxUsers,
+        hasDisplayName: insertUser?.displayName !== undefined,
+      });
+      throw error;
+    }
   };
 
   /**
@@ -109,27 +123,37 @@ export class MemStorage {
    * @returns Updated user or undefined when not found.
    */
   updateUser = async (id: number, updates: Partial<InsertUser>): Promise<User | undefined> => {
-    if (typeof id !== 'number' || id < 1) return undefined;
-    const existingUser = this.users.get(id);
-    if (!existingUser) return undefined;
+    try {
+      if (typeof id !== 'number' || id < 1) return undefined;
+      const existingUser = this.users.get(id);
+      if (!existingUser) return undefined;
 
-    // Check for username conflict if username is being updated
-    if (updates.username && updates.username.trim() !== existingUser.username) {
-      const trimmedUsername = updates.username.trim();
-      const existingUserWithSameName = await this.getUserByUsername(trimmedUsername);
-      if (existingUserWithSameName) {
-        throw new Error(`Username '${trimmedUsername}' already exists`);
+      // Check for username conflict if username is being updated
+      if (updates.username && updates.username.trim() !== existingUser.username) {
+        const trimmedUsername = updates.username.trim();
+        const existingUserWithSameName = await this.getUserByUsername(trimmedUsername);
+        if (existingUserWithSameName) {
+          throw new Error(`Username '${trimmedUsername}' already exists`);
+        }
       }
+
+      const updatedUser: User = {
+        ...existingUser,
+        ...updates,
+        username: updates.username ? updates.username.trim() : existingUser.username,
+      };
+
+      this.users.set(id, updatedUser);
+      return updatedUser;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'storage.updateUser', {
+        id,
+        updateFieldKeys: Object.keys(updates),
+        hasUsernameUpdate: updates.username !== undefined,
+        currentUsers: this.users.size,
+      });
+      throw error;
     }
-
-    const updatedUser: User = {
-      ...existingUser,
-      ...updates,
-      username: updates.username ? updates.username.trim() : existingUser.username,
-    };
-
-    this.users.set(id, updatedUser);
-    return updatedUser;
   };
 
   /**
