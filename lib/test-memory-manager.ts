@@ -20,6 +20,7 @@
  * - Debugging memory leaks in test environments
  */
 import { performance } from 'perf_hooks';
+import qerrors from 'qerrors';
 /**
  * Test Memory Manager Class
  *
@@ -52,14 +53,23 @@ class TestMemoryManager {
    * @param {string} context - Optional context description
    */
   startMonitoring(context) {
-    if (this.isActive) {
-      console.warn('Memory monitoring already active');
-      return;
+    try {
+      if (this.isActive) {
+        console.warn('Memory monitoring already active');
+        return;
+      }
+      this.isActive = true;
+      this.checkpoints = [];
+      this.takeCheckpoint('baseline', context);
+      console.log(`Memory monitoring started ${context ? `for ${context}` : ''}`);
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'test-memory-manager.startMonitoring', {
+        context,
+        wasActive: this.isActive,
+        checkpointCount: this.checkpoints.length,
+      });
+      throw error;
     }
-    this.isActive = true;
-    this.checkpoints = [];
-    this.takeCheckpoint('baseline', context);
-    console.log(`Memory monitoring started ${context ? `for ${context}` : ''}`);
   }
   /**
    * Stop memory monitoring and generate report
@@ -67,16 +77,25 @@ class TestMemoryManager {
    * @returns {MemoryLeakReport} Memory leak report
    */
   stopMonitoring() {
-    if (!this.isActive) {
-      console.warn('Memory monitoring not active');
-      return this.generateEmptyReport();
+    try {
+      if (!this.isActive) {
+        console.warn('Memory monitoring not active');
+        return this.generateEmptyReport();
+      }
+      this.takeCheckpoint('final', 'Final checkpoint');
+      this.isActive = false;
+      const report = this.analyzeMemoryLeaks();
+      console.log('Memory monitoring stopped');
+      this.printReport(report);
+      return report;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'test-memory-manager.stopMonitoring', {
+        wasActive: this.isActive,
+        checkpointCount: this.checkpoints.length,
+      });
+      this.isActive = false;
+      throw error;
     }
-    this.takeCheckpoint('final', 'Final checkpoint');
-    this.isActive = false;
-    const report = this.analyzeMemoryLeaks();
-    console.log('Memory monitoring stopped');
-    this.printReport(report);
-    return report;
   }
   /**
    * Take memory checkpoint
@@ -86,27 +105,38 @@ class TestMemoryManager {
    * @returns {MemoryCheckpoint} Memory checkpoint
    */
   takeCheckpoint(id, context) {
-    if (!this.isActive && id !== 'current') {
-      throw new Error('Memory monitoring not active');
-    }
-    const usage = process.memoryUsage();
-    const checkpoint = {
-      id,
-      timestamp: performance.now(),
-      heapUsed: Math.round(usage.heapUsed / 1024 / 1024),
-      heapTotal: Math.round(usage.heapTotal / 1024 / 1024),
-      external: Math.round(usage.external / 1024 / 1024),
-      rss: Math.round(usage.rss / 1024 / 1024),
-      arrayBuffers: usage.arrayBuffers ? Math.round(usage.arrayBuffers / 1024 / 1024) : undefined,
-      context,
-    };
-    if (id !== 'current') {
-      this.checkpoints.push(checkpoint);
-      if (this.checkpoints.length > this.maxCheckpoints) {
-        this.checkpoints.shift();
+    try {
+      if (!this.isActive && id !== 'current') {
+        throw new Error('Memory monitoring not active');
       }
+      const usage = process.memoryUsage();
+      const checkpoint = {
+        id,
+        timestamp: performance.now(),
+        heapUsed: Math.round(usage.heapUsed / 1024 / 1024),
+        heapTotal: Math.round(usage.heapTotal / 1024 / 1024),
+        external: Math.round(usage.external / 1024 / 1024),
+        rss: Math.round(usage.rss / 1024 / 1024),
+        arrayBuffers: usage.arrayBuffers ? Math.round(usage.arrayBuffers / 1024 / 1024) : undefined,
+        context,
+      };
+      if (id !== 'current') {
+        this.checkpoints.push(checkpoint);
+        if (this.checkpoints.length > this.maxCheckpoints) {
+          this.checkpoints.shift();
+        }
+      }
+      return checkpoint;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'test-memory-manager.takeCheckpoint', {
+        id,
+        context,
+        isActive: this.isActive,
+        checkpointCount: this.checkpoints.length,
+        maxCheckpoints: this.maxCheckpoints,
+      });
+      throw error;
     }
-    return checkpoint;
   }
   /**
    * Force garbage collection if available
@@ -114,18 +144,27 @@ class TestMemoryManager {
    * @returns {boolean} True if GC was run
    */
   forceGarbageCollection() {
-    if (!this.gcAvailable) {
-      console.warn('Garbage collection not available. Run node with --expose-gc flag.');
+    try {
+      if (!this.gcAvailable) {
+        console.warn('Garbage collection not available. Run node with --expose-gc flag.');
+        return false;
+      }
+      for (let i = 0; i < 3; i++) {
+        global.gc();
+        const start = Date.now();
+        while (Date.now() - start < 10) {
+          // Small delay for GC to complete
+        }
+      }
+      return true;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'test-memory-manager.forceGarbageCollection', {
+        gcAvailable: this.gcAvailable,
+        iterationCount: 3,
+      });
+      console.error('Failed to force garbage collection:', error);
       return false;
     }
-    for (let i = 0; i < 3; i++) {
-      global.gc();
-      const start = Date.now();
-      while (Date.now() - start < 10) {
-        // Small delay for GC to complete
-      }
-    }
-    return true;
   }
   /**
    * Get current memory usage
@@ -150,14 +189,23 @@ class TestMemoryManager {
    * @returns {Promise<void>}
    */
   async cleanup() {
-    console.log('Starting aggressive memory cleanup...');
-    this.clearGlobalReferences();
-    this.forceGarbageCollection();
-    await new Promise(resolve => setTimeout(resolve, 100));
-    if (this.isActive) {
-      this.takeCheckpoint('cleanup', 'Post-cleanup checkpoint');
+    try {
+      console.log('Starting aggressive memory cleanup...');
+      this.clearGlobalReferences();
+      this.forceGarbageCollection();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (this.isActive) {
+        this.takeCheckpoint('cleanup', 'Post-cleanup checkpoint');
+      }
+      console.log('Memory cleanup completed');
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'test-memory-manager.cleanup', {
+        isActive: this.isActive,
+        gcAvailable: this.gcAvailable,
+      });
+      console.error('Memory cleanup failed:', error);
+      throw error;
     }
-    console.log('Memory cleanup completed');
   }
   /**
    * Analyze memory leaks from checkpoints
@@ -252,37 +300,56 @@ class TestMemoryManager {
    * Clear common global references that might hold memory
    */
   clearGlobalReferences() {
-    const refsToClear = [
-      'testServer',
-      'mongoConnection',
-      '__MONGO_DB__',
-      '__MONGOD__',
-      'app',
-      'server',
-      'io',
-      'redisClient',
-      'cache',
-      'timers',
-    ];
-    refsToClear.forEach(ref => {
-      if (global[ref]) {
-        try {
-          if (typeof global[ref].close === 'function') {
-            global[ref].close();
+    try {
+      const refsToClear = [
+        'testServer',
+        'mongoConnection',
+        '__MONGO_DB__',
+        '__MONGOD__',
+        'app',
+        'server',
+        'io',
+        'redisClient',
+        'cache',
+        'timers',
+      ];
+      refsToClear.forEach(ref => {
+        if (global[ref]) {
+          try {
+            const globalRef = global[ref];
+            if (globalRef && typeof globalRef.close === 'function') {
+              globalRef.close();
+            }
+            if (globalRef && typeof globalRef.disconnect === 'function') {
+              globalRef.disconnect();
+            }
+            if (globalRef && typeof globalRef.clear === 'function') {
+              globalRef.clear();
+            }
+          } catch (error) {
+            qerrors.qerrors(
+              error as Error,
+              'test-memory-manager.clearGlobalReferences.refCleanup',
+              {
+                ref,
+                hasClose: typeof global[ref].close === 'function',
+                hasDisconnect: typeof global[ref].disconnect === 'function',
+                hasClear: typeof global[ref].clear === 'function',
+              }
+            );
+            console.warn(`Failed to clear ${ref}:`, error);
           }
-          if (typeof global[ref].disconnect === 'function') {
-            global[ref].disconnect();
-          }
-          if (typeof global[ref].clear === 'function') {
-            global[ref].clear();
-          }
-        } catch (error) {
-          console.warn(`Failed to clear ${ref}:`, error);
+          global[ref] = null;
+          delete global[ref];
         }
-        global[ref] = null;
-        delete global[ref];
-      }
-    });
+      });
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'test-memory-manager.clearGlobalReferences', {
+        operation: 'global-reference-cleanup',
+      });
+      console.error('Failed to clear global references:', error);
+      throw error;
+    }
   }
   /**
    * Print memory report to console
@@ -416,7 +483,18 @@ async function withMemoryTracking(fn, context) {
       memoryReport: report,
     };
   } catch (error) {
-    manager.stopMonitoring();
+    try {
+      manager.stopMonitoring();
+    } catch (stopError) {
+      qerrors.qerrors(stopError as Error, 'test-memory-manager.withMemoryTracking.stopMonitoring', {
+        context,
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+    qerrors.qerrors(error as Error, 'test-memory-manager.withMemoryTracking', {
+      context,
+      functionName: fn.name || 'anonymous',
+    });
     throw error;
   }
 }
