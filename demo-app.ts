@@ -1,7 +1,7 @@
 /**
  * QMemory Library Demo Application - Frontend-Backend Integration Fixed
  * Demonstrates core functionality with a simple Express.js API
- * 
+ *
  * Fixes applied:
  * - All frontend-called endpoints are properly implemented
  * - Unused test endpoints removed for cleaner API surface
@@ -135,14 +135,16 @@ app.get('/validation/rules', (req: Request, res: Response) => {
         minLength: 1,
         maxLength: 50,
         pattern: '^[a-zA-Z0-9_-]+$',
-        message: 'Username must be 1-50 characters, letters, numbers, underscores, and hyphens only',
+        message:
+          'Username must be 1-50 characters, letters, numbers, underscores, and hyphens only',
       },
       displayName: {
         required: false,
         minLength: 1,
         maxLength: 100,
         pattern: '^[a-zA-Z0-9\\s_-]+$',
-        message: 'Display name must be 1-100 characters, letters, numbers, spaces, underscores, and hyphens only',
+        message:
+          'Display name must be 1-100 characters, letters, numbers, spaces, underscores, and hyphens only',
       },
       email: {
         required: false,
@@ -178,7 +180,7 @@ app.get('/health', async (req: Request, res: Response) => {
     };
     sendSuccess(res, 'Service is healthy', health);
   } catch (error) {
-    qerrors(error as Error, 'demo-app.healthCheck', {
+    qerrors.qerrors(error as Error, 'demo-app.healthCheck', {
       endpoint: '/health',
       method: 'GET',
       userAgent: req.get('User-Agent'),
@@ -235,7 +237,9 @@ app.get('/users', async (req: Request, res: Response) => {
       allUsers.length
     );
 
-    logInfo(`Paginated users: page ${pagination.page}, showing ${paginatedUsers.length} of ${allUsers.length} total`);
+    logInfo(
+      `Paginated users: page ${pagination.page}, showing ${paginatedUsers.length} of ${allUsers.length} total`
+    );
     res.status(200).json(response);
   } catch (error) {
     qerrors.qerrors(error as Error, 'demo-app.listUsers', {

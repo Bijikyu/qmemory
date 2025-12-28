@@ -190,7 +190,7 @@ import {
   performanceMonitor,
 } from './lib/performance-utils.js';
 // Cache utilities
-import { createRedisClient, redisCreateClient } from './lib/cache-utils.js';
+import { createRedisClient } from './lib/cache-utils.js';
 // LRU cache
 import { LRUCache } from './lib/lru-cache.js';
 // Bounded collections
@@ -405,7 +405,6 @@ export {
   performanceMonitor,
   // Cache utilities
   createRedisClient,
-  redisCreateClient,
   // LRU cache
   LRUCache,
   // Bounded collections

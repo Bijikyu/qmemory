@@ -4,9 +4,5 @@
  */
 
 export { UnifiedLogger, LogLevel } from './logger.js';
-export {
-  ErrorHandler,
-  type ErrorContext,
-  type ErrorResponse,
-  type StandardResponse,
-} from './error-handler.js';
+export { ErrorHandler } from './error-handler.js';
+export type { ErrorContext, ErrorResponse, StandardResponse } from './error-handler-types.js';

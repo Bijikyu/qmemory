@@ -21,32 +21,10 @@
  */
 import { performance } from 'perf_hooks';
 import qerrors from 'qerrors';
-/**
- * Test Memory Manager Class
- *
- * Provides comprehensive memory monitoring and leak detection for tests.
- */
-class TestMemoryManager {
-  private checkpoints: any[] = [];
-  private isActive: boolean = false;
-  public gcAvailable: boolean = typeof global.gc === 'function';
-  private leakThresholds: {
-    heap: number;
-    rss: number;
-    external: number;
-    growthRate: number;
-  };
-  private maxCheckpoints: number;
 
-  constructor(options: any = {}) {
-    this.leakThresholds = {
-      heap: options.heapThreshold ?? 50,
-      rss: options.rssThreshold ?? 100,
-      external: options.externalThreshold ?? 25,
-      growthRate: options.growthRateThreshold ?? 5,
-    };
-    this.maxCheckpoints = options.maxCheckpoints ?? 20;
-  }
+// Import refactored components
+import type { MemoryCheckpoint, LeakAnalysis, MemoryManagerOptions } from './memory-tracker-types.js';
+import { TestMemoryManager } from './memory-manager-refactored.js';
   /**
    * Start memory monitoring session
    *

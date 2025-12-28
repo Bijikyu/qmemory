@@ -155,7 +155,7 @@ export interface NotFoundError extends Error {
 }
 
 /**
- * Find document by field value (case-insensitive).
+ * Find document by field value (case-insensitive) with enhanced security.
  * @param Model - Mongoose model used for lookups.
  * @param field - Field to search against.
  * @param value - Value to compare.
@@ -170,28 +170,11 @@ export async function findByFieldIgnoreCase<
       return Model.findOne({ [field]: value } as FilterQuery<TDoc>).exec(); // Query directly without regex when value is non-string to leverage indexes
     }
 
-    // Enhanced validation for regex injection prevention
-    if (typeof value !== 'string') {
-      throw new Error('Search value must be a string');
-    }
-
-    // Prevent ReDoS by limiting input length
-    if (value.length > 100) {
-      throw new Error('Search term too long');
-    }
-
-    // Block dangerous regex patterns and characters
-    if (/[*+?^${}()|[\]\\]/.test(value)) {
-      throw new Error('Invalid characters in search term');
-    }
-
-    // Check for repeated character patterns that could cause ReDoS
-    if (/(.)\1{10,}/.test(value)) {
-      throw new Error('Search term too repetitive');
-    }
+    // Validate input using enhanced security function
+    const escapedValue = escapeRegex(value);
 
     return Model.findOne({
-      [field]: { $regex: new RegExp(`^${escapeRegex(value)}$`, 'i') },
+      [field]: { $regex: `^${escapedValue}$`, $options: 'i' },
     } as FilterQuery<TDoc>).exec(); // Use case-insensitive regex to prevent duplicates differing only by casing
   } catch (error) {
     qerrors.qerrors(error as Error, 'crud-service-factory.findByFieldIgnoreCase', {
@@ -205,12 +188,63 @@ export async function findByFieldIgnoreCase<
 }
 
 /**
- * Escape special regex characters for safe use in queries.
- * @param str - Raw string to escape.
+ * Enhanced regex escaping with comprehensive security validation.
+ * @param str - Raw string to escape and validate.
  * @returns Sanitized string safe for regex construction.
+ * @throws Error if input contains dangerous patterns or exceeds limits.
  */
 export function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex metacharacters to avoid injection vulnerabilities
+  // Input validation for security
+  if (typeof str !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Prevent ReDoS attacks with length limits
+  if (str.length > 100) {
+    throw new Error('Input too long for safe processing');
+  }
+
+  // Block dangerous repeated character patterns that could cause ReDoS
+  if (/(.)\1{10,}/.test(str)) {
+    throw new Error('Input contains repetitive patterns that may cause performance issues');
+  }
+
+  // Comprehensive regex metacharacter escaping (including backslash)
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Validates field names to prevent injection attacks.
+ * @param fieldName - Field name to validate.
+ * @param allowedFields - Whitelist of permitted field names.
+ * @returns Validated field name.
+ * @throws Error if field name is not allowed.
+ */
+export function validateFieldName(fieldName: string, allowedFields: Set<string>): string {
+  if (typeof fieldName !== 'string') {
+    throw new Error('Field name must be a string');
+  }
+
+  if (!allowedFields.has(fieldName)) {
+    throw new Error(`Field "${fieldName}" is not allowed for operations`);
+  }
+
+  return fieldName;
+}
+
+/**
+ * Creates a secure search query with proper validation.
+ * @param field - Validated field name.
+ * @param value - Search value to validate and escape.
+ * @returns Secure MongoDB query object.
+ */
+export function createSecureSearchQuery(field: string, value: string): Record<string, unknown> {
+  // Validate and escape the search value
+  const escapedValue = escapeRegex(value);
+
+  return {
+    [field]: { $regex: `^${escapedValue}$`, $options: 'i' },
+  };
 }
 
 /**
@@ -439,32 +473,15 @@ export function createCrudService<TDoc extends DocumentShape>(
     pagination: PaginationResponse;
     query: string;
   }> {
-    // Enhanced validation for regex injection prevention
-    if (typeof queryText !== 'string') {
-      throw new Error('Search query must be a string');
-    }
-
-    // Prevent ReDoS by limiting input length
-    if (queryText.length > 50) {
-      throw new Error('Search term too long');
-    }
-
-    // Block dangerous regex patterns and characters
-    if (/[*+?^${}()|[\]\\]/.test(queryText)) {
-      throw new Error('Invalid characters in search term');
-    }
-
-    // Check for repeated character patterns that could cause ReDoS
-    if (/(.)\1{10,}/.test(queryText)) {
-      throw new Error('Search term too repetitive');
-    }
+    // Enhanced validation using centralized security function
+    const escapedQueryText = escapeRegex(queryText);
 
     const { page = 1, limit = defaultLimit } = pagination;
     const skip = (page - 1) * limit;
 
     const searchCriteria: FilterQuery<TDoc> = {
       $or: searchableFields.map(field => ({
-        [field]: { $regex: escapeRegex(queryText), $options: 'i' },
+        [field]: { $regex: escapedQueryText, $options: 'i' },
       })),
     } as FilterQuery<TDoc>;
 

@@ -89,14 +89,55 @@ export interface BatchUniqueChecker<TValue> {
 }
 
 /**
- * Escape regex special characters.
+ * Enhanced regex escaping with comprehensive security validation.
+ * @param value - Raw string to escape and validate.
+ * @returns Sanitized string safe for regex construction.
+ * @throws Error if input contains dangerous patterns or exceeds limits.
  */
 export function escapeRegex(value: string): string {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Ensure string type
+  const str = String(value);
+
+  // Input validation for security
+  if (typeof str !== 'string') {
+    throw new Error('Input must be a string');
+  }
+
+  // Prevent ReDoS attacks with length limits
+  if (str.length > 100) {
+    throw new Error('Input too long for safe processing');
+  }
+
+  // Block dangerous repeated character patterns that could cause ReDoS
+  if (/(.)\1{10,}/.test(str)) {
+    throw new Error('Input contains repetitive patterns that may cause performance issues');
+  }
+
+  // Comprehensive regex metacharacter escaping (including backslash)
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * Checks if a field value is unique in a model.
+ * Validates field names to prevent injection attacks.
+ * @param fieldName - Field name to validate.
+ * @param allowedFields - Whitelist of permitted field names.
+ * @returns Validated field name.
+ * @throws Error if field name is not allowed.
+ */
+export function validateFieldName(fieldName: string, allowedFields: Set<string>): string {
+  if (typeof fieldName !== 'string') {
+    throw new Error('Field name must be a string');
+  }
+
+  if (!allowedFields.has(fieldName)) {
+    throw new Error(`Field "${fieldName}" is not allowed for operations`);
+  }
+
+  return fieldName;
+}
+
+/**
+ * Checks if a field value is unique in a model with enhanced security validation.
  */
 export async function checkDuplicateByField<
   TDoc extends DocumentShape,
@@ -115,10 +156,13 @@ export async function checkDuplicateByField<
 
     const query: FilterQuery<TDoc> = {};
 
-    // Use case-insensitive search for string values to prevent casing duplicates.
+    // Use case-insensitive search for string values with enhanced security
     if (typeof fieldValue === 'string') {
+      // Validate and escape input using enhanced security function
+      const escapedValue = escapeRegex(fieldValue);
       query[fieldName] = {
-        $regex: new RegExp(`^${escapeRegex(fieldValue)}$`, 'i'),
+        $regex: `^${escapedValue}$`,
+        $options: 'i',
       } as FilterQuery<TDoc>[TField];
     } else {
       query[fieldName] = fieldValue as FilterQuery<TDoc>[TField];

@@ -4,8 +4,8 @@
  */
 
 import type { RedisClientType } from 'redis';
-import type { RedisOptions } from './core/cache-config-types.js';
-import { CacheClientFactory } from './core/cache-client-factory.js';
+import type { RedisOptions } from './cache-config-types.js';
+import { CacheClientFactory } from './cache-client-factory.js';
 
 /**
  * Main cache utilities export - maintains backward compatibility
@@ -16,8 +16,3 @@ export function createRedisClient(options: RedisOptions = {}): RedisClientType {
 
 // Re-export types for backward compatibility
 export type { RedisClientType as RedisClient, RedisOptions };
-
-// Legacy export for backward compatibility
-export function redisCreateClient(options: RedisOptions = {}): RedisClientType {
-  return createRedisClient(options);
-}
