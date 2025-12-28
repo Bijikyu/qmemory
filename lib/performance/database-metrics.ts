@@ -11,6 +11,7 @@ import {
   DEFAULT_MAX_SLOW_QUERIES,
   DEFAULT_MAX_RECENT_TIMES,
 } from '../../config/localVars.js';
+import * as qerrors from 'qerrors';
 
 // Type definitions
 interface DatabaseMetricsOptions {
@@ -109,62 +110,75 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
     success: boolean = true,
     metadata: Record<string, unknown> = {}
   ): void {
-    console.log(
-      `DatabaseMetrics recording query: ${queryName}, duration: ${duration}ms, success: ${success}`
-    );
-    // Increment global query counter for throughput calculations
-    this.queryCount++;
-    // Initialize query statistics if this is first occurrence of this query type
-    if (!this.queryTimes.has(queryName)) {
-      this.queryTimes.set(queryName, {
-        total: 0, // cumulative duration for average calculation
-        count: 0, // total occurrences for statistical significance
-        min: Infinity, // fastest execution time recorded
-        max: 0, // slowest execution time recorded
-        failures: 0, // failed query count for reliability analysis
-        p95: 0, // 95th percentile response time
-        recentTimes: [], // rolling window for real-time percentile calculation
-      });
-    }
-    // Update statistical metrics with current query performance data
-    const stats = this.queryTimes.get(queryName)!;
-    stats.total += duration;
-    stats.count++;
-    stats.min = Math.min(stats.min || Infinity, duration);
-    stats.max = Math.max(stats.max, duration);
-    stats.recentTimes.push(duration);
-    // Maintain bounded rolling window for memory efficiency and recent performance focus
-    if (stats.recentTimes.length > this.maxRecentTimes) {
-      stats.recentTimes.shift(); // Remove oldest measurement to maintain window size
-    }
-    // Calculate 95th percentile from recent measurements for current performance assessment
-    if (stats.recentTimes.length >= 20) {
-      // Require minimum sample size for statistical validity
-      const sorted = [...stats.recentTimes].sort((a, b) => a - b);
-      stats.p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
-    }
-    // Track failure rates for reliability monitoring and alerting
-    if (!success) {
-      stats.failures++;
-      console.log(`DatabaseMetrics recorded failed query: ${queryName}`);
-    }
-    // Detect and track slow queries for performance optimization opportunities
-    if (duration > this.slowQueryThreshold) {
-      const slowQuery = {
-        queryName, // operation identifier for categorization
-        duration, // actual execution time for analysis
-        timestamp: new Date(), // temporal context for trend analysis
-        success, // outcome for correlation with performance
-        metadata: { ...metadata }, // deep copy to prevent reference mutations
-      };
-      this.slowQueries.push(slowQuery);
-      console.log(`DatabaseMetrics detected slow query: ${queryName} took ${duration}ms`);
-      // Emit event for real-time alerting and monitoring system integration
-      this.emit('slowQuery', slowQuery);
-      // Maintain bounded slow query history to prevent unlimited memory growth
-      if (this.slowQueries.length > this.maxSlowQueries) {
-        this.slowQueries.shift(); // Remove oldest slow query to maintain limit
+    try {
+      console.log(
+        `DatabaseMetrics recording query: ${queryName}, duration: ${duration}ms, success: ${success}`
+      );
+      // Increment global query counter for throughput calculations
+      this.queryCount++;
+      // Initialize query statistics if this is first occurrence of this query type
+      if (!this.queryTimes.has(queryName)) {
+        this.queryTimes.set(queryName, {
+          total: 0, // cumulative duration for average calculation
+          count: 0, // total occurrences for statistical significance
+          min: Infinity, // fastest execution time recorded
+          max: 0, // slowest execution time recorded
+          failures: 0, // failed query count for reliability analysis
+          p95: 0, // 95th percentile response time
+          recentTimes: [], // rolling window for real-time percentile calculation
+        });
       }
+      // Update statistical metrics with current query performance data
+      const stats = this.queryTimes.get(queryName)!;
+      stats.total += duration;
+      stats.count++;
+      stats.min = Math.min(stats.min || Infinity, duration);
+      stats.max = Math.max(stats.max, duration);
+      stats.recentTimes.push(duration);
+      // Maintain bounded rolling window for memory efficiency and recent performance focus
+      if (stats.recentTimes.length > this.maxRecentTimes) {
+        stats.recentTimes.shift(); // Remove oldest measurement to maintain window size
+      }
+      // Calculate 95th percentile from recent measurements for current performance assessment
+      if (stats.recentTimes.length >= 20) {
+        // Require minimum sample size for statistical validity
+        const sorted = [...stats.recentTimes].sort((a, b) => a - b);
+        stats.p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+      }
+      // Track failure rates for reliability monitoring and alerting
+      if (!success) {
+        stats.failures++;
+        console.log(`DatabaseMetrics recorded failed query: ${queryName}`);
+      }
+      // Detect and track slow queries for performance optimization opportunities
+      if (duration > this.slowQueryThreshold) {
+        const slowQuery = {
+          queryName, // operation identifier for categorization
+          duration, // actual execution time for analysis
+          timestamp: new Date(), // temporal context for trend analysis
+          success, // outcome for correlation with performance
+          metadata: { ...metadata }, // deep copy to prevent reference mutations
+        };
+        this.slowQueries.push(slowQuery);
+        console.log(`DatabaseMetrics detected slow query: ${queryName} took ${duration}ms`);
+        // Emit event for real-time alerting and monitoring system integration
+        this.emit('slowQuery', slowQuery);
+        // Maintain bounded slow query history to prevent unlimited memory growth
+        if (this.slowQueries.length > this.maxSlowQueries) {
+          this.slowQueries.shift(); // Remove oldest slow query to maintain limit
+        }
+      }
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'database-metrics.recordQuery', {
+        queryName,
+        duration,
+        success,
+        metadataFieldCount: Object.keys(metadata).length,
+        totalQueries: this.queryCount,
+        trackedQueryTypes: this.queryTimes.size,
+      });
+      // Re-throw to preserve error propagation for critical monitoring failures
+      throw error;
     }
   }
   /**
@@ -176,15 +190,30 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
    * @param destroyed - Total connections properly closed and destroyed
    */
   updateConnectionMetrics(active: number, available: number, created: number, destroyed: number) {
-    console.log(
-      `DatabaseMetrics updating connection metrics: active=${active}, available=${available}, created=${created}, destroyed=${destroyed}`
-    );
-    this.connectionMetrics = {
-      active, // snapshot of currently active connections
-      available, // snapshot of connections ready for use
-      created, // cumulative counter for lifecycle tracking
-      destroyed, // cumulative counter for leak detection
-    };
+    try {
+      console.log(
+        `DatabaseMetrics updating connection metrics: active=${active}, available=${available}, created=${created}, destroyed=${destroyed}`
+      );
+      this.connectionMetrics = {
+        active, // snapshot of currently active connections
+        available, // snapshot of connections ready for use
+        created, // cumulative counter for lifecycle tracking
+        destroyed, // cumulative counter for leak detection
+      };
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'database-metrics.updateConnectionMetrics', {
+        active,
+        available,
+        created,
+        destroyed,
+        hasValidNumbers: [active, available, created, destroyed].every(
+          n => typeof n === 'number' && Number.isFinite(n)
+        ),
+        hasValidConnectionMetrics: this.connectionMetrics !== undefined,
+      });
+      // Log error but don't re-throw for monitoring failures to prevent cascading issues
+      console.error('DatabaseMetrics connection metrics update failed:', error);
+    }
   }
   /**
    * Generates comprehensive database performance metrics report
@@ -192,30 +221,48 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
    * @returns Comprehensive database performance metrics report
    */
   getMetrics(): MetricsReport {
-    console.log('DatabaseMetrics generating comprehensive metrics report');
-    const metrics: MetricsReport = {
-      totalQueries: this.queryCount, // overall throughput indicator
-      slowQueries: this.slowQueries.length, // performance degradation indicator
-      connectionPool: { ...this.connectionMetrics }, // resource utilization snapshot
-      queryStats: {}, // per-operation performance analysis
-      recentSlowQueries: this.slowQueries.slice(-10), // recent performance issues for debugging
-    };
-    // Generate detailed statistics for each tracked query type
-    for (const [queryName, stats] of Array.from(this.queryTimes.entries())) {
-      metrics.queryStats[queryName] = {
-        count: stats.count, // total occurrences
-        avgDuration: Math.round((stats.total / stats.count) * 100) / 100, // mean response time
-        minDuration: stats.min, // best case performance
-        maxDuration: stats.max, // worst case performance
-        p95Duration: stats.p95, // 95th percentile latency
-        failureRate: Math.round((stats.failures / stats.count) * 10000) / 100, // reliability percentage
-        queriesPerSecond: this.calculateQPS(stats.count), // throughput metric
+    try {
+      console.log('DatabaseMetrics generating comprehensive metrics report');
+      const metrics: MetricsReport = {
+        totalQueries: this.queryCount, // overall throughput indicator
+        slowQueries: this.slowQueries.length, // performance degradation indicator
+        connectionPool: { ...this.connectionMetrics }, // resource utilization snapshot
+        queryStats: {}, // per-operation performance analysis
+        recentSlowQueries: this.slowQueries.slice(-10), // recent performance issues for debugging
+      };
+      // Generate detailed statistics for each tracked query type
+      for (const [queryName, stats] of Array.from(this.queryTimes.entries())) {
+        metrics.queryStats[queryName] = {
+          count: stats.count, // total occurrences
+          avgDuration: Math.round((stats.total / stats.count) * 100) / 100, // mean response time
+          minDuration: stats.min, // best case performance
+          maxDuration: stats.max, // worst case performance
+          p95Duration: stats.p95, // 95th percentile latency
+          failureRate: Math.round((stats.failures / stats.count) * 10000) / 100, // reliability percentage
+          queriesPerSecond: this.calculateQPS(stats.count), // throughput metric
+        };
+      }
+      console.log(
+        `DatabaseMetrics report generated with ${Object.keys(metrics.queryStats).length} query types`
+      );
+      return metrics;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'database-metrics.getMetrics', {
+        totalQueries: this.queryCount,
+        slowQueriesCount: this.slowQueries.length,
+        trackedQueryTypes: this.queryTimes.size,
+        hasConnectionMetrics: this.connectionMetrics !== undefined,
+        hasValidQueryTypes: this.queryTimes.size > 0,
+      });
+      // Return minimal metrics on error to prevent monitoring system failures
+      return {
+        totalQueries: this.queryCount,
+        slowQueries: this.slowQueries.length,
+        connectionPool: { active: 0, available: 0, created: 0, destroyed: 0 },
+        queryStats: {},
+        recentSlowQueries: [],
       };
     }
-    console.log(
-      `DatabaseMetrics report generated with ${Object.keys(metrics.queryStats).length} query types`
-    );
-    return metrics;
   }
   /**
    * Calculates queries per second for throughput analysis
@@ -224,12 +271,22 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
    * @returns Queries per second rate rounded to 2 decimal places
    */
   calculateQPS(queryCount: number) {
-    const hoursRunning = Math.max(process.uptime() / 3600, 1); // Minimum 1 hour to prevent extreme values
-    const qps = Math.round((queryCount / hoursRunning) * 100) / 100;
-    console.log(
-      `DatabaseMetrics calculated QPS: ${qps} for ${queryCount} queries over ${hoursRunning} hours`
-    );
-    return qps;
+    try {
+      const hoursRunning = Math.max(process.uptime() / 3600, 1); // Minimum 1 hour to prevent extreme values
+      const qps = Math.round((queryCount / hoursRunning) * 100) / 100;
+      console.log(
+        `DatabaseMetrics calculated QPS: ${qps} for ${queryCount} queries over ${hoursRunning} hours`
+      );
+      return qps;
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'database-metrics.calculateQPS', {
+        queryCount,
+        uptime: process.uptime(),
+        hasValidQueryCount: typeof queryCount === 'number' && Number.isFinite(queryCount),
+      });
+      // Return safe default on error
+      return 0;
+    }
   }
 
   /**
