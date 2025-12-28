@@ -39,7 +39,7 @@ import {
   sendAuthError,
 } from './lib/http-utils.js';
 import type { Server } from 'http';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 // Define interfaces for complex objects
 interface CreateUserRequest extends Request {
@@ -194,7 +194,7 @@ app.get('/health', async (req: Request, res: Response) => {
     };
     sendSuccess(res, 'Service is healthy', health); // send standardized success
   } catch (error) {
-    qerrors.qerrors(error as Error, 'demo-app.healthCheck', {
+    qerrors(error as Error, 'demo-app.healthCheck', {
       endpoint: '/health',
       method: 'GET',
       userAgent: req.get('User-Agent'),
@@ -691,7 +691,7 @@ app.post('/utils/dedupe', (req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-  qerrors.qerrors(error, 'demo-app.unhandledError', {
+  qerrors.qerrors(error as Error, 'demo-app.unhandledError', {
     endpoint: req.url,
     method: req.method,
     userAgent: req.get('User-Agent'),

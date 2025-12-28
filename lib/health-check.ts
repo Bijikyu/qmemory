@@ -26,7 +26,7 @@ import { totalmem, freemem, cpus as getCpuInfo, loadavg as getLoadAverage } from
 import { createTerminus, HealthCheck } from '@godaddy/terminus';
 import { Server } from 'http';
 import { Request, Response } from 'express';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 interface MemoryUsage {
   rss: number;

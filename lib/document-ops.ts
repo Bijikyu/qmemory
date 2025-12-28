@@ -8,7 +8,7 @@ import type { Response } from 'express';
 import { sendNotFound } from './http-utils.js';
 import { ensureUnique } from './database-utils.js';
 import { logFunctionEntry, logFunctionExit, logFunctionError } from './logging-utils.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 type AnyUserDoc = AnyObject & { user: string };
 type DocumentId = Types.ObjectId | string;

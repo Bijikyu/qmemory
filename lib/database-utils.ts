@@ -19,7 +19,7 @@ import {
   sendConflict,
   sendValidationError,
 } from './http-utils.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 interface Logger {
   logDebug(message: string, context?: Record<string, unknown>): void;

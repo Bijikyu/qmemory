@@ -2,7 +2,7 @@
  * Storage Implementations
  * Various storage mechanisms for user data
  */
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 /**
  * User record persisted within the in-memory storage system.

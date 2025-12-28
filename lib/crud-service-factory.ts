@@ -22,7 +22,7 @@
  */
 
 import type { FilterQuery, HydratedDocument, Model, QueryWithHelpers, UpdateQuery } from 'mongoose';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 type DocumentShape = Record<string, unknown>;
 type SortDefinition = Record<string, 1 | -1>;

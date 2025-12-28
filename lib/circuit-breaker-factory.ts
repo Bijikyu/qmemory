@@ -1,5 +1,5 @@
 import { createCircuitBreaker } from './circuit-breaker.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 export class CircuitBreakerFactory {
   private breakers: Map<string, any>;
   private cleanupInterval: NodeJS.Timeout | null;

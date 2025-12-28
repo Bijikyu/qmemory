@@ -9,7 +9,7 @@ import {
   type TypeMapping,
 } from 'redis';
 import { REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD } from '../config/localVars.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 type BaseRedisOptions = RedisClientOptions<
   RedisModules,

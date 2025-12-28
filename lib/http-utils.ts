@@ -12,7 +12,7 @@ import {
   ErrorTypes,
   ErrorFactory,
 } from './simple-wrapper.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 type HttpErrorType =
   | 'BAD_REQUEST'

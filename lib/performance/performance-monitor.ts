@@ -7,7 +7,7 @@
 import DatabaseMetrics from './database-metrics.js';
 import RequestMetricsDefault from './request-metrics.js';
 import SystemMetricsDefault from './system-metrics.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 // Interface definitions
 interface PerformanceMonitorOptions {

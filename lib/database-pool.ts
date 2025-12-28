@@ -11,7 +11,7 @@ import {
   DatabaseConnectionPool,
   databaseConnectionPool as sharedDatabaseConnectionPool,
 } from './database/connection-pool-manager.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 export interface DatabasePoolConfig {
   maxConnections?: number;

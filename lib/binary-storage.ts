@@ -21,7 +21,7 @@ import {
   BINARY_STORAGE_DIR,
   BINARY_STORAGE_MAX_SIZE,
 } from '../config/localVars.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 interface StorageStats {
   type: string;
@@ -317,7 +317,7 @@ export class FileSystemBinaryStorage extends IStorage {
           filePath,
           metaPath,
           storageDir: this.storageDir,
-          errorCode: (error && typeof error === 'object' && 'code' in error) ? error.code : undefined,
+          errorCode: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
         });
         throw new Error(`Failed to delete data: ${error.message}`);
       }

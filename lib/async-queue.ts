@@ -1,6 +1,6 @@
 import BeeQueue from 'bee-queue';
 import { EventEmitter } from 'events';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 type BeeQueueJob<T extends JobData> = BeeQueue.Job<T> & {
   jobType?: string;
@@ -137,7 +137,7 @@ export class AsyncQueueWrapper extends EventEmitter {
       ) as BeeQueueInstance<JobData>;
 
       queue.on('error', (error: Error) => {
-        qerrors.qerrors(error, 'async-queue.queueError', {
+        qerrors.qerrors(error as Error, 'async-queue.queueError', {
           queueState: state,
           queueName: `qmemory-${state}`,
           activeJobsCount: this.activeJobs.size,
@@ -148,7 +148,7 @@ export class AsyncQueueWrapper extends EventEmitter {
       });
 
       queue.on('failed', (job: BeeQueueJob<JobData>, error: Error) => {
-        qerrors.qerrors(error, 'async-queue.jobFailed', {
+        qerrors.qerrors(error as Error, 'async-queue.jobFailed', {
           queueState: state,
           jobId: String(job.id),
           jobType: job.data?.type || 'default',
@@ -170,7 +170,7 @@ export class AsyncQueueWrapper extends EventEmitter {
           const processor = this.processors.get(jobType);
           if (!processor) {
             const error = new Error(`No processor registered for job type: ${jobType}`);
-            qerrors.qerrors(error, 'async-queue.jobProcessor', {
+            qerrors.qerrors(error as Error, 'async-queue.jobProcessor', {
               queueState: state,
               jobId: String(job.id),
               jobType,

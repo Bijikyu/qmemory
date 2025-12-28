@@ -33,7 +33,7 @@ import {
   sendErrorResponse,
 } from './http-utils.js';
 import { logFunctionEntry } from './logging-utils.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 const parseIntegerParam = (paramValue, paramName) => {
   const paramStr = String(paramValue).trim();
   const paramNum = parseInt(paramStr, 10);

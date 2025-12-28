@@ -22,7 +22,7 @@ import type { FilterQuery, Model, Types } from 'mongoose';
 type LeanDocument<T> = T;
 import type { MongoServerError } from 'mongodb';
 import type { Request, Response, NextFunction } from 'express';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 type DocumentShape = Record<string, unknown>;
 type MaybeObjectId = Types.ObjectId | string;

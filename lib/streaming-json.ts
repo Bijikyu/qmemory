@@ -1,4 +1,4 @@
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 const safeJsonParse = (jsonString, defaultValue = null) => {
   try {

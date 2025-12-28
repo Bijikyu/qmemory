@@ -1,5 +1,5 @@
 import CircuitBreakerBase from 'opossum';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 export const STATES = { CLOSED: 'closed', OPEN: 'open', HALF_OPEN: 'half-open' };
 

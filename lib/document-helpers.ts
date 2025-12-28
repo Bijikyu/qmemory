@@ -18,7 +18,7 @@ import {
 type LeanDocument<T> = T;
 import type { UpdateResult } from 'mongodb';
 import { safeDbOperation } from './database-utils.js';
-import * as qerrors from 'qerrors';
+import qerrors from 'qerrors';
 
 interface Logger {
   logFunctionEntry(functionName: string, data?: Record<string, unknown>): void;
