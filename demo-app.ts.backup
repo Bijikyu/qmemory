@@ -1,12 +1,22 @@
 /**
- * QMemory Library Demo Application - Frontend-Backend Integration Fixed
+ * QMemory Library Demo Application
  * Demonstrates core functionality with a simple Express.js API
- * 
- * Fixes applied:
- * - All frontend-called endpoints are properly implemented
- * - Unused test endpoints removed for cleaner API surface
- * - Better error handling and response consistency
- * - Frontend-backend integration validation
+ *
+ * This demo application showcases the practical usage of the qmemory library
+ * in a real Express.js server environment. It provides a complete REST API
+ * for user management operations using the library's utilities.
+ *
+ * Design rationale:
+ * - Demonstrates library integration patterns for real applications
+ * - Shows proper error handling using library HTTP utilities
+ * - Provides working examples of all major library features
+ * - Serves as both documentation and functional testing platform
+ *
+ * Architecture decisions:
+ * - Uses in-memory storage for simplicity and quick demonstration
+ * - Implements comprehensive logging for debugging and monitoring
+ * - Follows REST conventions for intuitive API design
+ * - Includes health checks for production readiness demonstration
  */
 
 import express, { Request, Response, NextFunction, Application } from 'express';
@@ -63,6 +73,7 @@ interface PaginationInfo {
 }
 
 const app: Application = express();
+// Prefer typed/env-aware port retrieval via qgenutils
 const port: number = Number(process.env.PORT) || 5000;
 
 // Optional: enforce required env vars in production
@@ -75,13 +86,14 @@ if (process.env.NODE_ENV === 'production') {
         error: err instanceof Error ? err.message : String(err),
       });
     } else {
+      // Fallback logging
       console.error('Environment validation failed', err);
     }
     process.exit(1);
   }
 }
 
-// Local helper wrappers
+// Local helper wrappers forward to qgenutils.logger for structured logging
 function logInfo(...args: string[]): void {
   try {
     logger?.info?.(args.join(' '));
@@ -99,6 +111,7 @@ function logError(...args: string[]): void {
 }
 
 function sanitizeInput(str: string): string {
+  // robust input sanitization via qgenutils
   try {
     return sanitizeString(str);
   } catch (error) {
@@ -108,26 +121,25 @@ function sanitizeInput(str: string): string {
 }
 
 // Middleware
-app.use(express.json());
-app.use(express.static('public'));
+app.use(express.json()); // body parser for JSON payloads, ensures consistent req.body
+app.use(express.static('public')); // serve static files for documentation and example assets
 
 // Initialize storage
-const storage: MemStorage = new MemStorage();
+const storage: MemStorage = new MemStorage(); // in-memory store is used to keep the demo self contained
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
+  const start = Date.now(); // capture start time to calculate response duration
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    logInfo(`${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
+    const duration = Date.now() - start; // measure request processing time
+    logInfo(`${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`); // log concise request details for monitoring
   });
   next();
 });
 
-// CORE ENDPOINTS USED BY FRONTEND
-
-// Validation rules endpoint - USED BY FRONTEND
+// Validation rules endpoint
 app.get('/validation/rules', (req: Request, res: Response) => {
+  // Expose validation rules for frontend use
   try {
     const validationRules = {
       username: {
@@ -135,14 +147,16 @@ app.get('/validation/rules', (req: Request, res: Response) => {
         minLength: 1,
         maxLength: 50,
         pattern: '^[a-zA-Z0-9_-]+$',
-        message: 'Username must be 1-50 characters, letters, numbers, underscores, and hyphens only',
+        message:
+          'Username must be 1-50 characters, letters, numbers, underscores, and hyphens only',
       },
       displayName: {
         required: false,
         minLength: 1,
         maxLength: 100,
         pattern: '^[a-zA-Z0-9\\s_-]+$',
-        message: 'Display name must be 1-100 characters, letters, numbers, spaces, underscores, and hyphens only',
+        message:
+          'Display name must be 1-100 characters, letters, numbers, spaces, underscores, and hyphens only',
       },
       email: {
         required: false,
@@ -161,73 +175,82 @@ app.get('/validation/rules', (req: Request, res: Response) => {
       method: 'GET',
       userAgent: req.get('User-Agent'),
     });
+    // qerrors already handles error logging and analysis
     sendInternalServerError(res, 'Failed to get validation rules');
   }
 });
 
-// Health check endpoint - USED BY FRONTEND
+// Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
+  // returns service status to support uptime monitoring
   try {
-    const userCount = (await storage.getAllUsers()).length;
+    const userCount = (await storage.getAllUsers()).length; // await to get accurate user total
     const health: HealthStatus = {
-      status: 'healthy',
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      userCount,
+      status: 'healthy', // simple status message used by monitoring tools
+      uptime: process.uptime(), // uptime info provides quick readiness metric
+      memory: process.memoryUsage(), // snapshot of memory usage for debugging
+      userCount, // confirm storage interaction
       timestamp: new Date().toISOString(),
     };
-    sendSuccess(res, 'Service is healthy', health);
+    sendSuccess(res, 'Service is healthy', health); // send standardized success
   } catch (error) {
     qerrors(error as Error, 'demo-app.healthCheck', {
       endpoint: '/health',
       method: 'GET',
       userAgent: req.get('User-Agent'),
     });
+    // qerrors already handles error logging and analysis // log for operator visibility
     sendInternalServerError(res, 'Health check failed');
   }
 });
 
-// API index - USED BY FRONTEND
+// Demo API endpoints
 app.get('/', (req: Request, res: Response) => {
+  // basic API index for manual exploration
   res.json({
     title: 'QMemory Library Demo',
     description: 'Production-ready Node.js utility library demonstration',
     endpoints: {
       'GET /health': 'Health check and system status',
-      'GET /validation/rules': 'Get validation rules for frontend forms',
       'GET /users': 'List users with pagination (?page=1&limit=10)',
-      'POST /users': 'Create new user (JSON: {username, displayName})',
+      'POST /users': 'Create new user (JSON: {username, displayName})', // updated to reflect display name usage
       'GET /users/:id': 'Get user by ID',
-      'PUT /users/:id': 'Update user by ID',
       'DELETE /users/:id': 'Delete user by ID',
-      'GET /users/by-username/:username': 'Get user by username',
       'POST /users/clear': 'Clear all users (development only)',
-      'GET /utils/greet': 'Greeting utility',
-      'POST /utils/math': 'Math operations utility',
-      'GET /utils/even/:num': 'Even/odd check utility',
-      'POST /utils/dedupe': 'Array deduplication utility',
+    },
+    examples: {
+      createUser: {
+        method: 'POST',
+        url: '/users',
+        body: { username: 'johndoe', displayName: 'John Doe' }, // changed example payload field
+      },
     },
   });
 });
 
-// USER MANAGEMENT ENDPOINTS - ALL USED BY FRONTEND
-
-// List users with pagination - USED BY FRONTEND
+// User management endpoints
 app.get('/users', async (req: Request, res: Response) => {
+  // paginated user listing with query parameter support
   try {
+    // Validate pagination parameters and get configuration
     const pagination = validatePagination(req, res, {
       defaultPage: 1,
       defaultLimit: 10,
       maxLimit: 50,
     }) as PaginationInfo | null;
 
+    // If validation failed, response was already sent
     if (!pagination) return;
 
+    // Get all users from storage
     const allUsers = await storage.getAllUsers();
+
+    // Apply pagination to the results
     const startIndex = pagination.skip;
     const endIndex = startIndex + pagination.limit;
     const paginatedUsers = allUsers.slice(startIndex, endIndex);
 
+    // Create complete paginated response with metadata
     const response = createPaginatedResponse(
       paginatedUsers,
       pagination.page,
@@ -235,7 +258,9 @@ app.get('/users', async (req: Request, res: Response) => {
       allUsers.length
     );
 
-    logInfo(`Paginated users: page ${pagination.page}, showing ${paginatedUsers.length} of ${allUsers.length} total`);
+    logInfo(
+      `Paginated users: page ${pagination.page}, showing ${paginatedUsers.length} of ${allUsers.length} total`
+    );
     res.status(200).json(response);
   } catch (error) {
     qerrors.qerrors(error as Error, 'demo-app.listUsers', {
@@ -249,19 +274,20 @@ app.get('/users', async (req: Request, res: Response) => {
   }
 });
 
-// Create user - USED BY FRONTEND
 app.post('/users', async (req: CreateUserRequest, res: Response) => {
+  // create a user for demo operations
   try {
-    const { username, displayName } = req.body;
-    const safeName = sanitizeInput(username);
-    const safeDisplay = sanitizeInput(displayName ?? '');
+    const { username, displayName } = req.body; // get required username and optional display name
+    const safeName = sanitizeInput(username); // sanitize inputs to prevent XSS and maintain consistent storage
+    const safeDisplay = sanitizeInput(displayName ?? ''); // sanitize optional display name field
 
     if (!safeName) {
+      // ensure sanitized username exists
       return sendBadRequest(res, 'Username is required and must be a string');
     }
 
-    const user = await storage.createUser({ username: safeName, displayName: safeDisplay });
-    logInfo(`Created user: ${safeName}`);
+    const user = await storage.createUser({ username: safeName, displayName: safeDisplay }); // pass only fields used by storage
+    logInfo(`Created user: ${safeName}`); // record creation event for auditing
     sendSuccess(res, 'User created successfully', user);
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes('already exists')) {
@@ -272,7 +298,7 @@ app.post('/users', async (req: CreateUserRequest, res: Response) => {
         errorType: 'duplicate',
         userAgent: req.get('User-Agent'),
       });
-      sendBadRequest(res, error.message);
+      sendBadRequest(res, error.message); // duplicate user results in 400
     } else {
       qerrors.qerrors(error as Error, 'demo-app.createUser', {
         endpoint: '/users',
@@ -281,21 +307,24 @@ app.post('/users', async (req: CreateUserRequest, res: Response) => {
         errorType: 'server',
         userAgent: req.get('User-Agent'),
       });
+      // qerrors already handles error logging and analysis
       sendInternalServerError(res, 'Failed to create user');
     }
   }
 });
 
-// Get user by ID - USED BY FRONTEND
 app.get('/users/:id', async (req: Request, res: Response) => {
+  // fetch a single user by id
   try {
-    const id = parseInt(req.params.id ?? '', 10);
+    const id = parseInt(req.params.id ?? '', 10); // parse as base-10 integer for clarity
     if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id ?? '')) {
-      return sendBadRequest(res, 'User ID must be numeric');
+      // validate numeric input strictly
+      return sendBadRequest(res, 'User ID must be numeric'); // reject non-numeric IDs with 400
     }
-    const user = await storage.getUser(id);
+    const user = await storage.getUser(id); // await user fetch to ensure data
 
     if (!user) {
+      // handle unknown id
       return sendNotFound(res, 'User not found');
     }
 
@@ -307,19 +336,21 @@ app.get('/users/:id', async (req: Request, res: Response) => {
       userId: req.params.id,
       userAgent: req.get('User-Agent'),
     });
-    logError('Failed to fetch user', String(error));
+    logError('Failed to fetch user', String(error)); // log before sending generic error
     sendInternalServerError(res, 'Failed to fetch user');
   }
 });
 
-// Get user by username - USED BY FRONTEND
 app.get('/users/by-username/:username', async (req: Request, res: Response) => {
+  // fetch a single user by username
   try {
-    const username = req.params.username;
+    const username = req.params.username; // get username from URL parameter
     if (!username || typeof username !== 'string') {
+      // validate username parameter
       return sendBadRequest(res, 'Username is required and must be a string');
     }
 
+    // Trim username to match stored usernames (storage uses .trim())
     const trimmedUsername = username.trim();
 
     // Get all users and search by username (since MemStorage doesn't have username search)
@@ -327,6 +358,7 @@ app.get('/users/by-username/:username', async (req: Request, res: Response) => {
     const user = allUsers.find(u => u.username === trimmedUsername);
 
     if (!user) {
+      // handle unknown username
       return sendNotFound(res, 'User not found');
     }
 
@@ -338,21 +370,51 @@ app.get('/users/by-username/:username', async (req: Request, res: Response) => {
       username: req.params.username,
       userAgent: req.get('User-Agent'),
     });
-    logError('Failed to fetch user by username', String(error));
+    logError('Failed to fetch user by username', String(error)); // log before sending generic error
     sendInternalServerError(res, 'Failed to fetch user');
   }
 });
 
-// Update user - USED BY FRONTEND
-app.put('/users/:id', async (req: Request, res: Response) => {
+app.delete('/users/:id', async (req: Request, res: Response) => {
+  // remove a user by id
   try {
-    const id = parseInt(req.params.id ?? '', 10);
+    const id = parseInt(req.params.id ?? '', 10); // parse as base-10 integer for consistency
     if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id ?? '')) {
-      return sendBadRequest(res, 'User ID must be numeric');
+      // enforce numeric id format
+      return sendBadRequest(res, 'User ID must be numeric'); // reject invalid ids with 400
+    }
+    const deleted = await storage.deleteUser(id); // await deletion result
+
+    if (!deleted) {
+      // handle missing user
+      return sendNotFound(res, 'User not found');
     }
 
-    const { username, displayName, githubId, avatar } = req.body;
-    const updates: any = {};
+    logInfo(`Deleted user with ID: ${id}`); // audit deletion event
+    sendSuccess(res, 'User deleted successfully');
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.deleteUser', {
+      endpoint: '/users/:id',
+      method: 'DELETE',
+      userId: req.params.id,
+      userAgent: req.get('User-Agent'),
+    });
+    logError('Failed to delete user', String(error)); // preserve stack for debugging
+    sendInternalServerError(res, 'Failed to delete user');
+  }
+});
+
+app.put('/users/:id', async (req: Request, res: Response) => {
+  // update a user by id
+  try {
+    const id = parseInt(req.params.id ?? '', 10); // parse as base-10 integer for consistency
+    if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id ?? '')) {
+      // enforce numeric id format
+      return sendBadRequest(res, 'User ID must be numeric'); // reject invalid ids with 400
+    }
+
+    const { username, displayName, githubId, avatar } = req.body; // get optional update fields
+    const updates: any = {}; // build updates object
 
     // Sanitize and validate provided fields
     if (username !== undefined) {
@@ -375,12 +437,13 @@ app.put('/users/:id', async (req: Request, res: Response) => {
       updates.avatar = sanitizeInput(avatar) || null;
     }
 
+    // Use the actual update functionality
     const updatedUser = await storage.updateUser(id, updates);
     if (!updatedUser) {
       return sendNotFound(res, 'User not found');
     }
 
-    logInfo(`Updated user with ID: ${id}`);
+    logInfo(`Updated user with ID: ${id}`); // audit update event
     sendSuccess(res, 'User updated successfully', updatedUser);
   } catch (error) {
     if (error instanceof Error && error.message.includes('already exists')) {
@@ -391,7 +454,7 @@ app.put('/users/:id', async (req: Request, res: Response) => {
         errorType: 'duplicate',
         userAgent: req.get('User-Agent'),
       });
-      sendBadRequest(res, error.message);
+      sendBadRequest(res, error.message); // username conflict
     } else {
       qerrors.qerrors(error as Error, 'demo-app.updateUser', {
         endpoint: '/users/:id',
@@ -400,48 +463,21 @@ app.put('/users/:id', async (req: Request, res: Response) => {
         errorType: 'server',
         userAgent: req.get('User-Agent'),
       });
-      logError('Failed to update user', String(error));
+      logError('Failed to update user', String(error)); // preserve stack for debugging
       sendInternalServerError(res, 'Failed to update user');
     }
   }
 });
 
-// Delete user - USED BY FRONTEND
-app.delete('/users/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id ?? '', 10);
-    if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id ?? '')) {
-      return sendBadRequest(res, 'User ID must be numeric');
-    }
-    const deleted = await storage.deleteUser(id);
-
-    if (!deleted) {
-      return sendNotFound(res, 'User not found');
-    }
-
-    logInfo(`Deleted user with ID: ${id}`);
-    sendSuccess(res, 'User deleted successfully');
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'demo-app.deleteUser', {
-      endpoint: '/users/:id',
-      method: 'DELETE',
-      userId: req.params.id,
-      userAgent: req.get('User-Agent'),
-    });
-    logError('Failed to delete user', String(error));
-    sendInternalServerError(res, 'Failed to delete user');
-  }
-});
-
-// Clear all users - USED BY FRONTEND
 app.post('/users/clear', async (req: Request, res: Response) => {
+  // wipe storage when testing
   if (process.env.NODE_ENV === 'production') {
-    return sendBadRequest(res, 'Clear operation not allowed in production');
+    return sendBadRequest(res, 'Clear operation not allowed in production'); // protect production data
   }
 
   try {
-    await storage.clear();
-    logInfo('Cleared all users');
+    await storage.clear(); // await to ensure cleanup completes
+    logInfo('Cleared all users'); // log maintenance activity
     sendSuccess(res, 'All users cleared successfully');
   } catch (error) {
     qerrors.qerrors(error as Error, 'demo-app.clearUsers', {
@@ -450,14 +486,43 @@ app.post('/users/clear', async (req: Request, res: Response) => {
       environment: process.env.NODE_ENV,
       userAgent: req.get('User-Agent'),
     });
-    logError('Failed to clear users', String(error));
+    logError('Failed to clear users', String(error)); // log for debugging
     sendInternalServerError(res, 'Failed to clear users');
   }
 });
 
-// UTILITY ENDPOINTS - ALL USED BY FRONTEND
+// HTTP Testing endpoints for frontend utility testing
+app.get('/test/404', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 404 Not Found responses
+  sendNotFound(res, 'Test 404 Not Found response');
+});
 
-// Greeting utility - USED BY FRONTEND
+app.post('/test/409', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 409 Conflict responses
+  sendConflict(res, 'Test 409 Conflict response');
+});
+
+app.get('/test/500', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 500 Server Error responses
+  sendInternalServerError(res, 'Test 500 Server Error response');
+});
+
+app.get('/test/503', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing 503 Service Unavailable responses
+  sendServiceUnavailable(res, 'Test 503 Service Unavailable response');
+});
+
+app.post('/test/validation', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing validation error responses
+  sendBadRequest(res, 'Test validation error response');
+});
+
+app.get('/test/auth', (req: Request, res: Response) => {
+  // Dedicated endpoint for testing authentication error responses
+  sendAuthError(res, 'Test authentication error response');
+});
+
+// Utility endpoints for frontend integration
 app.get('/utils/greet', (req: Request, res: Response) => {
   try {
     const name = (req.query.name as string) || 'World';
@@ -475,15 +540,16 @@ app.get('/utils/greet', (req: Request, res: Response) => {
   }
 });
 
-// Math operations utility - USED BY FRONTEND
 app.post('/utils/math', (req: Request, res: Response) => {
   try {
     const { a, b, operation } = req.body;
 
+    // Validate required fields
     if (a === undefined || b === undefined || operation === undefined) {
       return sendBadRequest(res, 'Missing required fields: a, b, and operation');
     }
 
+    // Sanitize operation parameter
     const safeOperation = sanitizeInput(String(operation));
     const validOperations = ['add', 'subtract', 'multiply', 'divide'];
     if (!validOperations.includes(safeOperation)) {
@@ -541,11 +607,12 @@ app.post('/utils/math', (req: Request, res: Response) => {
   }
 });
 
-// Even/odd check utility - USED BY FRONTEND
 app.get('/utils/even/:num', (req: Request, res: Response) => {
   try {
+    // Sanitize and validate input parameter
     const sanitizedNum = sanitizeInput(req.params.num);
 
+    // Check if sanitization produced valid input before parsing
     if (!sanitizedNum || !/^-?\d+$/.test(sanitizedNum)) {
       return sendBadRequest(res, 'Please enter a valid integer');
     }
@@ -574,7 +641,6 @@ app.get('/utils/even/:num', (req: Request, res: Response) => {
   }
 });
 
-// Array deduplication utility - USED BY FRONTEND
 app.post('/utils/dedupe', (req: Request, res: Response) => {
   try {
     const { items } = req.body;
@@ -631,43 +697,48 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
     userAgent: req.get('User-Agent'),
     headersSent: res.headersSent,
   });
-  logError('Unhandled error:', error.message);
+  logError('Unhandled error:', error.message); // capture unexpected issues
   if (res.headersSent) {
+    // delegate to default handler if headers already sent
     return next(error);
   }
-  sendInternalServerError(res, 'An unexpected error occurred');
+  sendInternalServerError(res, 'An unexpected error occurred'); // hide error specifics from clients
 });
 
 // 404 handler
 app.use((req: Request, res: Response) => {
-  sendNotFound(res, 'Endpoint not found');
+  sendNotFound(res, 'Endpoint not found'); // unified not-found response
 });
 
-// Graceful shutdown
+// Graceful shutdown via qgenutils
 function registerGracefulShutdown(serverInstance: Server | undefined): void {
   try {
-    gracefulShutdown(serverInstance);
+    gracefulShutdown(serverInstance); // handles SIGTERM/SIGINT
   } catch (err: unknown) {
     logError('Failed to register graceful shutdown', String(err));
   }
 }
 
-let server: Server | undefined;
+let server: Server | undefined; // holds HTTP server instance when started manually or via CLI
+// start server only when running this file directly (check if this is the main module)
 const isMainModule = process.argv[1] === new URL(import.meta.url).pathname;
 if (isMainModule) {
   server = app.listen(port, '0.0.0.0', () => {
-    logInfo(`QMemory Demo App listening on port ${port}`);
-    logInfo('Environment:', process.env.NODE_ENV ?? 'development');
+    // bind to all interfaces for demo usage
+    logInfo(`QMemory Demo App listening on port ${port}`); // log startup details for monitoring
+    logInfo('Environment:', process.env.NODE_ENV ?? 'development'); // log running mode for clarity
 
     // Create some sample data in development
     if (process.env.NODE_ENV !== 'production') {
+      // avoid polluting production DB
       storage
-        .createUser({ username: 'demo', displayName: 'Demo User' })
+        .createUser({ username: 'demo', displayName: 'Demo User' }) // sample uses displayName to match route
         .then(() => logInfo('Created demo user'))
         .catch(err => logError('Failed to create demo user:', String(err)));
     }
+    // Register shutdown handlers after server starts
     registerGracefulShutdown(server);
   });
 }
 
-export { app, server };
+export { app, server }; // export server for tests and app for external usage

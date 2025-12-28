@@ -170,6 +170,26 @@ export async function findByFieldIgnoreCase<
       return Model.findOne({ [field]: value } as FilterQuery<TDoc>).exec(); // Query directly without regex when value is non-string to leverage indexes
     }
 
+    // Enhanced validation for regex injection prevention
+    if (typeof value !== 'string') {
+      throw new Error('Search value must be a string');
+    }
+
+    // Prevent ReDoS by limiting input length
+    if (value.length > 100) {
+      throw new Error('Search term too long');
+    }
+
+    // Block dangerous regex patterns and characters
+    if (/[*+?^${}()|[\]\\]/.test(value)) {
+      throw new Error('Invalid characters in search term');
+    }
+
+    // Check for repeated character patterns that could cause ReDoS
+    if (/(.)\1{10,}/.test(value)) {
+      throw new Error('Search term too repetitive');
+    }
+
     return Model.findOne({
       [field]: { $regex: new RegExp(`^${escapeRegex(value)}$`, 'i') },
     } as FilterQuery<TDoc>).exec(); // Use case-insensitive regex to prevent duplicates differing only by casing
@@ -419,6 +439,26 @@ export function createCrudService<TDoc extends DocumentShape>(
     pagination: PaginationResponse;
     query: string;
   }> {
+    // Enhanced validation for regex injection prevention
+    if (typeof queryText !== 'string') {
+      throw new Error('Search query must be a string');
+    }
+
+    // Prevent ReDoS by limiting input length
+    if (queryText.length > 50) {
+      throw new Error('Search term too long');
+    }
+
+    // Block dangerous regex patterns and characters
+    if (/[*+?^${}()|[\]\\]/.test(queryText)) {
+      throw new Error('Invalid characters in search term');
+    }
+
+    // Check for repeated character patterns that could cause ReDoS
+    if (/(.)\1{10,}/.test(queryText)) {
+      throw new Error('Search term too repetitive');
+    }
+
     const { page = 1, limit = defaultLimit } = pagination;
     const skip = (page - 1) * limit;
 

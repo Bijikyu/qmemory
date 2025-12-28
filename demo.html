@@ -421,15 +421,31 @@
           <div class="card">
             <h3>🔗 Server Connection</h3>
             <p>Test connectivity to the demo server:</p>
-            <button onclick="checkServerHealth()">Check Health</button>
-            <button onclick="getServerInfo()" class="secondary">Server Info</button>
+            <button
+              onclick="checkServerHealth()"
+              aria-label="Check server health status and connection"
+            >
+              Check Server Health
+            </button>
+            <button
+              onclick="getServerInfo()"
+              class="secondary"
+              aria-label="Get detailed server information and status"
+            >
+              Get Server Info
+            </button>
             <div id="healthResponse" class="response hidden"></div>
           </div>
 
           <div class="card">
             <h3>📈 Quick Stats</h3>
             <p>Real-time library statistics:</p>
-            <button onclick="refreshStats()">Refresh Stats</button>
+            <button
+              onclick="refreshStats()"
+              aria-label="Refresh system statistics and performance metrics"
+            >
+              Refresh System Stats
+            </button>
             <div id="statsResponse" class="response hidden"></div>
           </div>
         </div>
@@ -456,7 +472,7 @@
             <h3>Create User</h3>
             <form id="createUserForm">
               <div class="form-group">
-                <label for="username">Username *</label>
+                <label for="username">Username * (letters, numbers, underscores only)</label>
                 <input
                   type="text"
                   id="username"
@@ -471,7 +487,7 @@
                   type="text"
                   id="displayName"
                   name="displayName"
-                  placeholder="Enter display name"
+                  placeholder="Enter display name (shown to other users)"
                 />
               </div>
               <button type="submit">Create User</button>
@@ -483,7 +499,7 @@
           <div class="card">
             <h3>Find User</h3>
             <div class="form-group">
-              <label for="userId">User ID</label>
+              <label for="userId">User ID (numeric, required)</label>
               <input type="number" id="userId" placeholder="Enter user ID" />
             </div>
             <button onclick="findUser()">Find User</button>
@@ -501,11 +517,11 @@
                   id="updateUserId"
                   name="updateUserId"
                   required
-                  placeholder="Enter user ID"
+                  placeholder="Enter numeric user ID (e.g., 123)"
                 />
               </div>
               <div class="form-group">
-                <label for="updateUsername">Username</label>
+                <label for="updateUsername">Username (replaces current username)</label>
                 <input
                   type="text"
                   id="updateUsername"
@@ -519,7 +535,7 @@
                   type="text"
                   id="updateDisplayName"
                   name="updateDisplayName"
-                  placeholder="Enter new display name"
+                  placeholder="Enter new display name (replaces current one)"
                 />
               </div>
               <div class="form-group">
@@ -528,7 +544,7 @@
                   type="text"
                   id="updateGithubId"
                   name="updateGithubId"
-                  placeholder="Enter GitHub ID"
+                  placeholder="Enter GitHub username (without @)"
                 />
               </div>
               <div class="form-group">
@@ -564,9 +580,26 @@
               </select>
             </div>
           </div>
-          <button onclick="loadUsers()">Load Users</button>
-          <button onclick="loadAllUsers()" class="secondary">Load All Users</button>
-          <button onclick="clearAllUsers()" class="danger">Clear All Users</button>
+          <button
+            onclick="loadUsers()"
+            aria-label="Load paginated user list with current page and limit settings"
+          >
+            Load User List
+          </button>
+          <button
+            onclick="loadAllUsers()"
+            class="secondary"
+            aria-label="Load complete user list without pagination (may be slow)"
+          >
+            Load All Users
+          </button>
+          <button
+            onclick="clearAllUsers()"
+            class="danger"
+            aria-label="Delete all users from database - this action cannot be undone"
+          >
+            ⚠️ Delete All Users (Cannot Undo)
+          </button>
 
           <div id="userList" class="user-list hidden"></div>
           <div id="userPagination" class="pagination hidden"></div>

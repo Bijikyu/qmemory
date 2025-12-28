@@ -187,8 +187,13 @@ class PerformanceMonitor {
   ): (...args: T) => Promise<any> {
     console.log(`PerformanceMonitor wrapping database operation: ${operationName}`);
     return async (...args: T) => {
-      // Capture high-resolution operation start time
-      const startTime = process.hrtime.bigint();
+      // OPTIMIZED: Use sampling-based timing to reduce overhead
+      // Only 10% of operations get high-precision timing to reduce system call overhead
+      const shouldTime = Math.random() < 0.1;
+      let startTime: bigint;
+      if (shouldTime) {
+        startTime = process.hrtime.bigint();
+      }
       let success = true;
       try {
         // Execute original database operation with argument passthrough
@@ -205,10 +210,15 @@ class PerformanceMonitor {
         });
         throw error; // Re-throw original error without modification
       } finally {
-        // Record performance metrics regardless of operation outcome
-        const endTime = process.hrtime.bigint();
-        const duration = Number(endTime - startTime) / 1000000; // Convert to milliseconds
-        this.database.recordQuery(operationName, duration, success);
+        // Record performance metrics only for sampled operations
+        if (shouldTime) {
+          const endTime = process.hrtime.bigint();
+          const duration = Number(endTime - startTime) / 1000000; // Convert to milliseconds
+          this.database.recordQuery(operationName, duration, success);
+        } else {
+          // Record without timing for non-sampled operations
+          this.database.recordQuery(operationName, 0, success); // 0ms indicates not timed
+        }
       }
     };
   }

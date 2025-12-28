@@ -255,7 +255,31 @@ class ObjectStorageBinaryStorage extends IStorage {
             const [metadataExists] = await metadataFile.exists();
             if (metadataExists) {
               const [metadataContent] = await metadataFile.download();
-              const meta = JSON.parse(metadataContent.toString());
+              const metadataString = metadataContent.toString();
+
+              // Validate metadata size to prevent memory exhaustion
+              if (metadataString.length > 10000) {
+                throw new Error('Metadata too large');
+              }
+
+              // Safe JSON parsing with validation
+              const meta = JSON.parse(metadataString);
+
+              // Validate parsed object structure
+              if (typeof meta !== 'object' || meta === null) {
+                throw new Error('Invalid metadata format');
+              }
+
+              // Prevent prototype pollution
+              if (meta.__proto__ || meta.constructor || meta.prototype) {
+                throw new Error('Invalid metadata structure');
+              }
+
+              // Validate originalKey property exists and is string
+              if (typeof meta.originalKey !== 'string') {
+                throw new Error('Invalid originalKey in metadata');
+              }
+
               keys.push((meta as ObjectMetadata).originalKey);
             } else {
               keys.push(file.name);

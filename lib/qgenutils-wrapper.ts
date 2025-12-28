@@ -13,26 +13,26 @@ export const logger = qerrors.logger;
 // qgenutils Security & Sanitization
 export const sanitizeString = qgenutils.sanitizeString;
 export const sanitizeHtml = qgenutils.sanitizeHtml;
-export const sanitizeSqlInput = qgenutils.sanitizeSqlInput;
-export const sanitizeObjectRecursively = qgenutils.sanitizeObjectRecursively;
+export const sanitizeSqlInput = (qgenutils as any).sanitizeSqlInput;
+export const sanitizeObjectRecursively = (qgenutils as any).sanitizeObjectRecursively;
 // qgenutils Validation
-export const isValidString = qgenutils.isValidString;
-export const isValidObject = qgenutils.isValidObject;
+export const isValidString = (qgenutils as any).isValidString;
+export const isValidObject = (qgenutils as any).isValidObject;
 // qgenutils Performance
-export const createPerformanceTimer = qgenutils.createPerformanceTimer;
+export const createPerformanceTimer = (qgenutils as any).createPerformanceTimer;
 // qgenutils Environment Variables
-export const getEnvVar = qgenutils.getEnvVar;
-export const requireEnvVars = qgenutils.requireEnvVars;
+export const getEnvVar = (qgenutils as any).getEnvVar;
+export const requireEnvVars = (qgenutils as any).requireEnvVars;
 // qgenutils Graceful Shutdown
-export const gracefulShutdown = qgenutils.gracefulShutdown;
+export const gracefulShutdown = (qgenutils as any).gracefulShutdown;
 // qgenutils ID Generation - Use qerrors version to avoid conflicts
 // export const generateUniqueId = qgenutils.generateUniqueId;
 // qerrors Error Handling
-export const createTypedError = qerrors.createTypedError;
-export const ErrorTypes = qerrors.ErrorTypes;
-export const ErrorFactory = qerrors.ErrorFactory;
+export const createTypedError = (qerrors as any).createTypedError;
+export const ErrorTypes = (qerrors as any).ErrorTypes;
+export const ErrorFactory = (qerrors as any).ErrorFactory;
 // qerrors Message Sanitization (missing from exports)
-export const sanitizeResponseMessage = qerrors.sanitizeMessage;
+export const sanitizeResponseMessage = (qerrors as any).sanitizeMessage;
 export const sanitizeContext = qerrors.sanitizeContext;
 // Export generateUniqueId from qerrors to avoid conflicts
 export const generateUniqueId = qerrors.generateUniqueId;

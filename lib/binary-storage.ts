@@ -145,7 +145,7 @@ export class MemoryBinaryStorage extends IStorage {
     const sizeDifference = data.length - existingSize;
     this._checkSizeLimit(sizeDifference);
     // Store the data and update size tracking
-    this.storage.set(key, Buffer.from(data)); // Create copy to prevent external mutations
+    this.storage.set(key, data); // Zero-copy storage for better performance
     this.currentSize += sizeDifference;
     console.log(
       `Stored ${data.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`
@@ -157,7 +157,8 @@ export class MemoryBinaryStorage extends IStorage {
     if (!data) {
       return null;
     }
-    // Return a copy to prevent external mutations
+    // Return a copy to prevent external mutations (required for safety)
+    // Note: Consider read-only Buffer views for future optimization
     return Buffer.from(data);
   }
   async delete(key) {
@@ -349,7 +350,29 @@ export class FileSystemBinaryStorage extends IStorage {
           // Try to read the original key from meta file
           try {
             const metaData = await fs.readFile(metaPath, 'utf8');
+            // Validate metadata size to prevent memory exhaustion
+            if (metaData.length > 10000) {
+              throw new Error('Metadata too large');
+            }
+
+            // Safe JSON parsing with validation
             const meta = JSON.parse(metaData);
+
+            // Validate parsed object structure
+            if (typeof meta !== 'object' || meta === null) {
+              throw new Error('Invalid metadata format');
+            }
+
+            // Prevent prototype pollution
+            if (meta.__proto__ || meta.constructor || meta.prototype) {
+              throw new Error('Invalid metadata structure');
+            }
+
+            // Validate key property exists and is string
+            if (typeof meta.key !== 'string') {
+              throw new Error('Invalid key in metadata');
+            }
+
             keys.push(meta.key);
           } catch (metaError) {
             keys.push(file.replace('.bin', ''));

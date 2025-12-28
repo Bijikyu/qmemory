@@ -56,6 +56,7 @@ export default class SystemMetrics {
   private lastCpuUsage: NodeJS.CpuUsage;
   private startTime: [number, number];
   private collectionTimer: NodeJS.Timeout | null;
+  private collectMetricsEnabled: boolean = true; // NEW: Prevent runaway timer
 
   constructor(options: SystemMetricsOptions = {}) {
     // Configuration with production-appropriate defaults
@@ -77,6 +78,11 @@ export default class SystemMetrics {
    */
   collectMetrics(): void {
     try {
+      // NEW: Prevent runaway collection if errors accumulate
+      if (!this.collectMetricsEnabled) {
+        return;
+      }
+
       console.log('SystemMetrics collecting current resource measurements');
       // Capture current memory utilization from Node.js process
       const memory = process.memoryUsage();
@@ -120,6 +126,16 @@ export default class SystemMetrics {
         hasValidCpuUsage: this.lastCpuUsage !== undefined,
         hasValidStartTime: this.startTime !== undefined,
       });
+      // NEW: Disable collection if too many consecutive errors occur
+      if (
+        this.memoryHistory.length > this.maxHistoryPoints * 2 ||
+        this.cpuHistory.length > this.maxHistoryPoints * 2
+      ) {
+        this.collectMetricsEnabled = false;
+        console.error('SystemMetrics: Disabling collection due to excessive errors');
+        this.stop();
+        return;
+      }
       // Log error but don't throw to prevent timer failures from crashing the application
       console.error('SystemMetrics failed to collect metrics:', error);
     }

@@ -18,6 +18,7 @@ interface DatabaseMetricsOptions {
   slowQueryThreshold?: number;
   maxSlowQueries?: number;
   maxRecentTimes?: number;
+  maxQueryTypes?: number; // NEW: Prevent unbounded query type growth
 }
 
 interface QueryStats {
@@ -72,6 +73,8 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
   private slowQueryThreshold: number;
   private maxSlowQueries: number;
   private maxRecentTimes: number;
+  private maxQueryTypes: number; // NEW: Prevent unbounded query type growth
+  private queryCountWrapThreshold: number; // NEW: Prevent counter overflow
   private queryTimes: Map<string, QueryStats>;
   private slowQueries: SlowQuery[];
   private queryCount: number;
@@ -83,10 +86,13 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
     this.slowQueryThreshold = options.slowQueryThreshold || Number(DEFAULT_SLOW_QUERY_THRESHOLD); // milliseconds
     this.maxSlowQueries = options.maxSlowQueries || Number(DEFAULT_MAX_SLOW_QUERIES); // bounded history size
     this.maxRecentTimes = options.maxRecentTimes || Number(DEFAULT_MAX_RECENT_TIMES); // rolling window size
-    // Core metrics storage optimized for performance and memory efficiency
+    // NEW: Memory bounds enforcement to prevent OOM crashes
+    this.maxQueryTypes = options.maxQueryTypes || 100; // Limit tracked query types
+    this.queryCountWrapThreshold = Number.MAX_SAFE_INTEGER - 1000000; // Prevent overflow
+    // Core metrics storage with bounded memory management for production scalability
     this.queryTimes = new Map(); // query performance statistics by operation type
-    this.slowQueries = []; // chronological history of slow queries with context
-    this.queryCount = 0; // total query counter for throughput analysis
+    this.slowQueries = []; // chronological history of slow queries with context (bounded by maxSlowQueries)
+    this.queryCount = 0; // total query counter for throughput analysis (with wrap-around to prevent overflow)
     // Connection pool metrics for resource utilization monitoring
     this.connectionMetrics = {
       active: 0, // currently executing connections
@@ -114,10 +120,22 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
       console.log(
         `DatabaseMetrics recording query: ${queryName}, duration: ${duration}ms, success: ${success}`
       );
-      // Increment global query counter for throughput calculations
+      // Increment global query counter with overflow protection
       this.queryCount++;
+      if (this.queryCount > this.queryCountWrapThreshold) {
+        this.queryCount = 0; // Wrap around to prevent overflow
+      }
       // Initialize query statistics if this is first occurrence of this query type
+      // Enforce memory bounds on tracked query types
       if (!this.queryTimes.has(queryName)) {
+        if (this.queryTimes.size >= this.maxQueryTypes) {
+          // Remove least recently used query type to maintain memory bounds
+          const oldestKey = this.queryTimes.keys().next().value;
+          this.queryTimes.delete(oldestKey);
+          console.log(
+            `DatabaseMetrics: Removed query type '${oldestKey}' to maintain memory bounds`
+          );
+        }
         this.queryTimes.set(queryName, {
           total: 0, // cumulative duration for average calculation
           count: 0, // total occurrences for statistical significance

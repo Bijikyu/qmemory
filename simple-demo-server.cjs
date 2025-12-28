@@ -49,7 +49,7 @@ app.get('/users', (req, res) => {
   const paginatedUsers = users.slice(startIndex, endIndex);
 
   res.json({
-    message: 'Users retrieved successfully',
+    success: true,
     timestamp: new Date().toISOString(),
     data: {
       users: paginatedUsers,

@@ -342,8 +342,33 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
     let decodedCursor = null;
     if (cursor) {
       try {
+        // Validate cursor before processing
+        if (cursor.length > 1000) {
+          sendErrorResponse(res, 400, 'Cursor too large');
+          return null;
+        }
+
         const cursorJson = Buffer.from(cursor, 'base64').toString('utf-8');
+
+        // Validate JSON structure before parsing
+        if (!/^\s*\{[\s\S]*\}\s*$/.test(cursorJson)) {
+          sendErrorResponse(res, 400, 'Invalid cursor format');
+          return null;
+        }
+
         decodedCursor = JSON.parse(cursorJson);
+
+        // Validate parsed cursor structure
+        if (typeof decodedCursor !== 'object' || decodedCursor === null) {
+          sendErrorResponse(res, 400, 'Invalid cursor structure');
+          return null;
+        }
+
+        // Prevent prototype pollution
+        if (decodedCursor.__proto__ || decodedCursor.constructor || decodedCursor.prototype) {
+          sendErrorResponse(res, 400, 'Invalid cursor structure');
+          return null;
+        }
         console.log(`validateCursorPagination decoded cursor:`, decodedCursor);
       } catch (error) {
         console.log(
@@ -518,6 +543,21 @@ function validateSorting(req: any, res: any, options: any = {}) {
     for (const fieldSpec of sortFields) {
       const direction = fieldSpec.startsWith('-') ? 'desc' : 'asc';
       const fieldName = fieldSpec.replace(/^[+-]/, '');
+      // Block dangerous property names
+      const dangerousProps = ['__proto__', 'constructor', 'prototype'];
+      if (dangerousProps.includes(fieldName)) {
+        console.log(`validateSorting is returning null due to dangerous field name: ${fieldName}`);
+        sendErrorResponse(res, 400, `Invalid sort field: ${fieldName}`);
+        return null;
+      }
+
+      // Additional MongoDB operator checks
+      if (fieldName.includes('$') || fieldName.includes('.')) {
+        console.log(`validateSorting is returning null due to invalid field format: ${fieldName}`);
+        sendErrorResponse(res, 400, `Invalid sort field format: ${fieldName}`);
+        return null;
+      }
+
       // Validate field name format (alphanumeric and underscore only)
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(fieldName)) {
         console.log(`validateSorting is returning null due to invalid field format: ${fieldName}`);
