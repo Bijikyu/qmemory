@@ -22,63 +22,8 @@ import {
   BINARY_STORAGE_MAX_SIZE,
 } from '../config/localVars.js';
 import qerrors from 'qerrors';
+import { StorageStats, IStorageInterface, StorageOptions, IStorage } from './storage-interfaces.js';
 
-interface StorageStats {
-  type: string;
-  itemCount: number;
-  totalSize: number;
-  maxSize?: number;
-  utilizationPercent?: number;
-  storageDir?: string;
-  keys?: string[];
-  error?: string;
-}
-
-interface IStorageInterface {
-  save(key: string, data: Buffer): Promise<void>;
-  get(key: string): Promise<Buffer | null>;
-  delete(key: string): Promise<void>;
-  exists(key: string): Promise<boolean>;
-  getStats(): Promise<StorageStats>;
-}
-
-interface StorageOptions {
-  type?: string;
-  config?: {
-    maxSize?: number;
-    storageDir?: string;
-    [key: string]: any;
-  };
-}
-
-let ObjectStorageBinaryStorage: (new () => IStorageInterface) | null = null; // Hold optional object storage implementation when available
-let objectStorageImportError: Error | null = null; // Track why the optional dependency failed to load for better diagnostics
-
-try {
-  const module = await import('./object-storage-binary.js'); // Dynamically load optional object storage using ESM-compatible import
-  ObjectStorageBinaryStorage = module?.ObjectStorageBinaryStorage ?? null; // Cache the constructor to preserve synchronous factory API
-} catch (error) {
-  objectStorageImportError = error instanceof Error ? error : new Error(String(error)); // Normalize error for consistent logging later
-}
-/**
- * IStorage Interface Definition
- *
- * This interface defines the contract for binary data storage operations.
- * All implementations must provide these four core methods.
- */
-export class IStorage {
-  /**
-   * Get storage statistics (optional method for monitoring)
-   * @returns Storage usage statistics
-   */
-  async getStats() {
-    return {
-      type: 'unknown',
-      itemCount: 0,
-      totalSize: 0,
-    };
-  }
-}
 /**
  * In-Memory Binary Storage Implementation
  *
@@ -122,7 +67,7 @@ export class MemoryBinaryStorage extends IStorage {
   /**
    * Validate data is a Buffer object
    */
-  _validateData(data) {
+  private _validateData(data: any): asserts data is Buffer {
     if (!Buffer.isBuffer(data)) {
       throw new Error('Data must be a Buffer object');
     }
@@ -130,14 +75,14 @@ export class MemoryBinaryStorage extends IStorage {
   /**
    * Check if adding new data would exceed size limit
    */
-  _checkSizeLimit(newDataSize) {
+  private _checkSizeLimit(newDataSize: number): void {
     if (this.currentSize + newDataSize > this.maxSize) {
       throw new Error(
         `Storage size limit exceeded. Current: ${this.currentSize}, New: ${newDataSize}, Limit: ${this.maxSize}`
       );
     }
   }
-  async save(key, data) {
+  async save(key: string, data: Buffer): Promise<void> {
     this._validateKey(key);
     this._validateData(data);
     // Calculate size difference for existing vs new data
@@ -151,7 +96,7 @@ export class MemoryBinaryStorage extends IStorage {
       `Stored ${data.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`
     );
   }
-  async get(key) {
+  async get(key: string): Promise<Buffer | null> {
     this._validateKey(key);
     const data = this.storage.get(key);
     if (!data) {
@@ -161,7 +106,7 @@ export class MemoryBinaryStorage extends IStorage {
     // Note: Consider read-only Buffer views for future optimization
     return Buffer.from(data);
   }
-  async delete(key) {
+  async delete(key: string): Promise<void> {
     this._validateKey(key);
     const data = this.storage.get(key);
     if (data) {
@@ -170,7 +115,7 @@ export class MemoryBinaryStorage extends IStorage {
       console.log(`Deleted data at key '${key}'. Remaining storage: ${this.currentSize} bytes`);
     }
   }
-  async exists(key) {
+  async exists(key: string): Promise<boolean> {
     this._validateKey(key);
     return this.storage.has(key);
   }
@@ -229,7 +174,7 @@ export class FileSystemBinaryStorage extends IStorage {
       throw new Error(`Failed to create storage directory: ${error.message}`);
     }
   }
-  _validateKey(key) {
+  private _validateKey(key: string): void {
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('Key must be a non-empty string');
     }
@@ -238,12 +183,12 @@ export class FileSystemBinaryStorage extends IStorage {
       throw new Error('Key contains invalid characters for file system storage');
     }
   }
-  _getFilePath(key) {
+  private _getFilePath(key: string): string {
     // Hash the key to ensure safe file names and avoid conflicts
     const hash = createHash('sha256').update(key).digest('hex');
     return join(this.storageDir, `${hash}.bin`);
   }
-  async save(key, data) {
+  async save(key: string, data: Buffer): Promise<void> {
     this._validateKey(key);
     if (!Buffer.isBuffer(data)) {
       throw new Error('Data must be a Buffer object');
@@ -280,7 +225,7 @@ export class FileSystemBinaryStorage extends IStorage {
       throw new Error(`Failed to save data: ${error.message}`);
     }
   }
-  async get(key) {
+  async get(key: string): Promise<Buffer | null> {
     this._validateKey(key);
     const filePath = this._getFilePath(key);
     try {
@@ -299,7 +244,7 @@ export class FileSystemBinaryStorage extends IStorage {
       throw new Error(`Failed to read data: ${error.message}`);
     }
   }
-  async delete(key) {
+  async delete(key: string): Promise<void> {
     this._validateKey(key);
     const filePath = this._getFilePath(key);
     const metaPath = `${filePath}.meta`;
@@ -325,7 +270,7 @@ export class FileSystemBinaryStorage extends IStorage {
       // File doesn't exist, which is fine for delete operation
     }
   }
-  async exists(key) {
+  async exists(key: string): Promise<boolean> {
     this._validateKey(key);
     const filePath = this._getFilePath(key);
     try {
@@ -410,7 +355,7 @@ export class StorageFactory {
    * @param options - Configuration options
    * @returns Storage implementation instance
    */
-  static createStorage(options: StorageOptions = {}) {
+  static createStorage(options: StorageOptions = {}): IStorage {
     const { type = 'memory', config = {} } = options;
     switch (type.toLowerCase()) {
       case 'memory':
@@ -420,26 +365,38 @@ export class StorageFactory {
         return new FileSystemBinaryStorage(config.storageDir);
       case 'object':
       case 'cloud':
-        if (ObjectStorageBinaryStorage) {
-          return new ObjectStorageBinaryStorage(); // Use optional object storage when the module loaded successfully
-        }
-        if (objectStorageImportError) {
-          console.warn(
-            `Failed to initialize object storage: ${objectStorageImportError.message}, falling back to memory storage`
-          );
-        } else {
-          console.warn('Object storage module unavailable, falling back to memory storage');
-        }
+        // For object storage, we need to handle async loading differently
+        // Return memory storage initially and warn about async nature
+        console.warn(
+          'Object storage requires async initialization. Use createObjectStorage() method instead.'
+        );
         return new MemoryBinaryStorage();
       default:
         console.warn(`Unknown storage type '${type}', falling back to memory storage`);
         return new MemoryBinaryStorage();
     }
   }
+
+  /**
+   * Create object storage instance with async loading
+   * @param config - Optional configuration
+   * @returns Promise resolving to ObjectStorageBinaryStorage instance
+   */
+  static async createObjectStorage(): Promise<IStorage> {
+    try {
+      const objectStorage = await import('./object-storage-binary.js');
+      return new objectStorage.ObjectStorageBinaryStorage();
+    } catch (error) {
+      console.warn(
+        `Failed to load object storage: ${error instanceof Error ? error.message : String(error)}, falling back to memory storage`
+      );
+      return new MemoryBinaryStorage();
+    }
+  }
   /**
    * Create storage based on environment variables
    */
-  static createFromEnvironment() {
+  static createFromEnvironment(): IStorage {
     const storageType = BINARY_STORAGE_TYPE;
     const config: { maxSize?: number; storageDir?: string; [key: string]: any } = {};
     if (storageType === 'filesystem') {
@@ -452,17 +409,34 @@ export class StorageFactory {
       if (maxSizeStr) {
         config.maxSize = parseInt(maxSizeStr);
       }
+    } else if (storageType === 'object' || storageType === 'cloud') {
+      // Special handling for object storage - return memory storage and warn
+      console.warn(
+        'Object storage detected in environment. Use createObjectStorageFromEnvironment() for async initialization.'
+      );
     }
     return StorageFactory.createStorage({ type: storageType, config });
   }
+
+  /**
+   * Create object storage from environment variables with async loading
+   */
+  static async createObjectStorageFromEnvironment(): Promise<IStorage> {
+    const storageType = BINARY_STORAGE_TYPE;
+    if (storageType === 'object' || storageType === 'cloud') {
+      return await StorageFactory.createObjectStorage();
+    }
+    // Fall back to regular environment-based creation
+    return StorageFactory.createFromEnvironment();
+  }
 }
 // Default storage instance for easy access
-let defaultStorage = null;
+let defaultStorage: IStorage | null = null;
 /**
  * Get the default storage instance
  * Creates one if it doesn't exist yet
  */
-export function getDefaultStorage() {
+export function getDefaultStorage(): IStorage {
   if (!defaultStorage) {
     defaultStorage = StorageFactory.createFromEnvironment();
   }

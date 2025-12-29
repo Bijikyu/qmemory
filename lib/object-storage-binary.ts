@@ -12,27 +12,10 @@
  * - Automatic error handling and retry logic
  */
 
-import { IStorage } from './binary-storage.js';
+import { IStorage } from './storage-interfaces.js';
 import { ObjectStorageService, ObjectNotFoundError } from '../server/objectStorage.js';
 import { createHash } from 'crypto';
-
-interface StorageStats {
-  type: string;
-  itemCount: number;
-  totalSize: number;
-  bucketName?: string;
-  storagePrefix?: string;
-  keys?: string[];
-  error?: string;
-}
-
-interface ObjectMetadata {
-  originalKey: string;
-  size: number;
-  contentType: string;
-  created: string;
-  objectPath: string;
-}
+import { StorageStats, ObjectMetadata } from './storage-interfaces.js';
 
 interface ObjectPath {
   bucketName: string;
@@ -108,7 +91,7 @@ class ObjectStorageBinaryStorage extends IStorage {
       // Upload the binary data
       const response = await fetch(uploadUrl, {
         method: 'PUT',
-        body: data,
+        body: new Uint8Array(data),
         headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Length': data.length.toString(),
