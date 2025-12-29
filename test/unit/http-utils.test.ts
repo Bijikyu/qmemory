@@ -1,12 +1,30 @@
 /**
  * Unit tests for HTTP utility functions
+ *
+ * Test suite for HTTP response utility functions that provide standardized
+ * error and success response formatting. These tests verify proper status
+ * code setting, response formatting, and message handling across various
+ * scenarios including edge cases and invalid inputs.
+ *
+ * Functions Tested:
+ * - sendNotFound: 404 status with custom messages
+ * - sendConflict: 409 status for resource conflicts
+ * - sendInternalServerError: 500 status for server errors
+ * - sendServiceUnavailable: 503 status for service downtime
+ *
+ * Test Coverage:
+ * - Status code verification
+ * - Response message formatting
+ * - Default message handling for empty/null inputs
+ * - Mock response object interaction
+ * - Error condition simulation
  */
 
-import { 
-  sendNotFound, 
-  sendConflict, 
-  sendInternalServerError, 
-  sendServiceUnavailable 
+import {
+  sendNotFound,
+  sendConflict,
+  sendInternalServerError,
+  sendServiceUnavailable,
 } from '../../lib/http-utils.js';
 import { setupTestEnvironment, expectNotFoundResponse } from '../test-utils.js';
 
@@ -28,13 +46,13 @@ describe('HTTP Utils Module', () => {
 
     test('should handle empty message with default', () => {
       sendNotFound(mockRes, '');
-      
+
       expectNotFoundResponse(mockRes, 'Resource not found');
     });
 
     test('should provide default message for null/undefined', () => {
       sendNotFound(mockRes, null as any);
-      
+
       expectNotFoundResponse(mockRes, 'Resource not found');
     });
   });
@@ -50,8 +68,8 @@ describe('HTTP Utils Module', () => {
         expect.objectContaining({
           error: expect.objectContaining({
             type: 'CONFLICT',
-            message: 'Email already exists'
-          })
+            message: 'Email already exists',
+          }),
         })
       );
     });
@@ -68,8 +86,8 @@ describe('HTTP Utils Module', () => {
         expect.objectContaining({
           error: expect.objectContaining({
             type: 'INTERNAL_ERROR',
-            message: 'Database connection failed'
-          })
+            message: 'Database connection failed',
+          }),
         })
       );
     });
@@ -86,8 +104,8 @@ describe('HTTP Utils Module', () => {
         expect.objectContaining({
           error: expect.objectContaining({
             type: 'SERVICE_UNAVAILABLE',
-            message: 'Service under maintenance'
-          })
+            message: 'Service under maintenance',
+          }),
         })
       );
     });

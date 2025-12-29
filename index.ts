@@ -212,7 +212,7 @@ import {
   denormalizeObjectFields,
 } from './lib/field-utils.js';
 // Type map
-import { getMongoType, getSupportedTypes, isSupportedType } from './lib/typeMap.js';
+import { getMongoType, getSupportedTypes } from './lib/typeMap.js';
 // Mongoose mapper
 import {
   mapParameterToMongoType,
@@ -222,12 +222,12 @@ import {
 } from './lib/mongoose-mapper.js';
 // Binary storage
 import {
-  IStorage,
   MemoryBinaryStorage,
   FileSystemBinaryStorage,
   StorageFactory,
   getDefaultStorage,
 } from './lib/binary-storage.js';
+import { IStorage } from './lib/storage-interfaces.js';
 // Serialization utilities
 import {
   serializeDocument,
@@ -425,7 +425,6 @@ export {
   // Type map
   getMongoType,
   getSupportedTypes,
-  isSupportedType,
   // Mongoose mapper
   mapParameterToMongoType,
   mapParametersToSchema,
