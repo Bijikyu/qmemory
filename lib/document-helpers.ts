@@ -1,7 +1,51 @@
 /**
- * Database Document Helper Utilities
- * Generic MongoDB CRUD operations with consistent error handling and type safety
+ * Database Document Helper Utilities Module
+ *
+ * Purpose: Provides generic MongoDB CRUD operations with consistent error handling,
+ * type safety, and logging. This module serves as the foundation for document
+ * manipulation operations throughout the application, ensuring uniform behavior across
+ * all database interactions.
+ *
+ * Design Philosophy:
+ * - Type safety: Leverage TypeScript for compile-time error prevention
+ * - Consistent error handling: Use safeDbOperation wrapper for all operations
+ * - Flexible queries: Support for complex MongoDB query patterns
+ * - Logging integration: Comprehensive logging for debugging and monitoring
+ * - Lean operations: Optimize for performance with lean document handling
+ * - Atomic updates: Support for atomic field updates and conditions
+ *
+ * Integration Notes:
+ * - Used throughout application for document operations
+ * - Integrates with safeDbOperation for consistent error handling
+ * - Works with qerrors for centralized error logging and reporting
+ * - Supports both hydrated and lean MongoDB document operations
+ * - Provides foundation for higher-level database utilities
+ *
+ * Performance Considerations:
+ * - Lean document operations minimize memory usage
+ * - Atomic field updates prevent unnecessary document transfers
+ * - Conditional updates reduce database round trips
+ * - Efficient query patterns with projection support
+ * - Type-safe operations prevent runtime query errors
+ *
+ * Error Handling Strategy:
+ * - All operations wrapped in safeDbOperation for consistent error handling
+ * - Centralized error logging through qerrors integration
+ * - Type-safe operations prevent common MongoDB errors
+ * - Graceful handling of edge cases and null documents
+ * - Detailed error context for debugging and monitoring
+ *
+ * Architecture Decision: Why separate document helpers from database utils?
+ * - Document helpers focus on specific document manipulation patterns
+ * - Database utils handle connection and operational concerns
+ * - Provides cleaner separation of concerns
+ * - Allows for specialized optimization in each domain
+ * - Reduces complexity in individual modules
+ *
+ * @author System Architecture Team
+ * @version 1.0.0
  */
+
 import {
   Model,
   HydratedDocument,
@@ -14,19 +58,32 @@ import {
   AnyObject,
 } from 'mongoose';
 
-// LeanDocument type alias for compatibility
+// LeanDocument type alias for compatibility with MongoDB operations
 type LeanDocument<T> = T;
 import type { UpdateResult } from 'mongodb';
 import { safeDbOperation } from './database-utils.js';
 import qerrors from 'qerrors';
 
+/**
+ * Logger interface for document operations
+ *
+ * Defines the logging contract used by document helper functions.
+ * This interface provides a consistent logging API for function entry,
+ * debugging, and error reporting throughout the module.
+ */
 interface Logger {
   logFunctionEntry(functionName: string, data?: Record<string, unknown>): void;
   logDebug(message: string, data?: Record<string, unknown>): void;
   logError(message: string, error: unknown): void;
 }
 
-// Lightweight console logger keeps deterministic logging for agents and tests
+/**
+ * Lightweight console logger implementation
+ *
+ * Provides deterministic logging behavior for agents and testing environments.
+ * This logger uses simple console methods to ensure consistent output format
+ * and avoid external dependencies during testing scenarios.
+ */
 const logger: Logger = {
   logFunctionEntry: (functionName: string, data?: Record<string, unknown>) =>
     console.log(`ENTRY: ${functionName}`, data ?? ''),

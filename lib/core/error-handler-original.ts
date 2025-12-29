@@ -1,33 +1,102 @@
 /**
- * Error Handling Framework
- * Centralized error handling to eliminate duplicate error patterns
+ * Error Handling Framework Module
+ *
+ * Purpose: Provides centralized error handling to eliminate duplicate error patterns
+ * and ensure consistent error responses across the application. This framework
+ * standardizes error formatting, logging, and response structures.
+ *
+ * Design Philosophy:
+ * - Consistent responses: All errors follow the same structure and format
+ * - Centralized logging: Single point for error logging and tracking
+ * - Context preservation: Maintain request and operation context for debugging
+ * - Type safety: TypeScript interfaces ensure consistent error handling
+ * - Extensibility: Support for custom error types and additional context
+ * - Integration ready: Works seamlessly with Express response handling
+ *
+ * Integration Notes:
+ * - Used throughout application for error handling and response formatting
+ * - Integrates with Express middleware for HTTP response handling
+ * - Works with UnifiedLogger for centralized error logging
+ * - Provides standard error response structure for API consistency
+ * - Maintains error context throughout request lifecycle
+ *
+ * Performance Considerations:
+ * - Minimal overhead: Simple object structures and string formatting
+ * - Efficient context management: No expensive operations in error paths
+ * - Fast response generation: Optimized for API response speed
+ * - Memory efficient: Shared error structures prevent object creation overhead
+ *
+ * Error Handling Strategy:
+ * - Standardized error types for consistent client handling
+ * - Request ID tracking for debugging and monitoring
+ * - Operation context for identifying error sources
+ * - Timestamp preservation for temporal analysis
+ * - Detailed error information for troubleshooting
+ *
+ * Architecture Decision: Why create custom error framework?
+ * - Express default error handling is inconsistent and lacks context
+ * - Need for standardized API error responses across all endpoints
+ * - Requirement for centralized error logging and monitoring
+ * - Custom error types better match our domain and use cases
+ * - Provides foundation for automated error analysis and alerting
+ *
+ * @author System Architecture Team
+ * @version 1.0.0 (Original Implementation)
  */
 
 import { Response } from 'express';
 import { UnifiedLogger } from './logger.js';
 
+/**
+ * Error context interface
+ *
+ * Defines the structure of additional context information that can
+ * be included with errors to provide debugging and monitoring data.
+ * This interface enables rich error context while maintaining flexibility.
+ *
+ * @interface ErrorContext
+ */
 export interface ErrorContext {
-  operation?: string;
-  userId?: string;
-  requestId?: string;
-  [key: string]: unknown;
+  operation?: string; // Operation name where error occurred
+  userId?: string; // User identifier for user-specific error tracking
+  requestId?: string; // Request ID for tracing across services
+  [key: string]: unknown; // Additional context data for debugging
 }
 
+/**
+ * Error response interface
+ *
+ * Defines the standard structure for error responses sent to clients.
+ * This ensures all API errors follow a consistent format and include
+ * necessary information for debugging and error handling.
+ *
+ * @interface ErrorResponse
+ */
 export interface ErrorResponse {
   error: {
-    type: string;
-    message: string;
-    timestamp: string;
-    requestId?: string;
-    details?: any;
+    type: string; // Error type for client-side error categorization
+    message: string; // Human-readable error message
+    timestamp: string; // ISO timestamp for error occurrence
+    requestId?: string; // Request ID for client-server debugging
+    details?: any; // Additional error details for complex error scenarios
   };
 }
 
+/**
+ * Standard response interface
+ *
+ * Defines the standard structure for all API responses, ensuring
+ * consistent format across all endpoints. This interface supports
+ * both successful and error responses while maintaining type safety.
+ *
+ * @interface StandardResponse
+ * @template T - Type of success response data
+ */
 export interface StandardResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: ErrorResponse['error'];
-  timestamp: string;
+  success: boolean; // Response success indicator
+  data?: T; // Success response payload data
+  error?: ErrorResponse['error']; // Error information if success is false
+  timestamp: string; // Response timestamp for client-side timing
   requestId?: string;
 }
 

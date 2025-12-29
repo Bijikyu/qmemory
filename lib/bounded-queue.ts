@@ -18,18 +18,22 @@ class CircularBuffer<T> {
     if (maxSize <= 0) {
       throw new Error('Max size must be greater than 0');
     }
+    // Round up to next power of 2 for efficient bit masking
     this.capacity = Math.pow(2, Math.ceil(Math.log2(maxSize)));
+    // Create bit mask for fast modulo operations (capacity is always power of 2)
     this.mask = this.capacity - 1;
     this.buffer = new Array(this.capacity);
   }
 
   push(item: T): void {
     this.buffer[this.tail] = item;
+    // Use bit masking for fast modulo operation (equivalent to tail % capacity)
     this.tail = (this.tail + 1) & this.mask;
 
     if (this.count < this.capacity) {
       this.count++;
     } else {
+      // Buffer is full, overwrite oldest element and advance head
       this.head = (this.head + 1) & this.mask;
     }
   }
@@ -40,7 +44,9 @@ class CircularBuffer<T> {
     }
 
     const item = this.buffer[this.head];
+    // Clear the slot to help with garbage collection
     this.buffer[this.head] = undefined;
+    // Advance head pointer using bit masking for fast modulo
     this.head = (this.head + 1) & this.mask;
     this.count--;
 
@@ -58,6 +64,7 @@ class CircularBuffer<T> {
     if (this.count === 0) {
       return undefined;
     }
+    // Calculate index of last element (tail - 1) with wrap-around using bit masking
     const lastIndex = (this.tail - 1 + this.capacity) & this.mask;
     return this.buffer[lastIndex];
   }
