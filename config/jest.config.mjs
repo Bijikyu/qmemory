@@ -1,7 +1,7 @@
-// jest.config.mjs - TypeScript ES Module configuration (React-enabled)
-// Use ESM export to avoid CommonJS issues under "type": "module"
+// jest.config.mjs - Clean TypeScript Jest configuration
 import path from 'path';
 import { fileURLToPath } from 'url';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -11,7 +11,10 @@ export default {
   rootDir: PROJECT_ROOT,
   testEnvironment: 'node',
   // Ensure CommonJS require() exists in ESM tests
-  setupFiles: [path.join(PROJECT_ROOT, 'config', 'jest-require-polyfill.cjs')],
+  setupFiles: [
+    path.join(PROJECT_ROOT, 'config', 'jest-require-polyfill.cjs'),
+    path.join(PROJECT_ROOT, 'config', 'jest-setup.ts'),
+  ],
   setupFilesAfterEnv: [path.join(PROJECT_ROOT, 'config', 'jest-setup.ts')],
   roots: [PROJECT_ROOT],
   testMatch: [
@@ -55,20 +58,8 @@ export default {
     'node_modules/(?!(?:qtests|@tanstack|@radix-ui|lucide-react|react-resizable-panels|cmdk|vaul)/)',
   ],
   moduleNameMapper: {
-    '^\\.\\./lib/(.*)\\.js$': '<rootDir>/lib/$1.ts',
-
     // Map generated HTTP test helper used by generated tests
     '^\\.\\./utils/httpTest$': '<rootDir>/tests/generated-tests/utils/httpTest.ts',
     '^\\.\\./utils/httpTest\\.shim\\.js$': '<rootDir>/tests/generated-tests/utils/httpTest.shim.js',
-
-    '^(.*/httpTest\\.shim)\\.js$': '$1.js',
-    '^external-service-client$': '<rootDir>/utils/jest-proxies/external-service-client.cjs',
-    '^feature-x$': '<rootDir>/utils/jest-proxies/feature-x.cjs',
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-    // Map qtests helpers to built dist files (ensure setup resolves)
-    '^qtests/(.*)$': '<rootDir>/node_modules/qtests/dist/$1.js',
-    '^mongoose$': '<rootDir>/__mocks__/mongoose.js',
-    '^.+\\\\.(css|less|scss|sass)$': '<rootDir>/__mocks__/fileMock.js',
-    '^.+\\\\.(png|jpg|jpeg|gif|svg|webp|avif|ico|bmp)$': '<rootDir>/__mocks__/fileMock.js',
   },
 };
