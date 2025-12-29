@@ -176,6 +176,7 @@ export class AsyncQueueWrapper extends EventEmitter {
               jobType,
               availableProcessors: Array.from(this.processors.keys()),
             });
+            throw error;
           }
 
           this.activeJobs.add(String(job.id));

@@ -71,6 +71,8 @@ export class CircuitBreakerWrapper {
       if (operationBreaker.opened) {
         throw new Error('Circuit breaker is OPEN');
       }
+      // Re-throw the original error if circuit breaker is not open
+      throw error;
     }
   }
 

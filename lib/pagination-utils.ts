@@ -34,25 +34,43 @@ import {
 } from './http-utils.js';
 import { logFunctionEntry } from './logging-utils.js';
 import qerrors from 'qerrors';
-const parseIntegerParam = (paramValue, paramName) => {
+interface ParseIntegerResult {
+  isValid: boolean;
+  value: number | null;
+  error: string | null;
+}
+
+const parseIntegerParam = (paramValue: unknown, paramName: string): ParseIntegerResult => {
+  // Handle null/undefined input early
+  if (paramValue === null || paramValue === undefined) {
+    return {
+      isValid: false,
+      value: null,
+      error: `${paramName} must be a positive integer starting from 1`,
+    };
+  }
+
   const paramStr = String(paramValue).trim();
   const paramNum = parseInt(paramStr, 10);
+
   // Check if input is a valid integer string (no decimals, no non-numeric chars)
-  if (isNaN(paramNum) || paramStr.includes('.') || !/^\d+$/.test(paramStr)) {
+  if (isNaN(paramNum) || paramStr.length === 0 || !/^\d+$/.test(paramStr)) {
     return {
       isValid: false,
       value: null,
       error: `${paramName} must be a positive integer starting from 1`,
     };
   }
-  // Check if the parsed number is positive (>= 1)
-  if (paramNum < 1) {
+
+  // Check if the parsed number is positive (>= 1) and within safe integer range
+  if (paramNum < 1 || paramNum > Number.MAX_SAFE_INTEGER) {
     return {
       isValid: false,
       value: null,
       error: `${paramName} must be a positive integer starting from 1`,
     };
   }
+
   return { isValid: true, value: paramNum, error: null };
 };
 /**

@@ -145,10 +145,10 @@ const deleteDocumentById = async <TSchema extends AnyDocumentShape>(
 
 /**
  * Deletes a document and all related documents that reference it.
- * @param model Primary model that owns the document.
- * @param id Identifier of the document being removed.
+ * @param model Primary model that owns document.
+ * @param id Identifier of document being removed.
  * @param relatedModels Optional list of related models that store references.
- * @returns true when the primary document (and related docs) were deleted.
+ * @returns true when primary document (and related docs) were deleted.
  */
 const cascadeDeleteDocument = async <
   TSchema extends AnyDocumentShape,
@@ -163,25 +163,42 @@ const cascadeDeleteDocument = async <
     id,
     relatedModels: relatedModels.map(m => m.modelName),
   });
+  const session = await model.startSession();
   try {
-    const doc = await model.findById(id).exec();
+    session.startTransaction();
+
+    const doc = await model.findById(id).session(session).exec();
     if (!doc) {
       logger.logDebug('cascadeDeleteDocument aborted - primary document missing');
+      await session.abortTransaction();
       return false;
     }
+
     for (const relatedModel of relatedModels) {
       const foreignKey = model.modelName.toLowerCase();
       const relatedDocs = await relatedModel
         .find({ [foreignKey]: id } as FilterQuery<TRelatedSchema>)
+        .session(session)
         .exec();
       for (const relatedDoc of relatedDocs) {
-        await relatedModel.findByIdAndDelete(relatedDoc._id).exec();
+        await relatedModel.findByIdAndDelete(relatedDoc._id).session(session).exec();
       }
     }
-    await model.findByIdAndDelete(id).exec();
+    await model.findByIdAndDelete(id).session(session).exec();
+    await session.commitTransaction();
     logger.logDebug('cascadeDeleteDocument removed primary and related documents');
     return true;
   } catch (error) {
+    try {
+      await session.abortTransaction();
+    } catch (abortError) {
+      qerrors.qerrors(abortError as Error, 'document-helpers.cascadeDeleteDocument.abort', {
+        originalError: (error as Error).message,
+        abortError: (abortError as Error).message,
+      });
+      logger.logError('Failed to abort transaction during cascade delete', abortError);
+    }
+
     qerrors.qerrors(error as Error, 'document-helpers.cascadeDeleteDocument', {
       modelName: model.modelName,
       id,
@@ -190,6 +207,15 @@ const cascadeDeleteDocument = async <
     });
     logger.logError('cascadeDeleteDocument encountered an error', error);
     return false;
+  } finally {
+    try {
+      await session.endSession();
+    } catch (sessionError) {
+      qerrors.qerrors(sessionError as Error, 'document-helpers.cascadeDeleteDocument.session', {
+        error: (sessionError as Error).message,
+      });
+      logger.logError('Failed to end session during cascade delete', sessionError);
+    }
   }
 };
 

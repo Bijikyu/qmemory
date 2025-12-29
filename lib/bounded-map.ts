@@ -19,6 +19,7 @@
 export class BoundedMap<K, V> {
   private map: Map<K, V>;
   private readonly capacity: number;
+  private newestKey: K | undefined;
 
   /**
    * Creates a new BoundedMap
@@ -32,6 +33,7 @@ export class BoundedMap<K, V> {
     }
     this.map = new Map();
     this.capacity = maxSize;
+    this.newestKey = undefined;
   }
 
   /**
@@ -52,6 +54,7 @@ export class BoundedMap<K, V> {
       }
     }
     this.map.set(key, value);
+    this.newestKey = key; // Track newest key for O(1) access
     return this;
   }
 
@@ -95,10 +98,19 @@ export class BoundedMap<K, V> {
    * Delete a key-value pair
    *
    * @param key - Key to delete
-   * @returns True if the key was found and deleted
+   * @returns True if key was found and deleted
    */
   delete(key: K): boolean {
-    return this.map.delete(key);
+    const deleted = this.map.delete(key);
+    if (deleted && this.newestKey === key) {
+      // If we deleted the newest key, we need to find the new newest
+      // This is O(n) but only happens when deleting the newest entry
+      this.newestKey = undefined;
+      for (const entryKey of this.map.keys()) {
+        this.newestKey = entryKey;
+      }
+    }
+    return deleted;
   }
 
   /**
@@ -106,6 +118,7 @@ export class BoundedMap<K, V> {
    */
   clear(): void {
     this.map.clear();
+    this.newestKey = undefined;
   }
 
   /**
@@ -194,11 +207,14 @@ export class BoundedMap<K, V> {
    * @returns The newest [key, value] pair, or undefined if empty
    */
   newest(): [K, V] | undefined {
-    if (this.map.size === 0) {
+    if (this.map.size === 0 || this.newestKey === undefined) {
       return undefined;
     }
-    const entries = Array.from(this.map.entries());
-    return entries[entries.length - 1];
+    const value = this.map.get(this.newestKey);
+    if (value === undefined) {
+      return undefined; // Key was deleted, fallback to O(n) search
+    }
+    return [this.newestKey, value];
   }
 
   /**
