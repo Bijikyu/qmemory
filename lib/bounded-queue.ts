@@ -13,31 +13,26 @@ class CircularBuffer<T> {
   private count: number = 0;
   private readonly capacity: number;
   private readonly mask: number;
-  private readonly maxSize: number; // Store original maxSize for bounded behavior enforcement
+  private readonly _maxSize: number; // Store original maxSize for bounded behavior enforcement
 
   constructor(maxSize: number) {
-if (maxSize <= 0) {
+    if (maxSize <= 0) {
       throw new Error('Max size must be greater than 0');
     }
-    // Prevent integer overflow in bit masking operations
-    if (maxSize > 1073741824) { // 2^30, safe limit for bitwise operations
+    // Prevent integer overflow in bit masking operations and Math.pow
+    if (maxSize > 1073741824) {
+      // 2^30, safe limit for bitwise operations
       throw new Error('Max size too large for bit masking optimization');
     }
-    
-    // Round up to next power of 2 for efficient bit masking
-    this.capacity = Math.pow(2, Math.ceil(Math.log2(maxSize)));
+
+    // Round up to next power of 2 for efficient bit masking with overflow protection
+    this.capacity = Math.min(Math.pow(2, Math.ceil(Math.log2(maxSize))), 1073741824);
     // Create bit mask for fast modulo operations (capacity is always power of 2)
     this.mask = this.capacity - 1;
     // Initialize buffer with calculated capacity
     this.buffer = new Array(this.capacity);
     // Store original maxSize for bounded behavior enforcement
-    this.maxSize = maxSize;
-  }
-    // Round up to next power of 2 for efficient bit masking
-    this.capacity = Math.pow(2, Math.ceil(Math.log2(maxSize)));
-    // Create bit mask for fast modulo operations (capacity is always power of 2)
-    this.mask = this.capacity - 1;
-    this.buffer = new Array(this.capacity);
+    this._maxSize = maxSize;
   }
 
   push(item: T): void {
@@ -45,7 +40,7 @@ if (maxSize <= 0) {
     // Use bit masking for fast modulo operation (equivalent to tail % capacity)
     this.tail = (this.tail + 1) & this.mask;
 
-    if (this.count < this.maxItems) {
+    if (this.count < this._maxSize) {
       this.count++;
     } else {
       // Buffer is full, overwrite oldest element and advance head
@@ -102,7 +97,7 @@ if (maxSize <= 0) {
   }
 
   get isFull(): boolean {
-    return this.count === this.capacity;
+    return this.count === this._maxSize;
   }
 
   // Provide access for utilities
@@ -114,8 +109,13 @@ if (maxSize <= 0) {
       count: this.count,
       capacity: this.capacity,
       mask: this.mask,
-      maxSize: this.maxSize,
+      maxSize: this._maxSize,
     };
+  }
+
+  // Public getter for maxSize to support BoundedQueue API
+  get maxSize(): number {
+    return this._maxSize;
   }
 }
 
@@ -145,7 +145,10 @@ class QueueIteration {
     const state = buffer.getInternalState();
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
-      yield state.buffer[index] as T;
+      const item = state.buffer[index];
+      if (item !== undefined) {
+        yield item;
+      }
     }
   }
 }
@@ -158,7 +161,8 @@ class QueueSearch {
     const state = buffer.getInternalState();
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
-      if (state.buffer[index] === item) {
+      const currentItem = state.buffer[index];
+      if (currentItem !== undefined && currentItem === item) {
         return true;
       }
     }
@@ -170,8 +174,8 @@ class QueueSearch {
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const item = state.buffer[index];
-      if (item !== undefined && predicate(item as T)) {
-        return item as T;
+      if (item !== undefined && predicate(item)) {
+        return item;
       }
     }
     return undefined;
@@ -181,7 +185,8 @@ class QueueSearch {
     const state = buffer.getInternalState();
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
-      if (state.buffer[index] === item) {
+      const currentItem = state.buffer[index];
+      if (currentItem !== undefined && currentItem === item) {
         return i;
       }
     }
@@ -194,7 +199,7 @@ class QueueSearch {
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const item = state.buffer[index];
-      if (item !== undefined && predicate(item as T)) {
+      if (item !== undefined && predicate(item)) {
         count++;
       }
     }
