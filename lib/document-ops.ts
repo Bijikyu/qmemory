@@ -219,30 +219,69 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
 };
 
 /**
- * Lists all documents owned by a user with optional sorting.
+ * Lists all documents owned by a user with optional sorting and field selection for scalability.
+ * Enhanced version with lean query option for better performance and reduced memory usage.
  */
-const listUserDocs = async <TSchema extends AnyUserDoc>(
+const listUserDocsLean = async <TSchema extends AnyUserDoc>(
   model: Model<TSchema>,
   username: string,
-  sort?: Record<string, 1 | -1>
-): Promise<Array<HydratedDocument<TSchema>>> => {
-  logFunctionStart('listUserDocs', { username });
-  logFunctionEntry('listUserDocs', { username, sort: JSON.stringify(sort) });
+  options?: {
+    sort?: Record<string, 1 | -1>;
+    select?: string; // Field selection for reduced data transfer
+    limit?: number; // Pagination support
+    skip?: number; // Pagination support
+  }
+): Promise<Array<any>> => {
+  logFunctionStart('listUserDocsLean', { username });
+  logFunctionEntry('listUserDocsLean', {
+    username,
+    sort: JSON.stringify(options?.sort),
+    select: options?.select,
+    limit: options?.limit,
+  });
+
   try {
-    const docs = await model
-      .find({ user: username } as FilterQuery<TSchema>)
-      .sort(sort ?? {})
-      .exec();
-    logFunctionExit('listUserDocs', docs);
-    console.log(`listUserDocs is returning ${docs.length} documents`);
+    // Build query object for better type inference and performance
+    const filter: FilterQuery<TSchema> = { user: username };
+    const queryOptions: any = { lean: true };
+
+    // Apply field selection for reduced data transfer
+    if (options?.select) {
+      queryOptions.select = options.select;
+    }
+
+    // Apply sorting
+    if (options?.sort) {
+      queryOptions.sort = options.sort;
+    }
+
+    // Apply pagination
+    if (options?.skip) {
+      queryOptions.skip = options.skip;
+    }
+
+    if (options?.limit) {
+      queryOptions.limit = options.limit;
+    }
+
+    const docs = await model.find(filter, null, queryOptions);
+
+    logFunctionExit('listUserDocsLean', docs);
+    console.log(`listUserDocsLean is returning ${docs.length} lean documents`);
     return docs;
   } catch (error) {
-    qerrors.qerrors(error as Error, 'document-ops.listUserDocs', {
+    qerrors.qerrors(error as Error, 'document-ops.listUserDocsLean', {
       username,
-      hasSort: sort !== undefined,
-      sortKeys: sort ? Object.keys(sort) : undefined,
+      hasSort: options?.sort !== undefined,
+      sortKeys: options?.sort ? Object.keys(options.sort) : undefined,
+      hasSelect: options?.select !== undefined,
+      selectFields: options?.select,
+      hasLimit: options?.limit !== undefined,
+      limit: options?.limit,
+      hasSkip: options?.skip !== undefined,
+      skip: options?.skip,
     });
-    logFunctionError('listUserDocs', error);
+    logFunctionError('listUserDocsLean', error);
     throw error;
   }
 };
@@ -381,7 +420,7 @@ export {
   userDocActionOr404,
   fetchUserDocOr404,
   deleteUserDocOr404,
-  listUserDocs,
+  listUserDocsLean,
   createUniqueDoc,
   updateUserDoc,
   validateDocumentUniqueness,

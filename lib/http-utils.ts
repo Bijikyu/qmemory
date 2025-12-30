@@ -38,45 +38,75 @@ interface ErrorEnvelope {
 }
 
 // 🚩AI: MUST_UPDATE_IF_EXPRESS_RESPONSE_FORMAT_CHANGES
+// Cache for validated response objects to improve performance
+const validatedResponseCache = new WeakSet<Response>();
+
 /**
  * Validates that an incoming response object exposes the Express API surface.
+ * Uses caching to avoid repeated validation for better scalability.
  * @param res - Candidate Express response.
  * @throws Returns typed validation errors when methods are missing to keep callers honest.
  */
 function validateResponseObject(res: unknown): asserts res is Response {
+  // Fast path: return if already validated
+  if (validatedResponseCache.has(res as Response)) {
+    return;
+  }
+
   if (!res || typeof res !== 'object') {
     throw createTypedError(
       'Invalid response object: must be an object',
       ErrorTypes.VALIDATION,
       'INVALID_RESPONSE_OBJECT'
-    ); // Guard against undefined or primitives to prevent runtime crashes
+    );
   }
+
   const responseObj = res as Response;
   if (typeof responseObj.status !== 'function') {
     throw createTypedError(
       'Invalid response object: missing status() method',
       ErrorTypes.VALIDATION,
       'MISSING_STATUS_METHOD'
-    ); // We rely on status for HTTP status codes, so fail fast
+    );
   }
   if (typeof responseObj.json !== 'function') {
     throw createTypedError(
       'Invalid response object: missing json() method',
       ErrorTypes.VALIDATION,
       'MISSING_JSON_METHOD'
-    ); // We need json for response formatting, so validate presence
+    );
   }
   if (typeof responseObj.send !== 'function') {
     throw createTypedError(
       'Invalid response object: missing send() method',
       ErrorTypes.VALIDATION,
       'MISSING_SEND_METHOD'
-    ); // We use send for error responses, so ensure availability
+    );
   }
+
+  // Cache the validated response for future use
+  validatedResponseCache.add(responseObj);
 }
+
+// Reusable error response template to reduce object allocation
+const createErrorResponse = (
+  statusCode: KnownStatusCode,
+  message: unknown,
+  requestId: string,
+  errorId?: string
+): ErrorEnvelope => ({
+  error: {
+    type: getErrorType(statusCode),
+    message: sanitizeResponseMessage(message, getDefaultMessage(statusCode)),
+    timestamp: getTimestamp(),
+    requestId,
+    ...(errorId && { errorId }),
+  },
+});
 
 /**
  * Sends a structured error response with consistent formatting.
+ * Optimized for scalability with reduced object allocation.
  * @param res - Express response to write the payload to.
  * @param statusCode - HTTP status describing the error semantics.
  * @param message - Human readable message (falls back to canonical text).
@@ -89,30 +119,24 @@ const sendErrorResponse = (
   message: unknown,
   error: Error | null = null
 ): Response<ErrorEnvelope> => {
-  const requestId = generateRequestId(); // Generate deterministic request id so downstream logs correlate
+  const requestId = generateRequestId();
   try {
-    validateResponseObject(res); // Ensure we only use fully featured Express responses
-    const response: ErrorEnvelope = {
-      error: {
-        type: getErrorType(statusCode), // Map status to semantic error category for clients
-        message: sanitizeResponseMessage(message, getDefaultMessage(statusCode)), // Provide sanitized messaging to avoid disclosure
-        timestamp: getTimestamp(), // Include timestamp for temporal tracing
-        requestId, // Echo the correlation id for clients
-      },
-    };
-    if (error) {
-      response.error.errorId = generateRequestId(); // Attach secondary id when we have an originating exception for log lookup
-    }
-    return res.status(statusCode).json(response); // Send deterministic structure to the caller
+    validateResponseObject(res);
+
+    const errorId = error ? generateRequestId() : undefined;
+    const response = createErrorResponse(statusCode, message, requestId, errorId);
+
+    return res.status(statusCode).json(response);
   } catch (err) {
-    qerrors.qerrors(err as Error, 'http-utils.sendJsonResponse', {
+    qerrors.qerrors(err as Error, 'http-utils.sendErrorResponse', {
       statusCode,
       hasError: error !== undefined,
       errorType:
         error && typeof error === 'object' && 'type' in error ? (error as any).type : undefined,
       responseSent: false,
     });
-    console.error(`Failed to send ${statusCode} response:`, (err as Error).message); // Log failure so we know when serialization breaks
+
+    // Fallback response with minimal allocation
     return res.status(500).json({
       error: {
         type: 'INTERNAL_ERROR',
@@ -120,7 +144,7 @@ const sendErrorResponse = (
         timestamp: getTimestamp(),
         requestId: generateUniqueId(),
       },
-    }); // Fall back to guarded 500 ensuring we never leak internal state
+    });
   }
 };
 
@@ -131,6 +155,74 @@ const errorTypeMap: Record<KnownStatusCode, HttpErrorType> = {
   409: 'CONFLICT',
   500: 'INTERNAL_ERROR',
   503: 'SERVICE_UNAVAILABLE',
+};
+
+// Simple rate limiting for API scalability
+class RateLimiter {
+  private requests: Map<string, number[]> = new Map();
+  private readonly windowMs: number;
+  private readonly maxRequests: number;
+  private cleanupTimer: NodeJS.Timeout | null = null;
+
+  constructor(windowMs: number = 60000, maxRequests: number = 100) {
+    this.windowMs = windowMs;
+    this.maxRequests = maxRequests;
+
+    // Clean up old entries periodically - store timer reference for cleanup
+    this.cleanupTimer = setInterval(() => this.cleanup(), this.windowMs);
+  }
+
+  isAllowed(identifier: string): boolean {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+
+    let timestamps = this.requests.get(identifier);
+    if (!timestamps) {
+      timestamps = [];
+      this.requests.set(identifier, timestamps);
+    }
+
+    // Remove old timestamps outside the window
+    const validTimestamps = timestamps.filter(timestamp => timestamp > windowStart);
+    this.requests.set(identifier, validTimestamps);
+
+    // Check if under the limit
+    if (validTimestamps.length >= this.maxRequests) {
+      return false;
+    }
+
+    // Add current request timestamp
+    validTimestamps.push(now);
+    return true;
+  }
+
+  private cleanup(): void {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+
+    for (const [identifier, timestamps] of this.requests.entries()) {
+      const validTimestamps = timestamps.filter(timestamp => timestamp > windowStart);
+      if (validTimestamps.length === 0) {
+        this.requests.delete(identifier);
+      } else {
+        this.requests.set(identifier, validTimestamps);
+      }
+    }
+  }
+
+  /**
+   * Cleanup method to prevent memory leaks
+   */
+  destroy(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.requests.clear();
+  }
+
+export const checkRateLimit = (identifier: string): boolean => {
+  return rateLimiter.isAllowed(identifier);
 };
 
 /**

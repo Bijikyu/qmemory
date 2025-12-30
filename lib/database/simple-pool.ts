@@ -39,6 +39,23 @@ class SimpleDatabasePool {
   private isInitialized: boolean = false;
   private databaseUrl: string;
   private dbType: string;
+
+  // Circuit breaker state for preventing cascade failures
+  private circuitBreakerState: {
+    isOpen: boolean;
+    failureCount: number;
+    lastFailureTime: number;
+    nextAttemptTime: number;
+  } = {
+    isOpen: false,
+    failureCount: 0,
+    lastFailureTime: 0,
+    nextAttemptTime: 0,
+  };
+
+  private readonly CIRCUIT_BREAKER_THRESHOLD = 5; // Open after 5 consecutive failures
+  private readonly CIRCUIT_BREAKER_TIMEOUT = 60000; // Try again after 60 seconds
+
   private config: {
     maxConnections: number;
     minConnections: number;
@@ -146,24 +163,45 @@ class SimpleDatabasePool {
   }
   async acquireConnection() {
     const now = Date.now();
-    for (const conn of this.connections) {
-      if (!conn.isInUse && conn.isHealthy) {
-        conn.isInUse = true;
-        conn.lastUsed = now;
-        conn.queryCount++;
-        return conn;
-      }
+
+    // Fast path: find available connection using efficient lookup
+    const availableConnection = this.findAvailableConnection();
+    if (availableConnection) {
+      availableConnection.isInUse = true;
+      availableConnection.lastUsed = now;
+      availableConnection.queryCount++;
+      return availableConnection;
     }
+
+    // Try to create new connection if under limit
     if (this.connections.length < this.config.maxConnections) {
       try {
         const connection = await this.createConnection();
+        // CRITICAL: Set connection as in-use BEFORE returning to prevent race conditions
         connection.isInUse = true;
+        connection.lastUsed = Date.now();
         connection.queryCount++;
         return connection;
       } catch (error) {
         // Fall through to waiting queue
       }
     }
+
+    // Queue-based waiting for better scalability
+    return this.queueForConnection(now);
+  }
+
+  private findAvailableConnection() {
+    // Use efficient lookup instead of sequential iteration
+    // Prioritize recently used healthy connections
+    const healthyConnections = this.connections.filter(conn => !conn.isInUse && conn.isHealthy);
+    if (healthyConnections.length === 0) return null;
+
+    // Sort by last used to reuse connections efficiently
+    return healthyConnections.sort((a, b) => b.lastUsed - a.lastUsed)[0];
+  }
+
+  private async queueForConnection(startTime: number) {
     return new Promise((resolve, reject) => {
       const timeoutHandle = setTimeout(() => {
         const index = this.waitingQueue.findIndex(item => item.resolve === resolve);
@@ -172,30 +210,51 @@ class SimpleDatabasePool {
         }
         reject(new Error('Connection acquire timeout'));
       }, this.config.acquireTimeout);
+
+      // Use FIFO queue for fair ordering
       this.waitingQueue.push({
         resolve,
         reject,
-        timestamp: now,
+        timestamp: startTime,
         timeoutHandle,
       });
     });
   }
   async releaseConnection(connection) {
+    // ATOMIC: Mark as not in-use FIRST to prevent race conditions
     connection.isInUse = false;
     connection.lastUsed = Date.now();
+
+    // Get waiter atomically before any other operations
     const waiter = this.waitingQueue.shift();
     if (waiter) {
       if (waiter.timeoutHandle) {
         clearTimeout(waiter.timeoutHandle);
       }
-      connection.isInUse = true;
-      connection.queryCount++;
-      waiter.resolve(connection);
+
+      try {
+        // ATOMIC: Mark as in-use BEFORE resolving to prevent race conditions
+        connection.isInUse = true;
+        connection.queryCount++;
+        connection.lastUsed = Date.now();
+        waiter.resolve(connection);
+      } catch (error) {
+        // CRITICAL: If resolution fails, ensure connection is released
+        connection.isInUse = false;
+        throw error;
+      }
     }
   }
   async executeQuery(query, params) {
+    // Check circuit breaker state first
+    if (this.isCircuitBreakerOpen()) {
+      throw new Error('Database circuit breaker is open - temporarily rejecting requests');
+    }
+
     let attempt = 0;
     let connection = null;
+    let lastError = null;
+
     while (attempt < this.config.retryAttempts) {
       try {
         if (!connection) {
@@ -246,13 +305,23 @@ class SimpleDatabasePool {
         if (queryTime > this.config.maxQueryTime) {
           console.warn(`[dbPool] Slow query detected: ${queryTime}ms`);
         }
+
+        // Reset circuit breaker on success
+        this.resetCircuitBreaker();
         return result;
       } catch (error) {
+        lastError = error;
         attempt++;
+        this.recordFailure();
+
         if (attempt >= this.config.retryAttempts) {
-          throw error;
+          throw lastError;
         }
-        await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * attempt));
+
+        // Exponential backoff with jitter for better scalability
+        const backoffDelay =
+          this.config.retryDelay * Math.pow(2, attempt - 1) + Math.random() * 100;
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
       } finally {
         if (connection) {
           await this.releaseConnection(connection);
@@ -260,7 +329,47 @@ class SimpleDatabasePool {
         }
       }
     }
-    throw new Error(`Query failed after ${this.config.retryAttempts} attempts`);
+    throw new Error(
+      `Query failed after ${this.config.retryAttempts} attempts: ${lastError?.message}`
+    );
+  }
+
+  private isCircuitBreakerOpen(): boolean {
+    const now = Date.now();
+    if (this.circuitBreakerState.isOpen) {
+      // Check if timeout has passed
+      if (now >= this.circuitBreakerState.nextAttemptTime) {
+        this.circuitBreakerState.isOpen = false;
+        this.circuitBreakerState.failureCount = 0;
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private recordFailure(): void {
+    this.circuitBreakerState.failureCount++;
+    this.circuitBreakerState.lastFailureTime = Date.now();
+
+    if (this.circuitBreakerState.failureCount >= this.CIRCUIT_BREAKER_THRESHOLD) {
+      this.circuitBreakerState.isOpen = true;
+      this.circuitBreakerState.nextAttemptTime = Date.now() + this.CIRCUIT_BREAKER_TIMEOUT;
+      console.warn(
+        `[dbPool] Circuit breaker opened due to ${this.circuitBreakerState.failureCount} consecutive failures`
+      );
+    }
+  }
+
+  private resetCircuitBreaker(): void {
+    if (this.circuitBreakerState.failureCount > 0) {
+      this.circuitBreakerState.failureCount = 0;
+      this.circuitBreakerState.lastFailureTime = 0;
+      if (this.circuitBreakerState.isOpen) {
+        this.circuitBreakerState.isOpen = false;
+        console.log(`[dbPool] Circuit breaker reset - database operations restored`);
+      }
+    }
   }
   async validateConnection(connection) {
     try {

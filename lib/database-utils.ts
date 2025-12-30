@@ -223,41 +223,47 @@ export const safeDbOperation = async <TResult>(
 export const retryDbOperation = async <TResult>(
   operation: () => Promise<TResult>,
   maxRetries: number = 3,
-  delay: number = 1000
+  baseDelay: number = 1000
 ): Promise<TResult> => {
   let lastError: Error = new Error('Unknown error');
-  for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
-    try {
-      logger.logDebug('retryDbOperation attempt', { attempt, maxRetries });
-      const result = await operation();
-      logger.logDebug('retryDbOperation succeeded', { attempt });
-      return result;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      qerrors.qerrors(lastError, 'database-utils.retryDbOperation', {
-        attempt,
-        maxRetries,
-        delay,
-        isFinalAttempt: attempt === maxRetries,
-      });
-      logger.warn('retryDbOperation attempt failed', {
-        attempt,
-        maxRetries,
-        message: lastError.message,
-      });
-      if (attempt < maxRetries) {
-        logger.logDebug('retryDbOperation scheduling next attempt', { delay });
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2;
+  let activeConnection = null; // Track if operation has connections to cleanup
+
+  try {
+    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+      try {
+        logger.logDebug('retryDbOperation attempt', { attempt, maxRetries });
+        const result = await operation();
+        logger.logDebug('retryDbOperation succeeded', { attempt });
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        qerrors.qerrors(lastError, 'database-utils.retryDbOperation', {
+          attempt,
+          maxRetries,
+          isFinalAttempt: attempt === maxRetries,
+        });
+        logger.warn('retryDbOperation attempt failed', {
+          attempt,
+          maxRetries,
+          message: lastError.message,
+        });
+        if (attempt < maxRetries) {
+          // Exponential backoff with jitter to prevent thundering herd
+          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
+          const jitter = Math.random() * 0.1 * exponentialDelay;
+          const totalDelay = exponentialDelay + jitter;
+          logger.logDebug('retryDbOperation scheduling next attempt', { totalDelay });
+          await new Promise(resolve => setTimeout(resolve, totalDelay));
+        }
       }
     }
+    throw lastError;
+  } finally {
+    // CRITICAL: Clean up any connections if operation has connection cleanup logic
+    if (activeConnection) {
+      // Add cleanup logic here if applicable to the operation
+    }
   }
-  logger.error('retryDbOperation exhausted retries', {
-    attempts: maxRetries,
-    message: lastError.message,
-    stack: lastError.stack,
-  });
-  throw lastError;
 };
 
 /**

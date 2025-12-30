@@ -65,7 +65,11 @@ type BeeQueueJob<T extends JobData> = BeeQueue.Job<T> & {
  * @template T - The job data type extending JobData
  */
 type BeeQueueInstance<T extends JobData> = BeeQueue<T> & {
-  getJobs(start?: number, end?: number): Promise<BeeQueueJob<T>[]>;
+  getJobs(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _start?: number,
+    end?: number
+  ): Promise<BeeQueueJob<T>[]>;
 };
 
 /**
@@ -178,7 +182,10 @@ type JobProcessorResult = Promise<unknown> | Array<Promise<unknown>>;
  * @param job - The job to process with its data and metadata
  * @returns Promise or array of promises representing the processing result
  */
-type JobProcessor = (job: BeeQueueJob<JobData>) => JobProcessorResult;
+type JobProcessor = (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  job: BeeQueueJob<JobData>
+) => JobProcessorResult;
 
 /**
  * Async Queue Wrapper Class

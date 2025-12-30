@@ -2,24 +2,21 @@
 
 Analyze and address the following test failures:
 
-## Failed Test 1: /home/runner/workspace/test/unit/utils.test.ts
+## Failed Test 1: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__post.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    Cannot find module '../../lib/utils.js' from 'test/unit/utils.test.ts'
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-      21 |  */
-      22 |
-    > 23 | import { greet, add, isEven } from '../../lib/utils.js';
-         | ^
-      24 |
-      25 | describe('Utils module', () => {
-      26 |   describe('greet function', () => {
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.<anonymous> (test/unit/utils.test.ts:23:1)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -27,24 +24,21 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 2: /home/runner/workspace/test/unit/unique-validator.test.ts
+## Failed Test 2: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__get.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    Cannot find module '../../lib/unique-validator.js' from 'test/unit/unique-validator.test.ts'
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-      1 | import type { Model } from 'mongoose';
-      2 |
-    > 3 | import {
-        | ^
-      4 |   checkDuplicateByField,
-      5 |   validateUniqueField,
-      6 |   createUniqueValidator,
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.<anonymous> (test/unit/unique-validator.test.ts:3:1)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -52,24 +46,21 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 3: /home/runner/workspace/test/unit/storage.test.ts
+## Failed Test 3: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__delete.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    Cannot find module '../../lib/storage.js' from 'test/unit/storage.test.ts'
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-      25 |  */
-      26 |
-    > 27 | import { MemStorage, storage } from '../../lib/storage.js'; // load class and singleton
-         | ^
-      28 |
-      29 | interface InsertUser {
-      30 |   username: string;
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.<anonymous> (test/unit/storage.test.ts:27:1)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -77,24 +68,21 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 4: /home/runner/workspace/test/unit/http-utils.test.ts
+## Failed Test 4: /home/runner/workspace/test/unit/utils.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    Cannot find module '../../lib/http-utils.js' from 'test/unit/http-utils.test.ts'
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-      21 |  */
-      22 |
-    > 23 | import {
-         | ^
-      24 |   sendNotFound,
-      25 |   sendConflict,
-      26 |   sendInternalServerError,
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.<anonymous> (test/unit/http-utils.test.ts:23:1)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -102,16 +90,21 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 5: /home/runner/workspace/test/unit/database-pool.test.ts
+## Failed Test 5: /home/runner/workspace/test/unit/unique-validator.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    [96mtest/unit/database-pool.test.ts[0m:[93m22[0m:[93m30[0m - [91merror[0m[90m TS1003: [0mIdentifier expected.
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-    [7m22[0m     stats: mockGetAllStats().['redis://example'],
-    [7m  [0m [91m                             ~[0m
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
+
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -119,24 +112,21 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 6: /home/runner/workspace/test/unit/crud-service-factory.test.ts
+## Failed Test 6: /home/runner/workspace/test/unit/storage.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    Cannot find module '../../lib/crud-service-factory.js' from 'test/unit/crud-service-factory.test.ts'
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-      1 | import type { Model } from 'mongoose';
-      2 |
-    > 3 | import {
-        | ^
-      4 |   createCrudService,
-      5 |   createPaginatedService,
-      6 |   createValidatedService,
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.<anonymous> (test/unit/crud-service-factory.test.ts:3:1)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -144,24 +134,21 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 7: /home/runner/workspace/test/unit/circuit-breaker.test.ts
+## Failed Test 7: /home/runner/workspace/test/unit/http-utils.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    Cannot find module '../../lib/circuit-breaker.js' from 'test/unit/circuit-breaker.test.ts'
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-      4 |  */
-      5 |
-    > 6 | import { STATES, createCircuitBreaker } from '../../lib/circuit-breaker.js';
-        | ^
-      7 |
-      8 | describe('CircuitBreakerWrapper typed events', () => {
-      9 |   const waitForEventLoop = () => new Promise(resolve => setImmediate(resolve)); // allow async emitter to flush
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.<anonymous> (test/unit/circuit-breaker.test.ts:6:1)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -169,24 +156,87 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 8: /home/runner/workspace/test/unit/async-queue.test.ts
+## Failed Test 8: /home/runner/workspace/test/unit/database-pool.test.ts
 
 ### Output:
 ```
   ● Test suite failed to run
 
-    Cannot find module '../../lib/async-queue.js' from 'test/unit/async-queue.test.ts'
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
 
-      1 | import { EventEmitter } from 'events';
-      2 |
-    > 3 | import {
-        | ^
-      4 |   AsyncQueueWrapper,
-      5 |   createQueue,
-      6 |   type JobData,
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
 
-      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
-      at Object.<anonymous> (test/unit/async-queue.test.ts:3:1)
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
+
+```
+
+### Duration: 0ms
+
+---
+
+## Failed Test 9: /home/runner/workspace/test/unit/crud-service-factory.test.ts
+
+### Output:
+```
+  ● Test suite failed to run
+
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
+
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
+
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
+
+```
+
+### Duration: 0ms
+
+---
+
+## Failed Test 10: /home/runner/workspace/test/unit/circuit-breaker.test.ts
+
+### Output:
+```
+  ● Test suite failed to run
+
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
+
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
+
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
+
+```
+
+### Duration: 0ms
+
+---
+
+## Failed Test 11: /home/runner/workspace/test/unit/async-queue.test.ts
+
+### Output:
+```
+  ● Test suite failed to run
+
+    The name `expect` was looked up in the Haste module map. It cannot be resolved, because there exists several different files, or packages, that provide a module for that particular name and platform. The platform is generic (no extension). You must delete or exclude files until there remains only one of these:
+
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@29.7.0@@@1/package.json` (package)
+      * `/home/runner/workspace/.cache/.bun/install/cache/expect@30.2.0@@@1/package.json` (package)
+
+      at ModuleMap._assertNoDuplicates (node_modules/jest-runtime/node_modules/jest-haste-map/build/ModuleMap.js:189:11)
+      at _expect (node_modules/@jest/expect/build/index.js:8:16)
+      at createJestExpect (node_modules/@jest/expect/build/index.js:29:3)
+      at Object.<anonymous> (node_modules/@jest/expect/build/index.js:39:20)
 
 ```
 
@@ -196,6 +246,6 @@ Analyze and address the following test failures:
 
 ## Summary
 
-- Total failed tests: 8
-- Failed test files: /home/runner/workspace/test/unit/utils.test.ts, /home/runner/workspace/test/unit/unique-validator.test.ts, /home/runner/workspace/test/unit/storage.test.ts, /home/runner/workspace/test/unit/http-utils.test.ts, /home/runner/workspace/test/unit/database-pool.test.ts, /home/runner/workspace/test/unit/crud-service-factory.test.ts, /home/runner/workspace/test/unit/circuit-breaker.test.ts, /home/runner/workspace/test/unit/async-queue.test.ts
-- Generated: 2025-12-30T11:30:26.953Z
+- Total failed tests: 11
+- Failed test files: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__post.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__get.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__delete.test.ts, /home/runner/workspace/test/unit/utils.test.ts, /home/runner/workspace/test/unit/unique-validator.test.ts, /home/runner/workspace/test/unit/storage.test.ts, /home/runner/workspace/test/unit/http-utils.test.ts, /home/runner/workspace/test/unit/database-pool.test.ts, /home/runner/workspace/test/unit/crud-service-factory.test.ts, /home/runner/workspace/test/unit/circuit-breaker.test.ts, /home/runner/workspace/test/unit/async-queue.test.ts
+- Generated: 2025-12-30T17:29:02.454Z
