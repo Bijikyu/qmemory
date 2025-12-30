@@ -1,18 +1,12 @@
 // jest-setup.ts - Jest setup for TypeScript ESM with React support
-// Keep qtests setup FIRST to ensure global stubbing is active
-import 'qtests/setup';
-// Use stable qtests import path to avoid brittle node_modules references
-// Fallback to direct dist path to satisfy ts-jest module resolution
-import { registerModuleStub } from '../node_modules/qtests/dist/utils/customStubs.js';
-import { jest as jestFromGlobals, beforeAll, afterEach } from '@jest/globals';
+import 'jest';
+// jest globals will be available automatically
 
 // Set test environment early
 process.env.NODE_ENV = 'test';
 
 // Resolve jest reference safely and expose globally for tests using jest.*
-const J = (typeof jestFromGlobals !== 'undefined' && jestFromGlobals)
-  ? jestFromGlobals
-  : (globalThis as any).jest;
+const J = (globalThis as any).jest;
 if (!(globalThis as any).jest && J) {
   (globalThis as any).jest = J as any;
 }
@@ -25,18 +19,14 @@ try {
   }
 } catch {}
 
+// Set default timeout
 beforeAll(() => {
-  const j = (globalThis as any).jest || J;
-  if (j && typeof j.setTimeout === 'function') {
-    j.setTimeout(10000);
-  }
+  jest.setTimeout(10000);
 });
 
+// Clear mocks after each test
 afterEach(() => {
-  const j = (globalThis as any).jest || J;
-  if (j && typeof j.clearAllMocks === 'function') {
-    j.clearAllMocks();
-  }
+  jest.clearAllMocks();
 });
 
 // Provide a minimal matcher used by some generated tests without adding extra deps
@@ -48,19 +38,18 @@ try {
         const pass = received !== null && received !== undefined;
         return {
           pass,
-          message: () => pass
-            ? 'expected element not to be in the document'
-            : 'expected element to be in the document'
+          message: () =>
+            pass
+              ? 'expected element not to be in the document'
+              : 'expected element to be in the document',
         };
-      }
+      },
     });
   }
 } catch {}
 
-// Register a lightweight stub for '@testing-library/react' via qtests custom stubs
-// This avoids adding the real dependency and replaces local manual mocks.
+// Register a lightweight stub for '@testing-library/react' to avoid adding real dependency
 try {
-  registerModuleStub('@testing-library/react', () => ({
-    render: (..._args: any[]) => ({ getByTestId: (_id?: string) => ({}) })
-  }));
+  // Simple global mock to avoid requiring full testing library
+  (globalThis as any).render = (..._args: any[]) => ({ getByTestId: (_id?: string) => ({}) });
 } catch {}

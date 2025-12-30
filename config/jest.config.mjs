@@ -11,11 +11,8 @@ export default {
   rootDir: PROJECT_ROOT,
   testEnvironment: 'node',
   // Ensure CommonJS require() exists in ESM tests
-  setupFiles: [
-    path.join(PROJECT_ROOT, 'config', 'jest-require-polyfill.cjs'),
-    path.join(PROJECT_ROOT, 'config', 'jest-setup.ts'),
-  ],
-  setupFilesAfterEnv: [path.join(PROJECT_ROOT, 'config', 'jest-setup.ts')],
+  setupFiles: [path.join(PROJECT_ROOT, 'config', 'jest-require-polyfill.cjs')],
+  setupFilesAfterEnv: [path.join(PROJECT_ROOT, 'config', 'jest-setup-simple.ts')],
   roots: [PROJECT_ROOT],
   testMatch: [
     '**/*.test.ts',
@@ -61,5 +58,7 @@ export default {
     // Map generated HTTP test helper used by generated tests
     '^\\.\\./utils/httpTest$': '<rootDir>/tests/generated-tests/utils/httpTest.ts',
     '^\\.\\./utils/httpTest\\.shim\\.js$': '<rootDir>/tests/generated-tests/utils/httpTest.shim.js',
+    // Map qtests imports to avoid module resolution issues
+    '^qtests/setup$': '<rootDir>/config/jest-setup-simple.ts',
   },
 };

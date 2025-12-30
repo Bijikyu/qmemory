@@ -80,12 +80,17 @@ class CircularBuffer<T> {
   }
 
   clear(): void {
+    // Clear all used slots for memory efficiency
+    const currentCount = this.count;
+    const currentHead = this.head;
+    for (let i = 0; i < currentCount; i++) {
+      const index = (currentHead + i) & this.mask;
+      this.buffer[index] = undefined;
+    }
+    // Reset pointers
     this.head = 0;
     this.tail = 0;
     this.count = 0;
-    for (let i = 0; i < this.buffer.length; i++) {
-      this.buffer[i] = undefined;
-    }
   }
 
   get length(): number {
@@ -128,7 +133,10 @@ class QueueIteration {
     const result: T[] = [];
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
-      result.push(state.buffer[index] as T);
+      const item = state.buffer[index];
+      if (item !== undefined) {
+        result.push(item);
+      }
     }
     return result;
   }
@@ -137,7 +145,10 @@ class QueueIteration {
     const state = buffer.getInternalState();
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
-      callback(state.buffer[index] as T, i);
+      const item = state.buffer[index];
+      if (item !== undefined) {
+        callback(item, i);
+      }
     }
   }
 

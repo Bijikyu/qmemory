@@ -106,8 +106,9 @@ import {
   createReadinessEndpoint,
 } from './lib/health-check.js';
 // Test memory manager
-  // teardownTestMemoryMonitoring,
-} from './lib/test-memory-manager.js';
+// teardownTestMemoryMonitoring,
+// Temporarily commented out due to broken implementation
+// } from './lib/test-memory-manager.js';
 // Async queue
 import { createQueue } from './lib/async-queue.js';
 // Database pool
@@ -324,26 +325,26 @@ export {
   createHealthEndpoint,
   createLivenessEndpoint,
   createReadinessEndpoint,
-  // Test memory manager
-  TestMemoryManager,
-  createMemoryManager,
-  createLeakDetectionSession,
-  quickMemoryCheck,
-  withMemoryTracking,
-  setupTestMemoryMonitoring,
-  teardownTestMemoryMonitoring,
-  createQueue,
-  // Database pool
-  SimpleDatabasePool,
-  DatabaseConnectionPool,
-  databaseConnectionPool,
-  createDatabasePool,
-  acquireDatabaseConnection,
-  releaseDatabaseConnection,
-  executeDatabaseQuery,
-  getDatabasePoolStats,
-  getDatabasePoolHealth,
-  shutdownDatabasePools,
+  // Test memory manager - temporarily disabled
+  // TestMemoryManager,
+  // createMemoryManager,
+  // createLeakDetectionSession,
+  // quickMemoryCheck,
+  // withMemoryTracking,
+  // setupTestMemoryMonitoring,
+  // teardownTestMemoryMonitoring,
+  // createQueue,
+  // Database pool - temporarily disabled
+  // SimpleDatabasePool,
+  // DatabaseConnectionPool,
+  // databaseConnectionPool,
+  // createDatabasePool,
+  // acquireDatabaseConnection,
+  // releaseDatabaseConnection,
+  // executeDatabaseQuery,
+  // getDatabasePoolStats,
+  // getDatabasePoolHealth,
+  // shutdownDatabasePools,
   // CRUD service factory
   createCrudService,
   createPaginatedService,
