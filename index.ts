@@ -223,6 +223,18 @@ import {
   getDefaultStorage,
 } from './lib/binary-storage.js';
 import { IStorage } from './lib/storage-interfaces.js';
+// Security middleware
+import { setupSecurity, getSecurityConfig, destroySecurity } from './lib/security-middleware.js';
+// Privacy and compliance
+import {
+  privacyMiddleware,
+  privacyHeadersMiddleware,
+  ccpaComplianceMiddleware,
+  handleDataDeletionRequest,
+  handleDataExportRequest,
+  setupDataRetention,
+} from './lib/privacy-compliance.js';
+import { BasicRateLimiter } from './lib/security-middleware.js';
 // Serialization utilities
 import {
   serializeDocument,
@@ -252,6 +264,16 @@ export {
   sendValidationError,
   sendAuthError,
   generateRequestId,
+  // Security and privacy
+  setupSecurity,
+  getSecurityConfig,
+  destroySecurity,
+  privacyMiddleware,
+  privacyHeadersMiddleware,
+  ccpaComplianceMiddleware,
+  handleDataDeletionRequest,
+  handleDataExportRequest,
+  setupDataRetention,
   // Database utilities
   ensureMongoDB,
   ensureUnique,
@@ -448,3 +470,5 @@ export {
 
 // Export types
 export type { User, InsertUser } from './lib/storage.js';
+// No BasicRateLimiter export here to avoid duplicate
+export type { Application, Request, Response, NextFunction } from 'express';

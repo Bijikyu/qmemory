@@ -111,6 +111,13 @@ function sanitizeInput(str: string): string {
 app.use(express.json());
 app.use(express.static('public'));
 
+// Security middleware (must come after body parser)
+import { setupSecurity } from './lib/security-middleware.js';
+import { privacyMiddleware, privacyHeadersMiddleware } from './lib/privacy-compliance.js';
+setupSecurity(app);
+app.use(privacyMiddleware);
+app.use(privacyHeadersMiddleware);
+
 // Initialize storage
 const storage: MemStorage = new MemStorage();
 
