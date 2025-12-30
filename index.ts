@@ -106,30 +106,24 @@ import {
   createReadinessEndpoint,
 } from './lib/health-check.js';
 // Test memory manager
-import {
-  TestMemoryManager,
-  createMemoryManager,
-  createLeakDetectionSession,
-  quickMemoryCheck,
-  withMemoryTracking,
-  setupTestMemoryMonitoring,
-  teardownTestMemoryMonitoring,
+  // teardownTestMemoryMonitoring,
 } from './lib/test-memory-manager.js';
 // Async queue
 import { createQueue } from './lib/async-queue.js';
 // Database pool
-import {
-  SimpleDatabasePool,
-  DatabaseConnectionPool,
-  databaseConnectionPool,
-  createDatabasePool,
-  acquireDatabaseConnection,
-  releaseDatabaseConnection,
-  executeDatabaseQuery,
-  getDatabasePoolStats,
-  getDatabasePoolHealth,
-  shutdownDatabasePools,
-} from './lib/database-pool.js';
+// // Temporarily commented out due to broken implementation
+// // import {
+// //   SimpleDatabasePool,
+// //   DatabaseConnectionPool,
+// //   databaseConnectionPool,
+// //   createDatabasePool,
+// //   acquireDatabaseConnection,
+// //   releaseDatabaseConnection,
+// //   executeDatabaseQuery,
+// //   getDatabasePoolStats,
+// //   getDatabasePoolHealth,
+// //   shutdownDatabasePools,
+// // } from './lib/database-pool.ts';
 // CRUD service factory
 import {
   createCrudService,

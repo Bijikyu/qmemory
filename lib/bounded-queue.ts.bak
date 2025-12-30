@@ -15,23 +15,18 @@ class CircularBuffer<T> {
   private readonly mask: number;
   private readonly maxSize: number; // Store original maxSize for bounded behavior enforcement
 
-  constructor(maxSize: number) {
-if (maxSize <= 0) {
+constructor(maxSize: number) {
+    if (maxSize <= 0) {
       throw new Error('Max size must be greater than 0');
     }
-    // Prevent integer overflow in bit masking operations
-    if (maxSize > 1073741824) { // 2^30, safe limit for bitwise operations
-      throw new Error('Max size too large for bit masking optimization');
-    }
-    
+    // Store original maxSize for bounded behavior enforcement
+    this.maxSize = maxSize;
     // Round up to next power of 2 for efficient bit masking
-    this.capacity = Math.pow(2, Math.ceil(Math.log2(maxSize)));
+    this.capacity = Math.pow(2, Math.ceil(Math.log2(maxSize))));
     // Create bit mask for fast modulo operations (capacity is always power of 2)
     this.mask = this.capacity - 1;
     // Initialize buffer with calculated capacity
     this.buffer = new Array(this.capacity);
-    // Store original maxSize for bounded behavior enforcement
-    this.maxSize = maxSize;
   }
     // Round up to next power of 2 for efficient bit masking
     this.capacity = Math.pow(2, Math.ceil(Math.log2(maxSize)));
@@ -45,7 +40,7 @@ if (maxSize <= 0) {
     // Use bit masking for fast modulo operation (equivalent to tail % capacity)
     this.tail = (this.tail + 1) & this.mask;
 
-    if (this.count < this.maxItems) {
+    if (this.count < this.capacity) {
       this.count++;
     } else {
       // Buffer is full, overwrite oldest element and advance head
@@ -105,6 +100,10 @@ if (maxSize <= 0) {
     return this.count === this.capacity;
   }
 
+  get maxSize(): number {
+    return this.capacity;
+  }
+
   // Provide access for utilities
   getInternalState() {
     return {
@@ -114,7 +113,6 @@ if (maxSize <= 0) {
       count: this.count,
       capacity: this.capacity,
       mask: this.mask,
-      maxSize: this.maxSize,
     };
   }
 }

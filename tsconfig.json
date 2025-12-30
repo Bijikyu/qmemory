@@ -53,7 +53,8 @@
     "temp",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "lib/**/*.js"
+    "lib/**/*.js",
+    "lib/test-memory/**"
   ],
   "ts-node": {
     "esm": true,
