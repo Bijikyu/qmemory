@@ -170,6 +170,13 @@ class QueueIteration {
 class QueueSearch {
   static includes<T>(buffer: CircularBuffer<T>, item: T): boolean {
     const state = buffer.getInternalState();
+
+    // Early exit for empty buffer
+    if (state.count === 0) {
+      return false;
+    }
+
+    // Optimized search with direct array access and bounds checking
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const currentItem = state.buffer[index];
@@ -182,6 +189,13 @@ class QueueSearch {
 
   static find<T>(buffer: CircularBuffer<T>, predicate: (item: T) => boolean): T | undefined {
     const state = buffer.getInternalState();
+
+    // Early exit for empty buffer
+    if (state.count === 0) {
+      return undefined;
+    }
+
+    // Optimized search with early termination on first match
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const item = state.buffer[index];
@@ -194,6 +208,12 @@ class QueueSearch {
 
   static indexOf<T>(buffer: CircularBuffer<T>, item: T): number {
     const state = buffer.getInternalState();
+
+    // Early exit for empty buffer
+    if (state.count === 0) {
+      return -1;
+    }
+
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const currentItem = state.buffer[index];
@@ -215,6 +235,45 @@ class QueueSearch {
       }
     }
     return count;
+  }
+
+  /**
+   * Optimized bulk search for multiple items - reduces multiple linear searches
+   *
+   * This method efficiently searches for multiple items in a single pass,
+   * which is more performant than calling includes() multiple times.
+   *
+   * @param buffer - The circular buffer to search
+   * @param items - Array of items to search for
+   * @returns Set of found items
+   */
+  static findMultiple<T>(buffer: CircularBuffer<T>, items: T[]): Set<T> {
+    const state = buffer.getInternalState();
+    const found = new Set<T>();
+
+    // Early exit for empty buffer or no items
+    if (state.count === 0 || items.length === 0) {
+      return found;
+    }
+
+    // Convert search items to Set for O(1) lookup
+    const searchSet = new Set(items);
+
+    // Single pass through buffer to find all matching items
+    for (let i = 0; i < state.count; i++) {
+      const index = (state.head + i) & state.mask;
+      const currentItem = state.buffer[index];
+      if (currentItem !== undefined && searchSet.has(currentItem)) {
+        found.add(currentItem);
+
+        // Early exit if all items found
+        if (found.size === items.length) {
+          break;
+        }
+      }
+    }
+
+    return found;
   }
 }
 

@@ -255,13 +255,18 @@ const listUserDocsLean = async <TSchema extends AnyUserDoc>(
       queryOptions.sort = options.sort;
     }
 
-    // Apply pagination
+    // Apply pagination with default limit to prevent unlimited results
     if (options?.skip) {
       queryOptions.skip = options.skip;
     }
 
+    // Enforce maximum limit for scalability (default 100, max 1000)
+    const maxLimit = 1000;
+    const defaultLimit = 100;
     if (options?.limit) {
-      queryOptions.limit = options.limit;
+      queryOptions.limit = Math.min(options.limit, maxLimit);
+    } else {
+      queryOptions.limit = defaultLimit;
     }
 
     const docs = await model.find(filter, null, queryOptions);

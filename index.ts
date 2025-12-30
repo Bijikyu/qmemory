@@ -9,7 +9,6 @@ import {
   sendInternalServerError,
   sendServiceUnavailable,
   sendBadRequest,
-  validateResponseObject,
   sanitizeResponseMessage,
   getTimestamp,
   sendValidationError,

@@ -96,6 +96,8 @@ export interface InsertUser {
 export class MemStorage {
   /** Internal storage mapping user IDs to user entities for O(1) lookup performance */
   private users: Map<number, User>;
+  /** Username index for O(1) username lookups to prevent linear search */
+  private usernameIndex: Map<string, number>;
   /** Auto-incrementing counter for generating unique user IDs */
   private currentId: number;
   /** Maximum number of users allowed to prevent memory exhaustion */
@@ -125,6 +127,7 @@ export class MemStorage {
     if (typeof maxUsers !== 'number' || !Number.isInteger(maxUsers) || maxUsers <= 0)
       throw new Error('maxUsers must be a positive integer'); // validation prevents memory issues
     this.users = new Map(); // using Map for O(1) lookups by ID
+    this.usernameIndex = new Map(); // username index for O(1) lookups
     this.currentId = 1; // auto-incrementing ID generator
     this.maxUsers = maxUsers; // memory usage limit for development safety
     console.log(`constructor has run resulting in a final value of ${this.maxUsers}`);
@@ -169,9 +172,12 @@ export class MemStorage {
    */
   getUserByUsername = async (username: string): Promise<User | undefined> => {
     try {
-      return typeof username !== 'string' || !username.trim().length
-        ? undefined
-        : Array.from(this.users.values()).find(user => user.username === username.trim()); // O(n) search but necessary for username lookup
+      if (typeof username !== 'string' || !username.trim().length) {
+        return undefined;
+      }
+      const trimmedUsername = username.trim();
+      const userId = this.usernameIndex.get(trimmedUsername);
+      return userId !== undefined ? this.users.get(userId) : undefined;
     } catch (error) {
       qerrors.qerrors(error as Error, 'storage.getUserByUsername', {
         username: typeof username === 'string' ? username.trim() : username,
@@ -213,6 +219,7 @@ export class MemStorage {
       });
       const user = { id, ...normalizedFields }; // spread operator combines ID with normalized fields
       this.users.set(id, user); // Map storage for O(1) retrieval
+      this.usernameIndex.set(trimmedUsername, id); // Update username index for O(1) lookups
       return user;
     } catch (error) {
       qerrors.qerrors(error as Error, 'storage.createUser', {
@@ -290,6 +297,11 @@ export class MemStorage {
   deleteUser = async (id: number): Promise<boolean> => {
     try {
       if (typeof id !== 'number' || id < 1) return false;
+      const user = this.users.get(id);
+      if (user) {
+        // Remove from username index
+        this.usernameIndex.delete(user.username);
+      }
       return this.users.delete(id);
     } catch (error) {
       qerrors.qerrors(error as Error, 'storage.deleteUser', {
@@ -306,6 +318,7 @@ export class MemStorage {
   clear = async (): Promise<void> => {
     try {
       this.users.clear();
+      this.usernameIndex.clear();
       this.currentId = 1;
     } catch (error) {
       qerrors.qerrors(error as Error, 'storage.clear', {

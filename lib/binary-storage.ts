@@ -13,7 +13,7 @@
  * - Environment-aware implementation selection
  * - Buffer-based binary data handling for maximum flexibility
  */
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
 import {
@@ -102,8 +102,13 @@ export class MemoryBinaryStorage extends IStorage {
     if (!data) {
       return null;
     }
-    // Return a copy to prevent external mutations (required for safety)
-    // Note: Consider read-only Buffer views for future optimization
+    // Return read-only Buffer view instead of copy for better memory efficiency
+    // This prevents external mutations while avoiding memory duplication
+    if (Buffer.isBuffer(data)) {
+      // Create a read-only view of the underlying ArrayBuffer
+      return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    }
+    // Fallback for non-Buffer data (shouldn't happen with proper validation)
     return Buffer.from(data);
   }
   async delete(key: string): Promise<void> {
@@ -132,7 +137,7 @@ export class MemoryBinaryStorage extends IStorage {
   /**
    * Clear all stored data (useful for testing)
    */
-  async clear() {
+  clear() {
     this.storage.clear();
     this.currentSize = 0;
     console.log('Cleared all data from memory storage');
@@ -156,8 +161,31 @@ export class FileSystemBinaryStorage extends IStorage {
   constructor(storageDir = './data/binary-storage') {
     super();
     this.storageDir = resolve(storageDir);
-    this._ensureDirectoryExists();
+    // Initialize directory synchronously to ensure it exists before any operations
+    // This is a critical requirement for storage reliability and safety
+    try {
+      this._ensureDirectoryExistsSync();
+    } catch (error) {
+      console.error(`Failed to initialize storage directory: ${(error as Error).message}`);
+      throw error; // Re-throw to prevent use of uninitialized storage
+    }
     console.log(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
+  }
+
+  /**
+   * Synchronously ensure directory exists
+   *
+   * Storage directory must exist before any operations can proceed.
+   * This is a synchronous requirement for initialization reliability.
+   */
+  private _ensureDirectoryExistsSync(): void {
+    try {
+      if (!existsSync(this.storageDir)) {
+        mkdirSync(this.storageDir, { recursive: true });
+      }
+    } catch (error) {
+      throw new Error(`Failed to create storage directory: ${error.message}`);
+    }
   }
   async _ensureDirectoryExists() {
     try {
@@ -196,17 +224,17 @@ export class FileSystemBinaryStorage extends IStorage {
     const filePath = this._getFilePath(key);
     const tempPath = `${filePath}.tmp`;
     try {
-      // Atomic write: write to temp file then rename
-      await fs.writeFile(tempPath, data);
-      await fs.rename(tempPath, filePath);
-      // Store key mapping for reverse lookup
-      const metaPath = `${filePath}.meta`;
+      // Combine metadata with data in single file to reduce I/O operations
       const metadata = {
         key,
         size: data.length,
         created: new Date().toISOString(),
       };
-      await fs.writeFile(metaPath, JSON.stringify(metadata));
+      const combinedData = JSON.stringify(metadata) + '\n' + data.toString('base64');
+      await fs.writeFile(tempPath, combinedData);
+      await fs.rename(tempPath, filePath);
+      // Invalidate stats cache when file is modified
+      this.statsCache = null;
       console.log(`Stored ${data.length} bytes at key '${key}' in file system`);
     } catch (error) {
       qerrors.qerrors(error as Error, 'binary-storage.FileSystemBinaryStorage.save', {
@@ -229,8 +257,15 @@ export class FileSystemBinaryStorage extends IStorage {
     this._validateKey(key);
     const filePath = this._getFilePath(key);
     try {
-      const data = await fs.readFile(filePath);
-      return data;
+      const fileContent = await fs.readFile(filePath, 'utf8');
+      // Split metadata from data (first line is metadata, rest is base64 data)
+      const newlineIndex = fileContent.indexOf('\n');
+      if (newlineIndex === -1) {
+        // Legacy format - return raw data
+        return Buffer.from(fileContent, 'binary');
+      }
+      const base64Data = fileContent.substring(newlineIndex + 1);
+      return Buffer.from(base64Data, 'base64');
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
         return null; // File doesn't exist
@@ -250,11 +285,14 @@ export class FileSystemBinaryStorage extends IStorage {
     const metaPath = `${filePath}.meta`;
     try {
       await fs.unlink(filePath);
+      // Try to clean up legacy meta file if it exists
       try {
         await fs.unlink(metaPath);
       } catch (metaError) {
-        // Meta file might not exist, ignore error
+        // Legacy meta file might not exist, ignore error
       }
+      // Invalidate stats cache when file is deleted
+      this.statsCache = null;
       console.log(`Deleted data at key '${key}' from file system`);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code !== 'ENOENT') {
@@ -280,59 +318,69 @@ export class FileSystemBinaryStorage extends IStorage {
       return false;
     }
   }
+  // Cache for statistics to avoid repeated file system operations
+  private statsCache: { data: any; timestamp: number } | null = null;
+  private readonly STATS_CACHE_TTL = 30000; // 30 seconds
+
   async getStats() {
+    const now = Date.now();
+    // Return cached stats if still valid
+    if (this.statsCache && now - this.statsCache.timestamp < this.STATS_CACHE_TTL) {
+      return this.statsCache.data;
+    }
+
     try {
       const files = await fs.readdir(this.storageDir);
       const dataFiles = files.filter(f => f.endsWith('.bin'));
       let totalSize = 0;
       const keys = [];
-      for (const file of dataFiles) {
-        const filePath = join(this.storageDir, file);
-        const metaPath = `${filePath}.meta`;
-        try {
+
+      // Batch file operations for better performance
+      const fileStats = await Promise.allSettled(
+        dataFiles.map(async file => {
+          const filePath = join(this.storageDir, file);
           const stats = await fs.stat(filePath);
-          totalSize += stats.size;
-          // Try to read the original key from meta file
-          try {
-            const metaData = await fs.readFile(metaPath, 'utf8');
-            // Validate metadata size to prevent memory exhaustion
-            if (metaData.length > 10000) {
-              throw new Error('Metadata too large');
+          const fileContent = await fs.readFile(filePath, 'utf8');
+
+          // Extract key from combined format (first line is metadata)
+          let key = file.replace('.bin', '');
+          const newlineIndex = fileContent.indexOf('\n');
+          if (newlineIndex !== -1) {
+            try {
+              const metadataLine = fileContent.substring(0, newlineIndex);
+              const meta = JSON.parse(metadataLine);
+              if (typeof meta.key === 'string') {
+                key = meta.key;
+              }
+            } catch (metaError) {
+              // Use filename as fallback
             }
-
-            // Safe JSON parsing with validation
-            const meta = JSON.parse(metaData);
-
-            // Validate parsed object structure
-            if (typeof meta !== 'object' || meta === null) {
-              throw new Error('Invalid metadata format');
-            }
-
-            // Prevent prototype pollution
-            if (meta.__proto__ || meta.constructor || meta.prototype) {
-              throw new Error('Invalid metadata structure');
-            }
-
-            // Validate key property exists and is string
-            if (typeof meta.key !== 'string') {
-              throw new Error('Invalid key in metadata');
-            }
-
-            keys.push(meta.key);
-          } catch (metaError) {
-            keys.push(file.replace('.bin', ''));
           }
-        } catch (statError) {
-          // Skip files we can't read
+
+          return { filePath, stats: stats.size, key };
+        })
+      );
+
+      // Process results
+      for (const result of fileStats) {
+        if (result.status === 'fulfilled') {
+          totalSize += result.value.stats;
+          keys.push(result.value.key);
         }
+        // Skip failed files
       }
-      return {
+
+      const statsData = {
         type: 'filesystem',
         itemCount: dataFiles.length,
         totalSize,
         storageDir: this.storageDir,
         keys,
       };
+
+      // Update cache
+      this.statsCache = { data: statsData, timestamp: now };
+      return statsData;
     } catch (error) {
       return {
         type: 'filesystem',

@@ -2,7 +2,7 @@
 
 Analyze and address the following test failures:
 
-## Failed Test 1: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__post.test.ts
+## Failed Test 1: /home/runner/workspace/test/unit/storage.test.ts
 
 ### Output:
 ```
@@ -24,7 +24,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 2: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__get.test.ts
+## Failed Test 2: /home/runner/workspace/test/unit/crud-service-factory.test.ts
 
 ### Output:
 ```
@@ -46,7 +46,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 3: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__delete.test.ts
+## Failed Test 3: /home/runner/workspace/test/unit/database-pool.test.ts
 
 ### Output:
 ```
@@ -68,7 +68,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 4: /home/runner/workspace/test/unit/utils.test.ts
+## Failed Test 4: /home/runner/workspace/test/unit/unique-validator.test.ts
 
 ### Output:
 ```
@@ -90,7 +90,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 5: /home/runner/workspace/test/unit/unique-validator.test.ts
+## Failed Test 5: /home/runner/workspace/test/unit/utils.test.ts
 
 ### Output:
 ```
@@ -112,7 +112,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 6: /home/runner/workspace/test/unit/storage.test.ts
+## Failed Test 6: /home/runner/workspace/test/unit/async-queue.test.ts
 
 ### Output:
 ```
@@ -156,7 +156,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 8: /home/runner/workspace/test/unit/database-pool.test.ts
+## Failed Test 8: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__delete.test.ts
 
 ### Output:
 ```
@@ -178,7 +178,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 9: /home/runner/workspace/test/unit/crud-service-factory.test.ts
+## Failed Test 9: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__post.test.ts
 
 ### Output:
 ```
@@ -222,7 +222,7 @@ Analyze and address the following test failures:
 
 ---
 
-## Failed Test 11: /home/runner/workspace/test/unit/async-queue.test.ts
+## Failed Test 11: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__get.test.ts
 
 ### Output:
 ```
@@ -247,5 +247,5 @@ Analyze and address the following test failures:
 ## Summary
 
 - Total failed tests: 11
-- Failed test files: /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__post.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__get.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__delete.test.ts, /home/runner/workspace/test/unit/utils.test.ts, /home/runner/workspace/test/unit/unique-validator.test.ts, /home/runner/workspace/test/unit/storage.test.ts, /home/runner/workspace/test/unit/http-utils.test.ts, /home/runner/workspace/test/unit/database-pool.test.ts, /home/runner/workspace/test/unit/crud-service-factory.test.ts, /home/runner/workspace/test/unit/circuit-breaker.test.ts, /home/runner/workspace/test/unit/async-queue.test.ts
-- Generated: 2025-12-30T17:29:02.454Z
+- Failed test files: /home/runner/workspace/test/unit/storage.test.ts, /home/runner/workspace/test/unit/crud-service-factory.test.ts, /home/runner/workspace/test/unit/database-pool.test.ts, /home/runner/workspace/test/unit/unique-validator.test.ts, /home/runner/workspace/test/unit/utils.test.ts, /home/runner/workspace/test/unit/async-queue.test.ts, /home/runner/workspace/test/unit/http-utils.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__delete.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__post.test.ts, /home/runner/workspace/test/unit/circuit-breaker.test.ts, /home/runner/workspace/tests/generated-tests/demo-app.GeneratedTest__get.test.ts
+- Generated: 2025-12-30T20:37:56.047Z

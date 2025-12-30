@@ -385,3 +385,110 @@ export const createAggregationPipeline = (
   logger.logDebug('createAggregationPipeline completed', { pipelineLength: pipeline.length });
   return pipeline;
 };
+
+/**
+ * Database index creation utility for optimizing query performance
+ *
+ * Creates essential database indexes to prevent full collection scans and
+ * improve query performance for user-specific operations and common query patterns.
+ */
+
+/**
+ * Index definition interface for database index creation
+ *
+ * Defines the structure of database index specifications including
+ * field composition, uniqueness constraints, and index options.
+ */
+interface DatabaseIndexDefinition {
+  fields: Record<string, 1 | -1>; // Field names with sort direction (1=ascending, -1=descending)
+  unique?: boolean; // Whether to enforce uniqueness constraint
+  sparse?: boolean; // Whether to create sparse index (only index documents with the field)
+  background?: boolean; // Whether to create index in background (default: true for production)
+}
+
+/**
+ * Create optimized database indexes for document collections
+ *
+ * This function creates essential indexes for user-specific queries and
+ * common operations to prevent full collection scans and improve scalability.
+ *
+ * @param model - Mongoose model to create indexes on
+ * @returns Promise<void> - Completes when all indexes are created
+ *
+ * @example
+ * await createDocumentIndexes(UserDocumentModel);
+ * // Creates indexes for user field, user+createdAt, user+title combinations
+ */
+export const createDocumentIndexes = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>
+): Promise<void> => {
+  try {
+    logger.logDebug('createDocumentIndexes starting index creation', {
+      modelName: model.modelName,
+    });
+
+    // Essential indexes for user-specific queries
+    const indexes: DatabaseIndexDefinition[] = [
+      // Primary user index for filtering documents by user
+      {
+        fields: { user: 1 },
+        background: true,
+      },
+
+      // Compound index for user + creation date sorting (common pagination pattern)
+      {
+        fields: { user: 1, createdAt: -1 },
+        background: true,
+      },
+
+      // Compound index for user + last update sorting (recent activity queries)
+      {
+        fields: { user: 1, updatedAt: -1 },
+        background: true,
+      },
+
+      // Unique constraint for user + title combinations (if applicable)
+      {
+        fields: { user: 1, title: 1 },
+        unique: true,
+        sparse: true, // Only index documents that have both fields
+        background: true,
+      },
+    ];
+
+    // Create indexes in parallel for better performance
+    await Promise.all(
+      indexes.map(async (indexDef, index) => {
+        try {
+          await model.collection.createIndex(indexDef.fields, {
+            unique: indexDef.unique,
+            sparse: indexDef.sparse,
+            background: indexDef.background,
+          });
+          logger.logDebug('createDocumentIndexes index created', {
+            modelName: model.modelName,
+            indexNumber: index + 1,
+            fields: Object.keys(indexDef.fields),
+            unique: indexDef.unique,
+          });
+        } catch (indexError) {
+          // Log error but don't fail - index might already exist
+          logger.warn('createDocumentIndexes index creation failed', {
+            modelName: model.modelName,
+            indexNumber: index + 1,
+            fields: Object.keys(indexDef.fields),
+            error: indexError instanceof Error ? indexError.message : String(indexError),
+          });
+        }
+      })
+    );
+
+    logger.logDebug('createDocumentIndexes completed successfully', { modelName: model.modelName });
+  } catch (error) {
+    logger.error('createDocumentIndexes failed', {
+      modelName: model.modelName,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+};

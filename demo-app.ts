@@ -174,10 +174,44 @@ app.get('/validation/rules', (req: Request, res: Response) => {
   }
 });
 
+// Cache for health check metrics to avoid expensive operations
+let healthCache: { userCount: number; timestamp: number } | null = null;
+const HEALTH_CACHE_TTL = 30000; // 30 seconds cache
+
+/**
+ * Get cached user count for health checks
+ *
+ * Returns cached user count if still valid, otherwise fetches fresh data.
+ * This prevents expensive database operations on frequent health checks.
+ */
+async function getCachedUserCount(): Promise<number> {
+  const now = Date.now();
+
+  // Return cached data if still valid
+  if (healthCache && now - healthCache.timestamp < HEALTH_CACHE_TTL) {
+    return healthCache.userCount;
+  }
+
+  // Fetch fresh data and update cache
+  try {
+    const users = await storage.getAllUsers();
+    healthCache = {
+      userCount: users.length,
+      timestamp: now,
+    };
+    return healthCache.userCount;
+  } catch (error) {
+    // If fetch fails, return stale cache if available, otherwise 0
+    console.error('Failed to fetch user count for health check:', error);
+    return healthCache?.userCount ?? 0;
+  }
+}
+
 // Health check endpoint - USED BY FRONTEND
 app.get('/health', async (req: Request, res: Response) => {
   try {
-    const userCount = (await storage.getAllUsers()).length;
+    // Use cached user count to avoid expensive database operations on health checks
+    const userCount = await getCachedUserCount();
     const health: HealthStatus = {
       status: 'healthy',
       uptime: process.uptime(),
@@ -333,9 +367,8 @@ app.get('/users/by-username/:username', async (req: Request, res: Response) => {
 
     const trimmedUsername = username.trim();
 
-    // Get all users and search by username (since MemStorage doesn't have username search)
-    const allUsers = await storage.getAllUsers();
-    const user = allUsers.find(u => u.username === trimmedUsername);
+    // Use direct username lookup for better performance
+    const user = await storage.getUserByUsername(trimmedUsername);
 
     if (!user) {
       return sendNotFound(res, 'User not found');
@@ -586,7 +619,7 @@ app.get('/utils/even/:num', (req: Request, res: Response) => {
 });
 
 // Array deduplication utility - USED BY FRONTEND
-app.post('/utils/dedupe', (req: Request, res: Response) => {
+app.post('/utils/dedupe', async (req: Request, res: Response) => {
   try {
     const { items } = req.body;
 
@@ -602,24 +635,56 @@ app.post('/utils/dedupe', (req: Request, res: Response) => {
       });
     }
 
-    // Perform deduplication while preserving order
+    // For small arrays, use synchronous processing
+    if (items.length <= 1000) {
+      const seen = new Set();
+      const deduped = [];
+
+      for (const item of items) {
+        const key = typeof item === 'string' ? item : JSON.stringify(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(item);
+        }
+      }
+
+      const removed = items.length - deduped.length;
+      return sendSuccess(res, 'Deduplication completed', {
+        original: items,
+        deduped: deduped,
+        removed: removed,
+      });
+    }
+
+    // For large arrays, use chunked async processing to prevent event loop blocking
+    const chunkSize = 1000;
     const seen = new Set();
     const deduped = [];
 
-    for (const item of items) {
-      const key = typeof item === 'string' ? item : JSON.stringify(item);
-      if (!seen.has(key)) {
-        seen.add(key);
-        deduped.push(item);
+    // Process chunks asynchronously with yield points
+    for (let i = 0; i < items.length; i += chunkSize) {
+      const chunk = items.slice(i, i + chunkSize);
+
+      // Process chunk
+      for (const item of chunk) {
+        const key = typeof item === 'string' ? item : JSON.stringify(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(item);
+        }
+      }
+
+      // Yield control to event loop every chunk (except last chunk)
+      if (i + chunkSize < items.length) {
+        await new Promise(resolve => setImmediate(resolve));
       }
     }
-
-    const removed = items.length - deduped.length;
 
     sendSuccess(res, 'Deduplication completed', {
       original: items,
       deduped: deduped,
-      removed: removed,
+      removed: items.length - deduped.length,
+      processed: 'chunked',
     });
   } catch (error) {
     qerrors.qerrors(error as Error, 'demo-app.dedupeArray', {
