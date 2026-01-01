@@ -92,6 +92,9 @@ function generateMongoSchema(functions) {
   }
   const schema = {};
 
+  // Track seen fields per collection to avoid O(n²) Object.keys() calls
+  const collectionSeenFields = new Map();
+
   // Process each function metadata to build collection schemas
   for (const func of functions) {
     validateFunctionMetadata(func); // Validate function structure before processing
@@ -106,8 +109,11 @@ function generateMongoSchema(functions) {
         updatedAt: { type: 'Date', default: 'Date.now' }, // Automatic update timestamp
       });
 
-    // Track fields we have already assigned to avoid redundant overwrites
-    const seen = new Set(Object.keys(collection));
+    // Initialize seen fields tracking for this collection if not already done
+    if (!collectionSeenFields.has(collectionName)) {
+      collectionSeenFields.set(collectionName, new Set(Object.keys(collection)));
+    }
+    const seen = collectionSeenFields.get(collectionName);
 
     // Process each parameter from the function
     for (const param of func.parameters) {

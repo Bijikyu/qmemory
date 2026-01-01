@@ -144,10 +144,13 @@ export default class RequestMetrics {
       };
       // Generate detailed statistics for each tracked endpoint
       for (const [endpoint, stats] of Array.from(this.endpoints.entries())) {
-        // Calculate error rate from status code distribution
-        const errorCount = Array.from(stats.statusCodes.entries())
-          .filter(([code]) => code >= 400)
-          .reduce((sum, [, count]) => sum + count, 0);
+        // Calculate error rate from status code distribution - optimized to avoid O(n²)
+        let errorCount = 0;
+        for (const [code, count] of stats.statusCodes.entries()) {
+          if (code >= 400) {
+            errorCount += count;
+          }
+        }
         metrics.endpoints[endpoint] = {
           requests: stats.requests, // endpoint request volume
           avgDuration: Math.round((stats.totalDuration / stats.requests) * 100) / 100, // mean response time

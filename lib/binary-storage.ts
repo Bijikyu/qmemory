@@ -230,7 +230,7 @@ export class FileSystemBinaryStorage extends IStorage {
         size: data.length,
         created: new Date().toISOString(),
       };
-      const combinedData = JSON.stringify(metadata) + '\n' + data.toString('base64');
+      const combinedData = [JSON.stringify(metadata), data.toString('base64')].join('\n');
       await fs.writeFile(tempPath, combinedData);
       await fs.rename(tempPath, filePath);
       // Invalidate stats cache when file is modified
