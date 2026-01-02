@@ -122,7 +122,7 @@ import { createQueue } from './lib/async-queue.js';
 // //   getDatabasePoolStats,
 // //   getDatabasePoolHealth,
 // //   shutdownDatabasePools,
-// // } from './lib/database-pool.ts';
+// // } from './lib/database-pool.ts.js';
 // CRUD service factory
 import {
   createCrudService,
@@ -185,7 +185,7 @@ import {
 // Cache utilities
 import { createRedisClient } from './lib/cache-utils.js';
 // LRU cache
-import { LRUCache } from './lib/lru-cache.js';
+import { LRUCache } from 'lru-cache';
 // Bounded collections
 import { BoundedQueue, BoundedMap } from './lib/bounded-collections.js';
 // Performance metrics

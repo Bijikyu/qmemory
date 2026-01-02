@@ -203,9 +203,8 @@ const isValidEmail = (email: string): boolean => {
     // Primary validation using comprehensive email validator library
     return validator.validate(email);
   } catch (error) {
-    // Fallback validation if external validator fails or is unavailable
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    // Return false if validator fails rather than using fallback regex
+    return false;
   }
 };
 

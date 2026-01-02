@@ -55,6 +55,18 @@ function createPerformanceTimer(label: string): (success?: boolean) => void {
   };
 }
 
+export const logFunctionStart = (
+  functionName: string,
+  params: Record<string, unknown> = {},
+  options: LogOptions = {}
+): void => {
+  if (shouldLogToConsole()) {
+    console.log(`→ START ${functionName}`, { params, ...options });
+  } else {
+    logEntry(functionName, { event: 'start', params, ...options });
+  }
+};
+
 // Additional stub functions
 function addCustomSanitizationPattern(): void {}
 function sanitizeWithCustomPatterns(data: any): any {

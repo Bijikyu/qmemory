@@ -107,17 +107,17 @@ const userDocActionOr404 = async <TSchema extends AnyUserDoc>(
   ) => Promise<HydratedDocument<TSchema> | null>,
   msg: string
 ): Promise<HydratedDocument<TSchema> | undefined> => {
-  logFunctionStart('userDocActionOr404', { id, user });
-  logFunctionEntry('userDocActionOr404', { id, user });
+  logger.functionEntry('userDocActionOr404', { id, user });
+  logger.functionEntry('userDocActionOr404', { id, user });
   try {
     const doc = await action(model, id, user);
     if (doc == null) {
       sendNotFound(res, msg);
-      logFunctionExit('userDocActionOr404', 'undefined');
+      logger.functionReturn('userDocActionOr404', 'undefined');
       console.log('userDocActionOr404 is returning undefined');
       return undefined;
     }
-    logFunctionExit('userDocActionOr404', doc);
+    logger.functionReturn('userDocActionOr404', doc);
     console.log(`userDocActionOr404 is returning ${doc}`);
     return doc;
   } catch (error) {
@@ -127,7 +127,7 @@ const userDocActionOr404 = async <TSchema extends AnyUserDoc>(
       user,
       message: msg,
     });
-    logFunctionError('userDocActionOr404', error);
+    logger.functionError('userDocActionOr404', error);
     throw error;
   }
 };
@@ -142,16 +142,16 @@ const fetchUserDocOr404 = async <TSchema extends AnyUserDoc>(
   res: Response,
   msg: string
 ): Promise<HydratedDocument<TSchema> | undefined> => {
-  logFunctionStart('fetchUserDocOr404', { id, user });
-  logFunctionEntry('fetchUserDocOr404', { id, user });
+  logger.functionEntry('fetchUserDocOr404', { id, user });
+  logger.functionEntry('fetchUserDocOr404', { id, user });
   try {
     const doc = await userDocActionOr404(model, id, user, res, findUserDoc, msg);
     if (!doc) {
-      logFunctionExit('fetchUserDocOr404', 'undefined');
+      logger.functionReturn('fetchUserDocOr404', 'undefined');
       console.log('fetchUserDocOr404 is returning undefined');
       return undefined;
     }
-    logFunctionExit('fetchUserDocOr404', doc);
+    logger.functionReturn('fetchUserDocOr404', doc);
     console.log(`fetchUserDocOr404 is returning ${doc}`);
     return doc;
   } catch (error) {
@@ -160,7 +160,7 @@ const fetchUserDocOr404 = async <TSchema extends AnyUserDoc>(
       user,
       message: msg,
     });
-    logFunctionError('fetchUserDocOr404', error);
+    logger.functionError('fetchUserDocOr404', error);
     throw error;
   }
 };
@@ -175,16 +175,16 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
   res: Response,
   msg: string
 ): Promise<HydratedDocument<TSchema> | undefined> => {
-  logFunctionStart('deleteUserDocOr404', { id, user });
-  logFunctionEntry('deleteUserDocOr404', { id, user });
+  logger.functionEntry('deleteUserDocOr404', { id, user });
+  logger.functionEntry('deleteUserDocOr404', { id, user });
   try {
     const doc = await userDocActionOr404(model, id, user, res, deleteUserDoc, msg);
     if (!doc) {
-      logFunctionExit('deleteUserDocOr404', 'undefined');
+      logger.functionReturn('deleteUserDocOr404', 'undefined');
       console.log('deleteUserDocOr404 is returning undefined');
       return undefined;
     }
-    logFunctionExit('deleteUserDocOr404', doc);
+    logger.functionReturn('deleteUserDocOr404', doc);
     console.log(`deleteUserDocOr404 is returning ${doc}`);
     return doc;
   } catch (error) {
@@ -193,7 +193,7 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
       user,
       message: msg,
     });
-    logFunctionError('deleteUserDocOr404', error);
+    logger.functionError('deleteUserDocOr404', error);
     throw error;
   }
 };
@@ -212,8 +212,8 @@ const listUserDocsLean = async <TSchema extends AnyUserDoc>(
     skip?: number; // Pagination support
   }
 ): Promise<Array<any>> => {
-  logFunctionStart('listUserDocsLean', { username });
-  logFunctionEntry('listUserDocsLean', {
+  logger.functionEntry('listUserDocsLean', { username });
+  logger.functionEntry('listUserDocsLean', {
     username,
     sort: JSON.stringify(options?.sort),
     select: options?.select,
@@ -251,7 +251,7 @@ const listUserDocsLean = async <TSchema extends AnyUserDoc>(
 
     const docs = await model.find(filter, null, queryOptions);
 
-    logFunctionExit('listUserDocsLean', docs);
+    logger.functionReturn('listUserDocsLean', docs);
     console.log(`listUserDocsLean is returning ${docs.length} lean documents`);
     return docs;
   } catch (error) {
@@ -266,7 +266,7 @@ const listUserDocsLean = async <TSchema extends AnyUserDoc>(
       hasSkip: options?.skip !== undefined,
       skip: options?.skip,
     });
-    logFunctionError('listUserDocsLean', error);
+    logger.functionError('listUserDocsLean', error);
     throw error;
   }
 };
@@ -312,18 +312,18 @@ const createUniqueDoc = async <TSchema extends AnyUserDoc>(
   res: Response,
   duplicateMsg?: string
 ): Promise<HydratedDocument<TSchema> | undefined> => {
-  logFunctionStart('createUniqueDoc', {});
-  logFunctionEntry('createUniqueDoc', { fields: JSON.stringify(fields ?? {}) });
+  logger.functionEntry('createUniqueDoc', {});
+  logger.functionEntry('createUniqueDoc', { fields: JSON.stringify(fields ?? {}) });
   try {
     const isUnique = await validateDocumentUniqueness(model, uniqueQuery, res, duplicateMsg);
     if (!isUnique) {
-      logFunctionExit('createUniqueDoc', 'undefined');
+      logger.functionReturn('createUniqueDoc', 'undefined');
       console.log('createUniqueDoc is returning undefined');
       return undefined;
     }
     const doc = new model(fields);
     const saved = await doc.save();
-    logFunctionExit('createUniqueDoc', saved);
+    logger.functionReturn('createUniqueDoc', saved);
     console.log(`createUniqueDoc is returning ${saved}`);
     return saved;
   } catch (error) {
@@ -332,7 +332,7 @@ const createUniqueDoc = async <TSchema extends AnyUserDoc>(
       uniqueQueryKeys: Object.keys(uniqueQuery),
       hasDuplicateMsg: duplicateMsg !== undefined,
     });
-    logFunctionError('createUniqueDoc', error);
+    logger.functionError('createUniqueDoc', error);
     throw error;
   }
 };
@@ -349,8 +349,8 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
   res: Response,
   duplicateMsg?: string
 ): Promise<HydratedDocument<TSchema> | undefined> => {
-  logFunctionStart('updateUserDoc', { id, username });
-  logFunctionEntry('updateUserDoc', { id, username });
+  logger.functionEntry('updateUserDoc', { id, username });
+  logger.functionEntry('updateUserDoc', { id, username });
   try {
     const updates: Partial<TSchema> = { ...fieldsToUpdate };
     if (Object.prototype.hasOwnProperty.call(updates, 'user')) {
@@ -359,7 +359,7 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
     }
     const doc = await fetchUserDocOr404(model, id, username, res, 'Document not found');
     if (!doc) {
-      logFunctionExit('updateUserDoc', 'undefined');
+      logger.functionReturn('updateUserDoc', 'undefined');
       console.log('updateUserDoc is returning undefined');
       return undefined;
     }
@@ -375,14 +375,14 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
         duplicateMsg
       );
       if (!isStillUnique) {
-        logFunctionExit('updateUserDoc', 'undefined');
+        logger.functionReturn('updateUserDoc', 'undefined');
         console.log('updateUserDoc is returning undefined');
         return undefined;
       }
     }
     Object.assign(doc, updates);
     await doc.save();
-    logFunctionExit('updateUserDoc', doc);
+    logger.functionReturn('updateUserDoc', doc);
     console.log(`updateUserDoc is returning ${doc}`);
     return doc;
   } catch (error) {
@@ -393,7 +393,7 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
       hasUniqueQuery: uniqueQuery !== undefined,
       attemptedUserChange: Object.prototype.hasOwnProperty.call(fieldsToUpdate, 'user'),
     });
-    logFunctionError('updateUserDoc', error);
+    logger.functionError('updateUserDoc', error);
     throw error;
   }
 };

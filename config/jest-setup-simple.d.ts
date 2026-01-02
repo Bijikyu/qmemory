@@ -1,0 +1,1 @@
+//# sourceMappingURL=jest-setup-simple.d.ts.map

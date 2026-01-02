@@ -34,15 +34,13 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
+    "isolatedModules": false,
     "incremental": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "lib": ["ES2022"],
     "types": ["node", "jest"],
     "baseUrl": "./",
-    "paths": {
-      "lib/*": ["./lib/*"]
-    }
+    "allowImportingTsExtensions": false
   },
   "include": ["**/*.ts"],
   "exclude": [
