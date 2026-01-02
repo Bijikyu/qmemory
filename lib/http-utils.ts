@@ -18,6 +18,15 @@ import {
   isValidObject,
 } from './simple-wrapper';
 
+/**
+ * Validates Express response object
+ */
+export const validateResponseObject = (res: any): void => {
+  if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
+    throw new Error('Invalid Express response object');
+  }
+};
+
 type HttpErrorType =
   | 'BAD_REQUEST'
   | 'AUTHENTICATION_ERROR'
@@ -50,7 +59,7 @@ const createErrorResponse = (
   const errorId = generateRequestId();
   return {
     error: {
-      type: getErrorType(statusCode),
+      type: getErrorType(statusCode as KnownStatusCode),
       message: message as string,
       timestamp: getTimestamp(),
       requestId,
@@ -136,7 +145,7 @@ const sendErrorResponse = (
     }
 
     const errorId = error ? generateRequestId() : undefined;
-    const response = createErrorResponse(statusCode, message, requestId, errorId);
+    const response = createErrorResponse(statusCode, message, requestId);
 
     return res.status(statusCode).json(response);
   } catch (err) {
@@ -189,7 +198,7 @@ const sendValidationError = (
   const response: ErrorEnvelope = {
     error: {
       type: 'VALIDATION_ERROR',
-      message: sanitizeString(message) || 'Validation failed',
+      message: sanitizeString(message as string) || 'Validation failed',
       timestamp: getTimestamp(),
       requestId: generateRequestId(),
       details: details ?? null,
@@ -217,7 +226,7 @@ const sendAuthError = (res: Response, message?: unknown): Response<ErrorEnvelope
     const response: ErrorEnvelope = {
       error: {
         type: 'AUTHENTICATION_ERROR',
-        message: sanitizeString(message ?? 'Authentication required'),
+        message: sanitizeString((message as string) ?? 'Authentication required'),
         timestamp: getTimestamp(),
         requestId,
       },

@@ -20,6 +20,7 @@ import {
   sendValidationError,
 } from './http-utils.js';
 import qerrors from 'qerrors';
+import { safeDelay, calculateBackoffDelay } from './core/secure-delay';
 
 interface Logger {
   logDebug(message: string, context?: Record<string, unknown>): void;
@@ -248,12 +249,10 @@ export const retryDbOperation = async <TResult>(
           message: lastError.message,
         });
         if (attempt < maxRetries) {
-          // Exponential backoff with jitter to prevent thundering herd
-          const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
-          const jitter = Math.random() * 0.1 * exponentialDelay;
-          const totalDelay = exponentialDelay + jitter;
+          // Secure exponential backoff with jitter to prevent thundering herd
+          const totalDelay = calculateBackoffDelay(baseDelay, attempt, 60000); // Cap at 60 seconds
           logger.logDebug('retryDbOperation scheduling next attempt', { totalDelay });
-          await new Promise(resolve => setTimeout(resolve, totalDelay));
+          await safeDelay(totalDelay);
         }
       }
     }

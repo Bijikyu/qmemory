@@ -20,6 +20,7 @@
 /// <reference path="./types.d.ts" />
 import { createClient as createRedisClient } from 'redis';
 import { MongoClient } from 'mongodb';
+import { safeDelay, calculateBackoffDelay } from '../core/secure-delay';
 import {
   DEFAULT_POOL_MAX_CONNECTIONS,
   DEFAULT_POOL_MIN_CONNECTIONS,
@@ -318,10 +319,9 @@ class SimpleDatabasePool {
           throw lastError;
         }
 
-        // Exponential backoff with jitter for better scalability
-        const backoffDelay =
-          this.config.retryDelay * Math.pow(2, attempt - 1) + Math.random() * 100;
-        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        // Secure exponential backoff with jitter for better scalability
+        const backoffDelay = calculateBackoffDelay(this.config.retryDelay, attempt);
+        await safeDelay(backoffDelay);
       } finally {
         if (connection) {
           await this.releaseConnection(connection);

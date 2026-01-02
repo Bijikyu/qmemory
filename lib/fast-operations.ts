@@ -22,10 +22,20 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Sum of all elements
    */
-  static sum(array) {
+  static sum(array: number[]): number {
+    if (!Array.isArray(array)) {
+      throw new Error('Array parameter must be an array of numbers');
+    }
     let result = 0;
     for (let i = 0; i < array.length; i++) {
-      result += array[i];
+      // Check for sparse arrays and undefined elements
+      if (array[i] === undefined) {
+        throw new Error(`Array element at index ${i} is undefined (sparse array)`);
+      }
+      if (typeof array[i] !== 'number' || !isFinite(array[i])) {
+        throw new Error(`Array element at index ${i} must be a finite number`);
+      }
+      result = result + array[i];
     }
     return result;
   }
@@ -35,10 +45,25 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Maximum value
    */
-  static max(array) {
-    if (array.length === 0) return -Infinity;
+  static max(array: number[]): number {
+    if (!Array.isArray(array) || array.length === 0) return -Infinity;
+    // Validate first element before assignment
+    if (typeof array[0] !== 'number' || !isFinite(array[0])) {
+      throw new Error(`Array element at index 0 must be a finite number`);
+    }
+    // Check for sparse arrays and undefined elements
+    if (array.length === 0 || array[0] === undefined) {
+      throw new Error('Array cannot be empty or contain undefined elements');
+    }
     let result = array[0];
     for (let i = 1; i < array.length; i++) {
+      // Check for sparse arrays and undefined elements
+      if (!array.hasOwnProperty(i)) {
+        throw new Error(`Array element at index ${i} is undefined (sparse array)`);
+      }
+      if (typeof array[i] !== 'number' || !isFinite(array[i])) {
+        throw new Error(`Array element at index ${i} must be a finite number`);
+      }
       if (array[i] > result) result = array[i];
     }
     return result;
@@ -49,10 +74,25 @@ export class FastMath {
    * @param array - Array of numbers
    * @returns Minimum value
    */
-  static min(array) {
-    if (array.length === 0) return Infinity;
+  static min(array: number[]): number {
+    if (!Array.isArray(array) || array.length === 0) return Infinity;
+    // Validate first element before assignment
+    if (typeof array[0] !== 'number' || !isFinite(array[0])) {
+      throw new Error(`Array element at index 0 must be a finite number`);
+    }
+    // Check for sparse arrays and undefined elements
+    if (array.length === 0 || array[0] === undefined) {
+      throw new Error('Array cannot be empty or contain undefined elements');
+    }
     let result = array[0];
     for (let i = 1; i < array.length; i++) {
+      // Check for sparse arrays and undefined elements
+      if (!array.hasOwnProperty(i)) {
+        throw new Error(`Array element at index ${i} is undefined (sparse array)`);
+      }
+      if (typeof array[i] !== 'number' || !isFinite(array[i])) {
+        throw new Error(`Array element at index ${i} must be a finite number`);
+      }
       if (array[i] < result) result = array[i];
     }
     return result;

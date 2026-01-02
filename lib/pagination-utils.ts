@@ -29,8 +29,8 @@
 // Import existing HTTP utilities to maintain consistency with library patterns
 import {
   sendInternalServerError,
-  validateResponseObject,
   sendErrorResponse,
+  validateResponseObject,
 } from './http-utils.js';
 import { logFunctionEntry } from './logging-utils.js';
 import qerrors from 'qerrors';
