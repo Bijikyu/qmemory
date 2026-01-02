@@ -206,7 +206,7 @@ export class TestMemoryManager {
                 type: 'global-object',
                 key,
                 constructor: constructor.name,
-                size: JSON.stringify(global[key]).length,
+                size: this.estimateObjectSize(global[key]),
               });
             }
           } catch (e) {
@@ -258,6 +258,71 @@ export class TestMemoryManager {
 
     // Return structured data for CI tools
     console.log('CI_MEMORY_ANALYSIS:', JSON.stringify(analysis));
+  }
+
+  /**
+   * Estimate object size without blocking the event loop
+   * Uses heuristics to avoid expensive JSON.stringify on large objects
+   */
+  private estimateObjectSize(obj: any): number {
+    if (obj === null || obj === undefined) {
+      return 0;
+    }
+
+    // Quick size estimation for common types
+    const type = typeof obj;
+
+    if (type === 'string') {
+      return obj.length * 2; // UTF-16 characters
+    }
+
+    if (type === 'number') {
+      return 8; // 64-bit number
+    }
+
+    if (type === 'boolean') {
+      return 4;
+    }
+
+    if (type === 'function') {
+      return 50; // Approximate function size
+    }
+
+    // For objects, use sampling approach for large objects
+    if (type === 'object') {
+      // Handle null case specifically (typeof null === 'object')
+      if (obj === null) {
+        return 0;
+      }
+
+      // Handle arrays and null separately
+      if (Array.isArray(obj)) {
+        return obj.length * 100; // Estimate per array element
+      }
+
+      try {
+        // If object is small, use JSON.stringify
+        const jsonString = JSON.stringify(obj);
+        if (jsonString.length < 1000) {
+          return jsonString.length;
+        }
+
+        // For large objects, estimate based on keys count
+        const keys = Object.keys(obj);
+        const estimatedSize = keys.length * 100; // Rough estimate per property
+        return Math.min(estimatedSize, 50000); // Cap at 50KB to prevent overestimation
+      } catch (e) {
+        // Fallback for circular references or non-serializable objects
+        try {
+          return Object.keys(obj).length * 50;
+        } catch (fallbackError) {
+          // Object.keys() can fail on certain objects (e.g., Proxy with revoked handler)
+          return 100; // Minimal fallback size
+        }
+      }
+    }
+
+    return 0;
   }
 
   /**

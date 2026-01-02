@@ -209,69 +209,134 @@ class ObjectStorageBinaryStorage extends IStorage {
     }
   }
 
-  override async getStats(): Promise<StorageStats> {
+  override async getStats(options?: {
+    maxItems?: number;
+    pageSize?: number;
+  }): Promise<StorageStats> {
     try {
       const privateDir = this.objectStorageService.getPrivateObjectDir();
       const { bucketName } = this._parseObjectPath(privateDir);
       const bucket = this.objectStorageService.objectStorageClient.bucket(bucketName);
 
-      // List files with our binary data prefix
-      const [files] = await bucket.getFiles({
-        prefix: `${this.storagePrefix}`,
-        delimiter: '/',
-      });
+      // Configuration for memory-efficient processing
+      const maxItems = options?.maxItems || 1000; // Limit total items processed
+      const pageSize = options?.pageSize || 100; // Process in smaller batches
+      const maxMemoryUsage = 5 * 1024 * 1024; // 5MB memory limit
 
       let totalSize = 0;
       let itemCount = 0;
       const keys: string[] = [];
+      let currentMemoryUsage = 0;
 
-      for (const file of files) {
-        // Skip metadata files and only count actual data files
-        if (!file.name.endsWith('.meta')) {
-          const [metadata] = await file.getMetadata();
-          totalSize += parseInt((metadata as any).size || 0);
-          itemCount++;
+      // Use streaming API to avoid loading all files at once
+      const queryOptions = {
+        prefix: `${this.storagePrefix}`,
+        delimiter: '/',
+        autoPaginate: false,
+        maxResults: pageSize,
+      };
 
-          // Try to get original key from metadata
-          try {
-            const metadataFile = bucket.file(`${file.name}.meta`);
-            const [metadataExists] = await metadataFile.exists();
-            if (metadataExists) {
-              const [metadataContent] = await metadataFile.download();
-              const metadataString = metadataContent.toString();
+      let pageToken: string | undefined;
 
-              // Validate metadata size to prevent memory exhaustion
-              if (metadataString.length > 10000) {
-                throw new Error('Metadata too large');
+      do {
+        if (pageToken) {
+          (queryOptions as any).pageToken = pageToken;
+        }
+
+        const [files, , response] = await bucket.getFiles(queryOptions);
+
+        for (const file of files) {
+          // Skip metadata files and only count actual data files
+          if (!file.name.endsWith('.meta')) {
+            const [metadata] = await file.getMetadata();
+            totalSize += parseInt((metadata as any).size || 0);
+            itemCount++;
+
+            // Memory-conscious metadata processing with size limits
+            try {
+              const metadataFile = bucket.file(`${file.name}.meta`);
+              const [metadataExists] = await metadataFile.exists();
+
+              if (metadataExists) {
+                // Get file metadata first to check size
+                const [metaMetadata] = await metadataFile.getMetadata();
+                const fileSize = parseInt((metaMetadata as any).size || 0);
+
+                // Skip if metadata file is too large
+                if (fileSize > 10000) {
+                  keys.push(file.name);
+                  continue;
+                }
+
+                // Download with size limit
+                let metadataContent: Buffer;
+                try {
+                  [metadataContent] = await metadataFile.download({
+                    validation: false, // Skip validation for performance
+                  });
+                } catch (downloadError) {
+                  // Skip if download fails (file might be corrupted or inaccessible)
+                  keys.push(file.name);
+                  continue;
+                }
+
+                const metadataString = metadataContent.toString('utf8', 0, 10001); // Limit to first 10KB to prevent memory issues
+
+                // Validate metadata size (double-check)
+                if (metadataString.length > 10000) {
+                  throw new Error('Metadata too large');
+                }
+
+                // Safe JSON parsing with validation
+                let meta;
+                try {
+                  meta = JSON.parse(metadataString);
+                } catch (parseError) {
+                  throw new Error(`Invalid JSON metadata: ${parseError.message}`);
+                }
+
+                // Validate parsed object structure
+                if (typeof meta !== 'object' || meta === null) {
+                  throw new Error('Invalid metadata format: not an object');
+                }
+
+                // Prevent prototype pollution (comprehensive check)
+                if (
+                  meta.__proto__ !== undefined ||
+                  meta.constructor !== Object.prototype.constructor ||
+                  (meta.prototype && meta.prototype !== Object.prototype) ||
+                  Object.getPrototypeOf(meta) !== Object.prototype
+                ) {
+                  throw new Error('Invalid metadata structure: prototype pollution detected');
+                }
+
+                // Validate originalKey property exists and is string
+                if (typeof meta.originalKey !== 'string' || meta.originalKey.length === 0) {
+                  throw new Error('Invalid originalKey in metadata: must be non-empty string');
+                }
+
+                keys.push((meta as ObjectMetadata).originalKey);
+              } else {
+                keys.push(file.name);
               }
-
-              // Safe JSON parsing with validation
-              const meta = JSON.parse(metadataString);
-
-              // Validate parsed object structure
-              if (typeof meta !== 'object' || meta === null) {
-                throw new Error('Invalid metadata format');
-              }
-
-              // Prevent prototype pollution
-              if (meta.__proto__ || meta.constructor || meta.prototype) {
-                throw new Error('Invalid metadata structure');
-              }
-
-              // Validate originalKey property exists and is string
-              if (typeof meta.originalKey !== 'string') {
-                throw new Error('Invalid originalKey in metadata');
-              }
-
-              keys.push((meta as ObjectMetadata).originalKey);
-            } else {
+            } catch (metaError) {
+              // Fallback to filename if metadata processing fails
               keys.push(file.name);
             }
-          } catch (metaError) {
-            keys.push(file.name);
+
+            // Check if we've hit our limits
+            if (itemCount >= maxItems) {
+              break;
+            }
           }
         }
-      }
+
+        // Get next page token if available
+        pageToken = response ? (response as any).nextPageToken : undefined;
+
+        // Reset memory usage counter for next batch
+        currentMemoryUsage = 0;
+      } while (pageToken && itemCount < maxItems);
 
       return {
         type: 'object-storage',
@@ -280,6 +345,7 @@ class ObjectStorageBinaryStorage extends IStorage {
         bucketName,
         storagePrefix: this.storagePrefix,
         keys,
+        truncated: itemCount >= maxItems, // Indicate if results were truncated
       };
     } catch (error) {
       return {

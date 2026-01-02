@@ -235,6 +235,9 @@ export class AsyncQueueWrapper extends EventEmitter {
   // Set of currently active job IDs for monitoring and debugging
   private readonly activeJobs: Set<string> = new Set();
 
+  // Reference to cleanup interval for proper resource management
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
   // Public concurrency setting for monitoring and configuration
   public readonly concurrency: number;
 
@@ -306,13 +309,69 @@ export class AsyncQueueWrapper extends EventEmitter {
    * memory leaks from jobs that failed to remove themselves properly.
    */
   private initializeActiveJobsCleanup(): void {
-    const cleanupInterval = setInterval(() => {
+    // Clear any existing interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    this.cleanupInterval = setInterval(() => {
       this.cleanupStaleActiveJobs();
     }, 60000); // Run cleanup every minute
 
     // Clear interval on process exit to prevent memory leaks
-    process.on('beforeExit', () => {
-      clearInterval(cleanupInterval);
+    const cleanupHandler = () => {
+      this.cleanup();
+    };
+
+    // Check and remove existing handlers before adding new ones
+    if ((this as any).cleanupHandler) {
+      process.removeListener('beforeExit', (this as any).cleanupHandler);
+      process.removeListener('SIGINT', (this as any).cleanupHandler);
+      process.removeListener('SIGTERM', (this as any).cleanupHandler);
+      process.removeListener('uncaughtException', (this as any).cleanupHandler);
+      process.removeListener('unhandledRejection', (this as any).cleanupHandler);
+    }
+
+    process.on('beforeExit', cleanupHandler);
+
+    // Store handler reference for potential removal later
+    (this as any).cleanupHandler = cleanupHandler;
+
+    // Also handle other exit signals for robust cleanup
+    process.on('SIGINT', cleanupHandler);
+    process.on('SIGTERM', cleanupHandler);
+
+    // Handle uncaught exceptions but don't prevent process exit
+    process.on('uncaughtException', error => {
+      console.error('Uncaught exception:', error);
+      try {
+        cleanupHandler();
+      } catch (cleanupError) {
+        console.error('Error during cleanup:', cleanupError);
+      }
+      process.exit(1); // Exit with error code
+    });
+
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('Unhandled rejection at:', promise?.toString() || 'unknown', 'reason:', reason);
+      try {
+        cleanupHandler();
+      } catch (cleanupError) {
+        console.error('Error during cleanup:', cleanupError);
+      }
+      process.exit(1); // Exit with error code
+    });
+
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('Unhandled rejection at:', promise, 'reason:', reason);
+      try {
+        cleanupHandler();
+      } catch (cleanupError) {
+        console.error('Error during cleanup:', cleanupError);
+      }
+      process.exit(1); // Exit with error code
     });
   }
 
@@ -343,6 +402,50 @@ export class AsyncQueueWrapper extends EventEmitter {
       console.log(
         `ActiveJobsCleanup: ${this.activeJobs.size} active jobs (concurrency: ${this.concurrency})`
       );
+    }
+  }
+
+  /**
+   * Cleanup all resources and stop background processes
+   *
+   * This method should be called when the queue is no longer needed to
+   * prevent memory leaks and stop background cleanup processes.
+   */
+  cleanup(): void {
+    try {
+      // Clear the cleanup interval
+      if (this.cleanupInterval) {
+        clearInterval(this.cleanupInterval);
+        this.cleanupInterval = null;
+      }
+
+      // Clear active jobs set
+      this.activeJobs.clear();
+
+      // Close all queue instances
+      for (const [state, queue] of this.queues.entries()) {
+        try {
+          queue.close();
+        } catch (error) {
+          console.error(`Failed to close queue for state ${state}:`, error);
+        }
+      }
+      this.queues.clear();
+
+      // Clear processors
+      this.processors.clear();
+
+      // Remove all event listeners to prevent memory leaks
+      this.removeAllListeners();
+
+      qerrors.qerrors(new Error('AsyncQueue cleanup completed'), 'async-queue.cleanup', {
+        queuesClosed: this.queues.size,
+        activeJobsCleared: this.activeJobs.size,
+      });
+    } catch (error) {
+      qerrors.qerrors(error as Error, 'async-queue.cleanup', {
+        error: error.message,
+      });
     }
   }
 

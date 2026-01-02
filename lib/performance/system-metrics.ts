@@ -73,15 +73,9 @@ export default class SystemMetrics {
       options.collectionInterval || Number(DEFAULT_SYSTEM_COLLECTION_INTERVAL);
     this.maxHistoryPoints = options.maxHistoryPoints || Number(DEFAULT_MAX_HISTORY_POINTS);
 
-    // Pre-allocate arrays for better memory efficiency
-    this.memoryHistory = new Array(this.maxHistoryPoints);
-    this.cpuHistory = new Array(this.maxHistoryPoints);
-
-    // Initialize with empty objects to prevent undefined access
-    for (let i = 0; i < this.maxHistoryPoints; i++) {
-      this.memoryHistory[i] = { timestamp: 0, rss: 0, heapUsed: 0, heapTotal: 0, external: 0 };
-      this.cpuHistory[i] = { timestamp: 0, percent: 0 };
-    }
+    // Use lazy initialization for arrays to reduce upfront memory allocation
+    this.memoryHistory = [];
+    this.cpuHistory = [];
 
     // CPU calculation state for accurate percentage calculations
     this.lastCpuUsage = process.cpuUsage();
@@ -183,10 +177,26 @@ export default class SystemMetrics {
   }
 
   private storeMemorySnapshot(index: number, snapshot: MemorySnapshot): void {
+    // Lazy initialization: ensure array exists and is large enough
+    if (this.memoryHistory.length <= index) {
+      // Extend array to accommodate the new index
+      const newSize = Math.min(index + 1, this.maxHistoryPoints);
+      for (let i = this.memoryHistory.length; i < newSize; i++) {
+        this.memoryHistory[i] = { timestamp: 0, rss: 0, heapUsed: 0, heapTotal: 0, external: 0 };
+      }
+    }
     this.memoryHistory[index] = snapshot;
   }
 
   private storeCpuSnapshot(index: number, snapshot: CpuSnapshot): void {
+    // Lazy initialization: ensure array exists and is large enough
+    if (this.cpuHistory.length <= index) {
+      // Extend array to accommodate the new index
+      const newSize = Math.min(index + 1, this.maxHistoryPoints);
+      for (let i = this.cpuHistory.length; i < newSize; i++) {
+        this.cpuHistory[i] = { timestamp: 0, percent: 0 };
+      }
+    }
     this.cpuHistory[index] = snapshot;
   }
   /**
