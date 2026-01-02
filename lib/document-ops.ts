@@ -7,23 +7,15 @@ import mongoose, { Model, HydratedDocument, FilterQuery, AnyObject, Types } from
 import type { Response } from 'express';
 import { sendNotFound } from './http-utils.js';
 import { ensureUnique } from './database-utils.js';
-import { logFunctionEntry, logFunctionExit, logFunctionError } from './logging-utils.js';
+import { createLogger } from './core/centralized-logger';
+import { ErrorFactory } from './core/centralized-errors';
 import qerrors from 'qerrors';
 
 type AnyUserDoc = AnyObject & { user: string };
 type DocumentId = Types.ObjectId | string;
 
-const logFunctionStart = (functionName: string, params?: Record<string, unknown>): void => {
-  if (params && typeof params === 'object') {
-    const paramString = Object.entries(params)
-      .filter(([, value]) => value !== undefined && value !== null)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(', ');
-    console.log(`${functionName} is running${paramString ? ` with ${paramString}` : ''}`);
-  } else {
-    console.log(`${functionName} is running`);
-  }
-};
+// Create module-specific logger
+const logger = createLogger('DocumentOps');
 
 // 🚩AI: CORE_USER_OWNERSHIP_ENFORCEMENT
 /**
@@ -44,26 +36,14 @@ const performUserDocOp = async <TSchema extends AnyUserDoc>(
     scopedUsername: string
   ) => Promise<HydratedDocument<TSchema> | null>
 ): Promise<HydratedDocument<TSchema> | null> => {
-  logFunctionStart('performUserDocOp', { id, username });
-  logFunctionEntry(opCallback.name, { id, username });
+  logger.functionEntry('performUserDocOp', { id, username });
+  logger.functionEntry(opCallback.name, { id, username });
   try {
     const doc = await opCallback(model, id, username);
-    logFunctionExit(opCallback.name, doc);
-    console.log(`performUserDocOp is returning ${doc ?? 'null'}`);
+    logger.functionReturn('performUserDocOp', doc ?? 'null');
     return doc;
   } catch (error) {
-    qerrors.qerrors(error as Error, 'document-ops.performUserDocOp', {
-      operation: opCallback.name,
-      id,
-      username,
-      isCastError: error instanceof mongoose.Error.CastError,
-    });
-    logFunctionError(opCallback.name, error);
-    if (error instanceof mongoose.Error.CastError) {
-      logFunctionExit(opCallback.name, 'null due to CastError');
-      console.log('performUserDocOp is returning null');
-      return null;
-    }
+    logger.functionError('performUserDocOp', error as Error);
     throw error;
   }
 };
@@ -80,10 +60,10 @@ const findUserDoc = async <TSchema extends AnyUserDoc>(
   id: DocumentId,
   username: string
 ): Promise<HydratedDocument<TSchema> | null> => {
-  logFunctionStart('findUserDoc', { id, username });
+  logger.functionEntry('findUserDoc', { id, username });
   const op = (m: Model<TSchema>, i: DocumentId, u: string) =>
     m.findOne({ _id: i, user: u } as FilterQuery<TSchema>).exec();
-  console.log('findUserDoc is returning result from performUserDocOp');
+  logger.debug('findUserDoc is returning result from performUserDocOp');
   return performUserDocOp(model, id, username, op);
 };
 
@@ -99,10 +79,10 @@ const deleteUserDoc = async <TSchema extends AnyUserDoc>(
   id: DocumentId,
   username: string
 ): Promise<HydratedDocument<TSchema> | null> => {
-  logFunctionStart('deleteUserDoc', { id, username });
+  logger.functionEntry('deleteUserDoc', { id, username });
   const op = (m: Model<TSchema>, i: DocumentId, u: string) =>
     m.findOneAndDelete({ _id: i, user: u } as FilterQuery<TSchema>).exec();
-  console.log('deleteUserDoc is returning result from performUserDocOp');
+  logger.debug('deleteUserDoc is returning result from performUserDocOp');
   return performUserDocOp(model, id, username, op);
 };
 

@@ -147,7 +147,7 @@ export const handleMongoError = (error: unknown, res: Response | null, operation
     hasResponse: res !== null,
   });
 
-  logger.error(`MongoDB error during ${operation}`, {
+  logger.error('MongoDB error during operation', {
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
     operation,
@@ -179,7 +179,7 @@ export const handleMongoError = (error: unknown, res: Response | null, operation
     return;
   }
 
-  sendInternalServerError(res, `Database error during ${operation}`);
+  sendInternalServerError(res, 'Database error during operation');
 };
 
 /**

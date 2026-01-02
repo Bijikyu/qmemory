@@ -3,10 +3,17 @@
  * Simple helper functions for common operations
  */
 
+import { createLogger } from './core/centralized-logger';
+import { assert, ErrorFactory } from './core/centralized-errors';
+import { validate } from './core/centralized-validation';
+
 /**
  * Callback signature used to extract unique keys from collection items.
  */
 export type KeyExtractor<T> = (item: T) => string | number | symbol;
+
+// Create module-specific logger
+const logger = createLogger('Utils');
 
 /**
  * Produces a friendly greeting while coercing non-string input safely.
@@ -27,11 +34,11 @@ export type KeyExtractor<T> = (item: T) => string | number | symbol;
  * ```
  */
 export const greet = (name: unknown): string => {
-  console.log(`greet is running with ${name}`);
+  logger.functionEntry('greet', { name });
   // Type-safe conversion: ensure we always have a string representation
   const safeName = typeof name === 'string' ? name : String(name);
   const msg = `Hello, ${safeName}!`;
-  console.log(`greet is returning ${msg}`);
+  logger.functionReturn('greet', msg);
   return msg;
 };
 
@@ -57,12 +64,12 @@ export const greet = (name: unknown): string => {
  * ```
  */
 export const add = (a: number, b: number): number => {
-  console.log(`add is running with ${a}, ${b}`);
+  logger.functionEntry('add', { a, b });
   // Runtime validation: ensure both parameters are numbers before arithmetic
-  if (typeof a !== 'number' || typeof b !== 'number')
-    throw new TypeError('Both parameters must be numbers for arithmetic operations');
+  assert.number(a, 'a');
+  assert.number(b, 'b');
   const sum = a + b;
-  console.log(`add is returning ${sum}`);
+  logger.functionReturn('add', sum);
   return sum;
 };
 
@@ -89,12 +96,11 @@ export const add = (a: number, b: number): number => {
  * ```
  */
 export const isEven = (num: number): boolean => {
-  console.log(`isEven is running with ${num}`);
+  logger.functionEntry('isEven', { num });
   // Validate integer input: even/odd only makes sense for whole numbers
-  if (typeof num !== 'number' || !Number.isInteger(num))
-    throw new TypeError('Parameter must be an integer for even/odd calculation');
+  assert.integer(num, 'num');
   const result = num % 2 === 0;
-  console.log(`isEven is returning ${result}`);
+  logger.functionReturn('isEven', result);
   return result;
 };
 

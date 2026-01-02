@@ -13,7 +13,7 @@
  * - Environment-aware implementation selection
  * - Buffer-based binary data handling for maximum flexibility
  */
-import { promises as fs, existsSync, mkdirSync } from 'fs';
+import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
 import {
@@ -143,6 +143,7 @@ export class MemoryBinaryStorage extends IStorage {
     console.log('Cleared all data from memory storage');
   }
 }
+
 /**
  * File System Binary Storage Implementation
  *
@@ -157,51 +158,48 @@ export class MemoryBinaryStorage extends IStorage {
  */
 export class FileSystemBinaryStorage extends IStorage {
   private storageDir: string;
+  private directoryInitialized: boolean = false;
 
   constructor(storageDir = './data/binary-storage') {
     super();
     this.storageDir = resolve(storageDir);
-    // Initialize directory synchronously to ensure it exists before any operations
-    // This is a critical requirement for storage reliability and safety
-    try {
-      this._ensureDirectoryExistsSync();
-    } catch (error) {
-      console.error(`Failed to initialize storage directory: ${(error as Error).message}`);
-      throw error; // Re-throw to prevent use of uninitialized storage
-    }
+    // Note: Directory creation is now deferred to first operation
+    // This prevents blocking the event loop during initialization
     console.log(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
   }
 
   /**
-   * Synchronously ensure directory exists
+   * Asynchronously ensure directory exists
    *
    * Storage directory must exist before any operations can proceed.
-   * This is a synchronous requirement for initialization reliability.
+   * Updated to use async operations to prevent blocking the event loop.
    */
-  private _ensureDirectoryExistsSync(): void {
-    try {
-      if (!existsSync(this.storageDir)) {
-        mkdirSync(this.storageDir, { recursive: true });
-      }
-    } catch (error) {
-      throw new Error(`Failed to create storage directory: ${error.message}`);
+  private async _ensureDirectoryExists(): Promise<void> {
+    if (this.directoryInitialized) {
+      return;
     }
-  }
-  async _ensureDirectoryExists() {
+
     try {
       await fs.mkdir(this.storageDir, { recursive: true });
+      this.directoryInitialized = true;
     } catch (error) {
-      qerrors.qerrors(
-        error as Error,
-        'binary-storage.FileSystemBinaryStorage._ensureDirectoryExists',
-        {
-          storageDir: this.storageDir,
-          errorCode: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
-        }
-      );
-      throw new Error(`Failed to create storage directory: ${error.message}`);
+      // Ignore error if directory already exists
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'EEXIST') {
+        qerrors.qerrors(
+          error as Error,
+          'binary-storage.FileSystemBinaryStorage._ensureDirectoryExists',
+          {
+            storageDir: this.storageDir,
+            errorCode:
+              error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+          }
+        );
+        throw new Error(`Failed to create storage directory: ${error.message}`);
+      }
+      this.directoryInitialized = true;
     }
   }
+
   private _validateKey(key: string): void {
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('Key must be a non-empty string');
@@ -211,12 +209,15 @@ export class FileSystemBinaryStorage extends IStorage {
       throw new Error('Key contains invalid characters for file system storage');
     }
   }
+
   private _getFilePath(key: string): string {
     // Hash the key to ensure safe file names and avoid conflicts
     const hash = createHash('sha256').update(key).digest('hex');
     return join(this.storageDir, `${hash}.bin`);
   }
+
   async save(key: string, data: Buffer): Promise<void> {
+    await this._ensureDirectoryExists();
     this._validateKey(key);
     if (!Buffer.isBuffer(data)) {
       throw new Error('Data must be a Buffer object');
@@ -253,7 +254,9 @@ export class FileSystemBinaryStorage extends IStorage {
       throw new Error(`Failed to save data: ${error.message}`);
     }
   }
+
   async get(key: string): Promise<Buffer | null> {
+    await this._ensureDirectoryExists();
     this._validateKey(key);
     const filePath = this._getFilePath(key);
     try {
@@ -279,7 +282,9 @@ export class FileSystemBinaryStorage extends IStorage {
       throw new Error(`Failed to read data: ${error.message}`);
     }
   }
+
   async delete(key: string): Promise<void> {
+    await this._ensureDirectoryExists();
     this._validateKey(key);
     const filePath = this._getFilePath(key);
     const metaPath = `${filePath}.meta`;
@@ -308,7 +313,9 @@ export class FileSystemBinaryStorage extends IStorage {
       // File doesn't exist, which is fine for delete operation
     }
   }
+
   async exists(key: string): Promise<boolean> {
+    await this._ensureDirectoryExists();
     this._validateKey(key);
     const filePath = this._getFilePath(key);
     try {
@@ -318,11 +325,13 @@ export class FileSystemBinaryStorage extends IStorage {
       return false;
     }
   }
+
   // Cache for statistics to avoid repeated file system operations
   private statsCache: { data: any; timestamp: number } | null = null;
   private readonly STATS_CACHE_TTL = 30000; // 30 seconds
 
   async getStats() {
+    await this._ensureDirectoryExists();
     const now = Date.now();
     // Return cached stats if still valid
     if (this.statsCache && now - this.statsCache.timestamp < this.STATS_CACHE_TTL) {
@@ -391,6 +400,7 @@ export class FileSystemBinaryStorage extends IStorage {
     }
   }
 }
+
 /**
  * Storage Factory
  *
@@ -441,6 +451,7 @@ export class StorageFactory {
       return new MemoryBinaryStorage();
     }
   }
+
   /**
    * Create storage based on environment variables
    */
@@ -478,8 +489,10 @@ export class StorageFactory {
     return StorageFactory.createFromEnvironment();
   }
 }
+
 // Default storage instance for easy access
 let defaultStorage: IStorage | null = null;
+
 /**
  * Get the default storage instance
  * Creates one if it doesn't exist yet
