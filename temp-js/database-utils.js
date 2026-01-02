@@ -81,7 +81,8 @@ const ensureUnique = async (
   }
 };
 const handleMongoError = (error, res, operation) => {
-  logger.error(`MongoDB error during ${operation}`, {
+  const errorMsg = `MongoDB error during ${operation}`;
+  logger.error(errorMsg, {
     error: error.message,
     stack: error.stack,
     operation,
@@ -111,9 +112,12 @@ const safeDbOperation = async (operation, res, operationName) => {
     logger.logDebug(`safeDbOperation completed successfully: ${operationName}`);
     return result;
   } catch (error) {
-    logger.error(
-      `safeDbOperation failed: ${operationName} - error: ${error.message}, stack: ${error.stack}`
-    );
+const errorMsg = `safeDbOperation failed: ${operationName}`;
+    logger.error(errorMsg, {
+      error: error.message,
+      stack: error.stack,
+      operationName,
+    });
     handleMongoError(error, res, operationName);
     return null;
   }
@@ -128,9 +132,12 @@ const retryDbOperation = async (operation, maxRetries = 3, delay = 1000) => {
       return result;
     } catch (error) {
       lastError = error;
-      logger.warn(
-        `retryDbOperation attempt ${attempt} failed - error: ${lastError.message}, attempt: ${attempt}, maxRetries: ${maxRetries}`
-      );
+const warnMsg = `retryDbOperation attempt ${attempt} failed`;
+      logger.warn(warnMsg, {
+        error: lastError.message,
+        attempt,
+        maxRetries,
+      });
       if (attempt < maxRetries) {
         logger.logDebug(`retryDbOperation waiting ${delay}ms before retry`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -138,9 +145,12 @@ const retryDbOperation = async (operation, maxRetries = 3, delay = 1000) => {
       }
     }
   }
-  logger.error(
-    `retryDbOperation failed after ${maxRetries} attempts - error: ${lastError.message}, stack: ${lastError.stack}`
-  );
+const errorMsg = `retryDbOperation failed after ${maxRetries} attempts`;
+  logger.error(errorMsg, {
+    error: lastError.message,
+    stack: lastError.stack,
+    maxRetries,
+  });
   throw lastError;
 };
 const ensureIdempotency = async (model, idempotencyKey, operation) => {
@@ -164,9 +174,12 @@ const ensureIdempotency = async (model, idempotencyKey, operation) => {
     logger.logDebug(`ensureIdempotency stored result for key: ${idempotencyKey}`);
     return result;
   } catch (error) {
-    logger.error(
-      `ensureIdempotency operation failed - idempotencyKey: ${idempotencyKey}, error: ${error.message}, stack: ${error.stack}`
-    );
+const errorMsg = `ensureIdempotency operation failed`;
+    logger.error(errorMsg, {
+      idempotencyKey,
+      error: error.message,
+      stack: error.stack,
+    });
     throw error;
   }
 };

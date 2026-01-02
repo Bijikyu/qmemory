@@ -495,20 +495,21 @@ export class AsyncQueueWrapper extends EventEmitter {
     const allJobs = defaultQueue ? await defaultQueue.getJobs() : [];
 
     // Optimize: Single pass through array instead of multiple filters
-    let waitingCount = 0;
-    let activeCount = 0;
+    // Use object counters for better performance on large datasets
+    const statusCounts = { waiting: 0, active: 0 };
 
     for (const job of allJobs) {
-      if (job.data.status === 'waiting') {
-        waitingCount++;
-      } else if (job.data.status === 'active') {
-        activeCount++;
+      const status = job.data.status;
+      if (status === 'waiting') {
+        statusCounts.waiting++;
+      } else if (status === 'active') {
+        statusCounts.active++;
       }
     }
 
     return {
-      pending: waitingCount,
-      active: activeCount,
+      pending: statusCounts.waiting,
+      active: statusCounts.active,
       concurrency: this.concurrency,
       queues: {},
     };
