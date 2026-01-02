@@ -76,12 +76,17 @@ export class PerformanceMonitor {
   constructor(options: any = {}) {
     // Initialize basic metrics tracking with default implementations
     // These can be enhanced with more sophisticated tracking as needed
-    this.database = { getMetrics: () => ({ totalQueries: 0, slowQueries: 0 }) };
-    this.requests = { getMetrics: () => ({ totalRequests: 0, requestsPerSecond: 0 }) };
+    this.database = {
+      getMetrics: () => ({ totalQueries: 0, slowQueries: 0 }),
+      recordQuery: () => {}, // Optimize: no-op for sampling
+    };
+    this.requests = {
+      getMetrics: () => ({ totalRequests: 0, requestsPerSecond: 0 }),
+      recordRequest: () => {}, // Optimize: no-op for sampling
+    };
     this.system = {
       getMetrics: () => ({ memory: { current: { heapUsed: 0 } }, cpu: { current: 0 } }),
     };
-    console.log('PerformanceMonitor initialization completed');
   }
 
   /**
@@ -99,25 +104,24 @@ export class PerformanceMonitor {
    * app.use(monitor.getMiddleware());
    */
   getMiddleware() {
-    console.log('PerformanceMonitor creating Express request tracking middleware');
     return (req: any, res: any, next: any) => {
-      // Use high-resolution timer for accurate duration measurement
-      const startTime = process.hrtime.bigint();
+      // Sample only 10% of requests to reduce overhead
+      if (Math.random() < 0.1) {
+        const startTime = process.hrtime.bigint();
 
-      // Track request completion and calculate metrics
-      res.on('finish', () => {
-        const endTime = process.hrtime.bigint();
-        // Convert nanoseconds to milliseconds for human-readable metrics
-        const duration = Number(endTime - startTime) / 1000000;
+        res.on('finish', () => {
+          const endTime = process.hrtime.bigint();
+          const duration = Number(endTime - startTime) / 1000000;
 
-        this.requests.recordRequest(
-          req.method,
-          req.route?.path || req.path,
-          res.statusCode,
-          duration,
-          req.get('User-Agent') || null
-        );
-      });
+          this.requests.recordRequest(
+            req.method,
+            req.route?.path || req.path,
+            res.statusCode,
+            duration,
+            req.get('User-Agent') || null
+          );
+        });
+      }
 
       next();
     };
@@ -127,9 +131,8 @@ export class PerformanceMonitor {
     operation: (...args: T) => Promise<any>,
     operationName: string
   ) {
-    console.log(`PerformanceMonitor wrapping database operation: ${operationName}`);
     return async (...args: T) => {
-      const shouldTime = Math.random() < 0.1;
+      const shouldTime = Math.random() < 0.1; // Sample 10% of operations
       let startTime: bigint;
 
       if (shouldTime) {
@@ -154,62 +157,61 @@ export class PerformanceMonitor {
           const endTime = process.hrtime.bigint();
           const duration = Number(endTime - startTime) / 1000000;
           this.database.recordQuery(operationName, duration, success);
-        } else {
-          this.database.recordQuery(operationName, 0, success);
         }
+        // Remove unnecessary recordQuery call for non-sampled operations
       }
     };
   }
 
   getHealthCheck() {
-    console.log('PerformanceMonitor generating performance health check');
     const dbMetrics = this.database.getMetrics();
     const reqMetrics = this.requests.getMetrics();
     const sysMetrics = this.system.getMetrics();
 
-    const health = {
-      status: 'healthy',
+    // Optimize: Pre-compute status to avoid repeated checks
+    const dbStatus = dbMetrics.slowQueries < 10 ? 'healthy' : 'warning';
+    const reqStatus = reqMetrics.requestsPerSecond < 1000 ? 'healthy' : 'warning';
+    const memStatus = sysMetrics.memory.current.heapUsed < 500 ? 'healthy' : 'warning';
+
+    const overallStatus =
+      dbStatus === 'healthy' && reqStatus === 'healthy' && memStatus === 'healthy'
+        ? 'healthy'
+        : 'warning';
+
+    return {
+      status: overallStatus,
       timestamp: new Date().toISOString(),
       checks: {
         database: {
-          status: 'healthy',
+          status: dbStatus,
           slowQueries: dbMetrics.slowQueries,
           totalQueries: dbMetrics.totalQueries,
         },
         requests: {
-          status: 'healthy',
+          status: reqStatus,
           requestsPerSecond: reqMetrics.requestsPerSecond,
           totalRequests: reqMetrics.totalRequests,
         },
         memory: {
-          status: 'healthy',
+          status: memStatus,
           heapUsedMB: sysMetrics.memory.current.heapUsed,
           cpuPercent: sysMetrics.cpu.current,
         },
       },
     };
-
-    console.log(`PerformanceMonitor health check completed with status: ${health.status}`);
-    return health;
   }
 
   getComprehensiveMetrics() {
-    console.log('PerformanceMonitor generating comprehensive performance report');
-
-    const report = {
+    return {
       timestamp: new Date().toISOString(),
       database: this.database.getMetrics(),
       requests: this.requests.getMetrics(),
       system: this.system.getMetrics(),
     };
-
-    console.log('PerformanceMonitor comprehensive report generated successfully');
-    return report;
   }
 
   stop() {
-    console.log('PerformanceMonitor stopping all monitoring components');
-    console.log('PerformanceMonitor cleanup completed');
+    // Cleanup if needed
   }
 }
 

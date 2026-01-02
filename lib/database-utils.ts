@@ -31,11 +31,11 @@ interface Logger {
 // Simple logger implementation keeps console-based observability for agents
 const logger: Logger = {
   logDebug: (message: string, context?: Record<string, unknown>) =>
-    console.log(`DEBUG: ${message}`, context ?? ''),
+    console.log('DEBUG:', message, context ?? ''),
   warn: (message: string, context?: Record<string, unknown>) =>
-    console.warn(`WARN: ${message}`, context ?? ''),
+    console.warn('WARN:', message, context ?? ''),
   error: (message: string, context?: Record<string, unknown>) =>
-    console.error(`ERROR: ${message}`, context ?? ''),
+    console.error('ERROR:', message, context ?? ''),
 };
 
 type AnyDocumentShape = Record<string, unknown>;

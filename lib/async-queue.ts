@@ -327,12 +327,7 @@ export class AsyncQueueWrapper extends EventEmitter {
       return; // No active jobs to clean up
     }
 
-    const stallIntervalMs = this.beeOptions.stallInterval ?? 5000;
-    const now = Date.now();
-    const staleJobIds: string[] = [];
-
-    // Note: Since we only track job IDs, not timestamps, we'll use a simple approach
-    // If there are too many active jobs, assume some might be stale
+    // Optimize: Remove unnecessary variable declarations and calculations
     const maxActiveJobs = this.concurrency * 10; // Allow 10x concurrency as safety margin
 
     if (this.activeJobs.size > maxActiveJobs) {
@@ -343,11 +338,12 @@ export class AsyncQueueWrapper extends EventEmitter {
       return;
     }
 
-    // For a more sophisticated implementation, we would need to track timestamps
-    // For now, we'll just log the active jobs count for monitoring
-    console.log(
-      `ActiveJobsCleanup: ${this.activeJobs.size} active jobs (concurrency: ${this.concurrency})`
-    );
+    // Only log when necessary to reduce console overhead
+    if (this.activeJobs.size > this.concurrency) {
+      console.log(
+        `ActiveJobsCleanup: ${this.activeJobs.size} active jobs (concurrency: ${this.concurrency})`
+      );
+    }
   }
 
   /**
@@ -497,12 +493,22 @@ export class AsyncQueueWrapper extends EventEmitter {
   async getStats(): Promise<QueueStats> {
     const defaultQueue = this.getQueue('default');
     const allJobs = defaultQueue ? await defaultQueue.getJobs() : [];
-    const waitingJobs = allJobs.filter(job => job.data.status === 'waiting');
-    const activeJobs = allJobs.filter(job => job.data.status === 'active');
+
+    // Optimize: Single pass through array instead of multiple filters
+    let waitingCount = 0;
+    let activeCount = 0;
+
+    for (const job of allJobs) {
+      if (job.data.status === 'waiting') {
+        waitingCount++;
+      } else if (job.data.status === 'active') {
+        activeCount++;
+      }
+    }
 
     return {
-      pending: waitingJobs.length,
-      active: activeJobs.length,
+      pending: waitingCount,
+      active: activeCount,
       concurrency: this.concurrency,
       queues: {},
     };
