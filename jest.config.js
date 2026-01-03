@@ -28,8 +28,8 @@ export default {
   collectCoverage: false,
   transform: {},
   transformIgnorePatterns: [
-    'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy/terminus|bee-queue|lru-cache|redis|mongoose|@google-cloud|@uppy))',
-    'node_modules/qerrors/**',
+    'node_modules/(?!(opossum|email-validator|change-case|pluralize|@godaddy/terminus|bee-queue|lru-cache|redis|mongoose|@google-cloud|@uppy)/)',
+    'node_modules/qerrors/.*',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
   modulePathIgnorePatterns: ['<rootDir>/.cache/', '<rootDir>/cache/'],

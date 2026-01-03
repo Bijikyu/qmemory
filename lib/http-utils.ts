@@ -215,6 +215,45 @@ const sendAuthError = (res: Response, message?: unknown): Response<ErrorEnvelope
   }
 };
 
+const sendTooManyRequests = (
+  res: Response,
+  message: string = 'Rate limit exceeded',
+  rateLimitInfo?: unknown
+): Response<ErrorEnvelope> => {
+  const requestId = generateRequestId();
+  try {
+    const response: ErrorEnvelope & { rateLimit?: unknown } = {
+      error: {
+        type: 'ERROR',
+        message: sanitizeString(message),
+        timestamp: getTimestamp(),
+        requestId,
+      },
+    };
+
+    if (rateLimitInfo) {
+      response.rateLimit = rateLimitInfo;
+    }
+
+    return res.status(429).json(response);
+  } catch (error) {
+    logger.error('Failed to send rate limit response', {
+      requestId,
+      originalMessage: message,
+      statusCode: 429,
+      error: (error as Error).message,
+    });
+    return res.status(500).json({
+      error: {
+        type: 'INTERNAL_ERROR',
+        message: 'An error occurred while processing your request',
+        timestamp: getTimestamp(),
+        requestId,
+      },
+    });
+  }
+};
+
 export {
   sendNotFound,
   sendConflict,
@@ -225,6 +264,7 @@ export {
   sendSuccess,
   sendAuthError,
   sendErrorResponse,
+  sendTooManyRequests,
   sanitizeString,
   getTimestamp,
   generateRequestId,

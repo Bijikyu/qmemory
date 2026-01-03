@@ -1,0 +1,855 @@
+openapi: 3.0.3
+info:
+  title: QMemory Node.js Utility Library API
+  description: |
+    Production-ready Node.js utility library providing comprehensive database operations,
+    caching, circuit breaker patterns, and scalability enhancements.
+
+    Features:
+    - Database connection pooling with circuit breaker protection
+    - Distributed tracing with correlation IDs
+    - Rate limiting for production usage
+    - Performance monitoring and metrics
+    - Background I/O optimization
+    - Request/response caching
+    - Enhanced error handling and logging
+
+    Architecture:
+    - RESTful API design
+    - Stateless for horizontal scaling
+    - Type-safe TypeScript implementation
+    - Production-grade security measures
+  version: 2.1.0
+  contact:
+    name: QMemory Development Team
+    email: support@qmemory.dev
+  license: MIT
+  servers:
+    - url: https://api.qmemory.dev/v2
+      description: Production server
+    - url: https://staging-api.qmemory.dev/v2
+      description: Staging server
+    - url: http://localhost:5000/v2
+      description: Development server
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health & Monitoring
+      summary: Enhanced health check with performance metrics
+      description: |
+        Returns comprehensive health status including system metrics, 
+        performance data, and database pool health. Used by load balancers
+        and monitoring systems to determine service availability.
+      operationId: getHealthStatus
+      responses:
+        '200':
+          description: Service is healthy and operational
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unavailable or degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-rate-limit: 1000 requests/minute
+
+  /metrics:
+    get:
+      tags:
+        - Monitoring & Analytics
+      summary: Application performance and usage metrics
+      description: |
+        Returns detailed performance metrics including request counts, 
+        response times, error rates, and system resource usage.
+        Used for monitoring dashboards and alerting systems.
+      operationId: getMetrics
+      parameters:
+        - name: X-Request-ID
+          in: header
+          description: Correlation ID for distributed tracing
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+      x-rate-limit: 100 requests/minute
+
+  /users:
+    get:
+      tags:
+        - User Management
+      summary: List users with pagination
+      description: |
+        Retrieves paginated list of users with optional filtering and sorting.
+        Supports efficient pagination for large datasets.
+      operationId: listUsers
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page (max 50)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: X-Request-ID
+          in: header
+          description: Correlation ID for distributed tracing
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsersResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-rate-limit: 1000 requests/minute
+
+    post:
+      tags:
+        - User Management
+      summary: Create new user
+      description: |
+        Creates a new user with validation and duplicate checking.
+        Supports rate limiting and distributed tracing.
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '200':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: User with this username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-rate-limit: 100 requests/minute
+
+  /users/{userId}:
+    get:
+      tags:
+        - User Management
+      summary: Get user by ID
+      description: |
+        Retrieves a specific user by their numeric ID with validation.
+        Includes detailed response headers for tracing.
+      operationId: getUserById
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Numeric user ID
+          schema:
+            type: integer
+            minimum: 1
+        - name: X-Request-ID
+          in: header
+          description: Correlation ID for distributed tracing
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User found successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      x-rate-limit: 1000 requests/minute
+
+    put:
+      tags:
+        - User Management
+      summary: Update user by ID
+      description: |
+        Updates user information with partial updates and validation.
+        Supports partial field updates and maintains audit trail.
+      operationId: updateUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Numeric user ID
+          schema:
+            type: integer
+            minimum: 1
+        - name: X-Request-ID
+          in: header
+          description: Correlation ID for distributed tracing
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Username conflict if trying to update to existing username
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-rate-limit: 1000 requests/minute
+
+    delete:
+      tags:
+        - User Management
+      summary: Delete user by ID
+      description: |
+        Deletes a user with validation and cleanup of related resources.
+        Includes soft delete capabilities for data recovery.
+      operationId: deleteUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Numeric user ID
+          schema:
+            type: integer
+            minimum: 1
+        - name: X-Request-ID
+          in: header
+          description: Correlation ID for distributed tracing
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-rate-limit: 1000 requests/minute
+
+  /users/by-username/{username}:
+    get:
+      tags:
+        - User Management
+      summary: Get user by username
+      description: |
+        Retrieves user information using username lookup with validation.
+        Optimized for username-based searches.
+      operationId: getUserByUsername
+      parameters:
+        - name: username
+          in: path
+          required: true
+          description: User username (case-sensitive)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_-]+$'
+        - name: X-Request-ID
+          in: header
+          description: Correlation ID for distributed tracing
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User found successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+      x-rate-limit: 1000 requests/minute
+
+  /validation/rules:
+    get:
+      tags:
+        - Validation & Forms
+      summary: Get validation rules for frontend forms
+      description: |
+        Returns comprehensive validation rules that can be used by frontend
+        applications for form validation and error messaging.
+      operationId: getValidationRules
+      responses:
+        '200':
+          description: Validation rules retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationRulesResponse'
+      x-rate-limit: 1000 requests/minute
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - username
+      properties:
+        id:
+          type: integer
+          description: Unique user identifier
+          example: 12345
+        username:
+          type: string
+          description: Unique username (1-50 chars, alphanumeric + underscore + hyphen)
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          example: johndoe
+        displayName:
+          type: string
+          description: Display name (1-100 chars)
+          nullable: true
+          minLength: 1
+          maxLength: 100
+          example: John Doe
+        githubId:
+          type: string
+          description: GitHub username (optional)
+          nullable: true
+          example: johndoe
+        avatar:
+          type: string
+          description: Avatar URL (optional)
+          nullable: true
+          example: https://example.com/avatar.jpg
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          readOnly: true
+
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          description: Username (1-50 chars)
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          example: newuser123
+        displayName:
+          type: string
+          description: Display name (optional)
+          nullable: true
+          maxLength: 100
+          example: New User
+        githubId:
+          type: string
+          description: GitHub username (optional)
+          nullable: true
+          example: newuser
+        avatar:
+          type: string
+          description: Avatar URL (optional)
+          nullable: true
+          example: https://example.com/avatar.jpg
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Username (1-50 chars)
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          example: updateduser
+        displayName:
+          type: string
+          description: Display name (optional)
+          nullable: true
+          maxLength: 100
+          example: Updated User
+        githubId:
+          type: string
+          description: GitHub username (optional)
+          nullable: true
+          example: updateduser
+        avatar:
+          type: string
+          description: Avatar URL (optional)
+          nullable: true
+          example: https://example.com/updated-avatar.jpg
+
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Service health check completed
+        data:
+          $ref: '#/components/schemas/HealthData'
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    HealthData:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, critical]
+          description: Overall service health status
+          example: healthy
+        uptime:
+          type: number
+          description: Service uptime in seconds
+          example: 86400
+        memory:
+          $ref: '#/components/schemas/MemoryUsage'
+        userCount:
+          type: integer
+          description: Total number of users
+          example: 1234
+        performance:
+          $ref: '#/components/schemas/PerformanceMetrics'
+
+    PerformanceMetrics:
+      type: object
+      properties:
+        requestCount:
+          type: integer
+          description: Total requests processed
+          example: 50000
+        averageResponseTime:
+          type: number
+          description: Average response time in milliseconds
+          example: 125
+        errorRate:
+          type: number
+          description: Error rate as percentage
+          example: 0.02
+
+    MemoryUsage:
+      type: object
+      properties:
+        rss:
+          type: integer
+          description: Resident Set Size in bytes
+          example: 134217728
+        heapTotal:
+          type: integer
+          description: Total heap size in bytes
+          example: 67108864
+        heapUsed:
+          type: integer
+          description: Used heap size in bytes
+          example: 45875200
+        external:
+          type: integer
+          description: External memory in bytes
+          example: 2097152
+        arrayBuffers:
+          type: integer
+          description: Array buffers in bytes
+          example: 1048576
+
+    MetricsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Performance metrics retrieved
+        data:
+          $ref: '#/components/schemas/MetricsData'
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    MetricsData:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+        requestId:
+          type: string
+          description: Request correlation ID
+          example: req_1642245400000_a1b2c3d4
+        uptime:
+          type: number
+          description: Process uptime in milliseconds
+          example: 86400000
+        memory:
+          $ref: '#/components/schemas/MemoryUsage'
+        requests:
+          type: object
+          properties:
+            count:
+              type: integer
+              example: 50000
+            averageResponseTime:
+              type: number
+              example: 125
+            errorRate:
+              type: number
+              example: 0.02
+            totalErrors:
+              type: integer
+              example: 1000
+        rateLimiting:
+          type: object
+          properties:
+            mapSize:
+              type: integer
+              description: Number of active rate limit entries
+              example: 150
+            windowSize:
+              type: integer
+              description: Rate limit window in seconds
+              example: 60
+            maxRequests:
+              type: integer
+              description: Maximum requests per window
+              example: 100
+        performance:
+          type: object
+          properties:
+            totalResponseTime:
+              type: number
+              example: 6250000
+            runtimeMs:
+              type: number
+              example: 86400000
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: User found
+        data:
+          $ref: '#/components/schemas/User'
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    PaginatedUsersResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Users retrieved
+        data:
+          type: object
+          properties:
+            users:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+              example:
+                - id: 1
+                  username: john_doe
+                  displayName: John Doe
+                - id: 2
+                  username: jane_smith
+                  displayName: Jane Smith
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number (1-based)
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 10
+        total:
+          type: integer
+          description: Total number of items
+          example: 1234
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 124
+        hasNext:
+          type: boolean
+          description: Whether next page exists
+          example: true
+        hasPrev:
+          type: boolean
+          description: Whether previous page exists
+          example: false
+
+    ValidationRulesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Validation rules retrieved
+        data:
+          type: object
+          properties:
+            username:
+              $ref: '#/components/schemas/FieldValidationRule'
+            displayName:
+              $ref: '#/components/schemas/FieldValidationRule'
+            email:
+              $ref: '#/components/schemas/FieldValidationRule'
+            url:
+              $ref: '#/components/schemas/FieldValidationRule'
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    FieldValidationRule:
+      type: object
+      properties:
+        required:
+          type: boolean
+          description: Whether field is required
+          example: true
+        minLength:
+          type: integer
+          description: Minimum length requirement
+          example: 1
+        maxLength:
+          type: integer
+          description: Maximum length limit
+          example: 50
+        pattern:
+          type: string
+          description: Validation pattern (regex)
+          example: '^[a-zA-Z0-9_-]+$'
+        message:
+          type: string
+          description: Human-readable validation message
+          example: Username must be 1-50 characters, letters, numbers, underscores, and hyphens only
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-15T10:30:00Z
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                [
+                  BAD_REQUEST,
+                  AUTHENTICATION_ERROR,
+                  NOT_FOUND,
+                  CONFLICT,
+                  INTERNAL_ERROR,
+                  SERVICE_UNAVAILABLE,
+                  VALIDATION_ERROR,
+                  ERROR,
+                ]
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Username is required and must be a string
+            timestamp:
+              type: string
+              format: date-time
+              example: 2024-01-15T10:30:00Z
+            requestId:
+              type: string
+              description: Request correlation ID
+              example: req_1642245400000_a1b2c3d4
+            errorId:
+              type: string
+              description: Unique error identifier
+              example: err_a1b2c3d4
+
+  responses:
+    BadRequestError:
+      description: Invalid request parameters or data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    UnauthorizedError:
+      description: Authentication or authorization failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimitError:
+      description: Too many requests - rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          description: Maximum requests per window
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Remaining requests in current window
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Time when rate limit window resets
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                properties:
+                  rateLimit:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                        example: 100
+                      remaining:
+                        type: integer
+                        example: 0
+                      reset:
+                        type: integer
+                        example: 1642245460
+                      window:
+                        type: integer
+                        example: 60
+
+tags:
+  - name: Health & Monitoring
+    description: Health checks, metrics, and system monitoring endpoints
+  - name: User Management
+    description: CRUD operations for user management
+  - name: Validation & Forms
+    description: Validation rules and form-related endpoints
+
+security:
+  - BearerAuth:
+    type: http
+    scheme: bearer
+    bearerFormat: JWT
+    description: JWT token for authentication (if implemented)
+  - ApiKeyAuth:
+    type: apiKey
+    in: header
+    name: X-API-Key
+    description: API key for service access (if implemented)
