@@ -64,6 +64,7 @@ export interface StorageStats {
   storagePrefix?: string; // Key prefix for organization
   keys?: string[]; // List of stored keys (if available)
   error?: string; // Error message if stats collection failed
+  truncated?: boolean; // Indicates if results were truncated due to limits
 }
 
 /**

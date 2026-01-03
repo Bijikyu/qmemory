@@ -31,6 +31,9 @@ class CircularBuffer<T> {
       // Buffer is full, overwrite oldest element and advance head
       this.head = (this.head + 1) & this.mask;
     }
+
+    // Clear iteration cache since buffer was modified
+    QueueIteration.clearCache(this);
   }
 
   shift(): T | undefined {
@@ -44,6 +47,9 @@ class CircularBuffer<T> {
     // Advance head pointer using bit masking for fast modulo
     this.head = (this.head + 1) & this.mask;
     this.count--;
+
+    // Clear iteration cache since buffer was modified
+    QueueIteration.clearCache(this);
 
     return item;
   }
@@ -76,6 +82,9 @@ class CircularBuffer<T> {
     this.head = 0;
     this.tail = 0;
     this.count = 0;
+
+    // Clear iteration cache since buffer was modified
+    QueueIteration.clearCache(this);
   }
 
   get length(): number {
@@ -110,12 +119,76 @@ class CircularBuffer<T> {
 }
 
 /**
- * Queue iteration utilities
+ * Queue iteration utilities with optimized caching
  */
 class QueueIteration {
-  static toArray<T>(buffer: CircularBuffer<T>): T[] {
+  // Cache for internal state to avoid repeated calls
+  private static stateCache = new WeakMap<any, any>();
+  private static cacheTimeout = 100; // 100ms cache timeout
+  private static cacheTimestamps = new WeakMap<any, number>();
+
+  /**
+   * Get cached internal state or fetch fresh state
+   */
+  private static getCachedState<T>(buffer: CircularBuffer<T>) {
+    const now = Date.now();
+    const timestamp = this.cacheTimestamps.get(buffer) || 0;
+
+    // Return cached state if still valid
+    if (now - timestamp < this.cacheTimeout) {
+      const cached = this.stateCache.get(buffer);
+      if (cached) {
+        // Validate cached state before returning
+        if (
+          cached &&
+          typeof cached === 'object' &&
+          'buffer' in cached &&
+          'head' in cached &&
+          'tail' in cached &&
+          'count' in cached
+        ) {
+          return cached;
+        }
+      }
+    }
+
+    // Fetch fresh state and cache it
     const state = buffer.getInternalState();
+
+    // Validate state before caching to prevent corruption
+    if (
+      state &&
+      typeof state === 'object' &&
+      'buffer' in state &&
+      'head' in state &&
+      'tail' in state &&
+      'count' in state
+    ) {
+      this.stateCache.set(buffer, state);
+      this.cacheTimestamps.set(buffer, now);
+    }
+
+    return state;
+  }
+
+  static toArray<T>(buffer: CircularBuffer<T>): T[] {
+    const state = this.getCachedState(buffer);
+
+    // Guard against invalid state
+    if (
+      !state ||
+      typeof state !== 'object' ||
+      !('buffer' in state) ||
+      !('head' in state) ||
+      !('tail' in state) ||
+      !('count' in state)
+    ) {
+      return [];
+    }
+
     const result: T[] = [];
+
+    // Use safer approach without pre-allocation to avoid sparse arrays
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const item = state.buffer[index];
@@ -123,11 +196,12 @@ class QueueIteration {
         result.push(item);
       }
     }
+
     return result;
   }
 
   static forEach<T>(buffer: CircularBuffer<T>, callback: (item: T, index: number) => void): void {
-    const state = buffer.getInternalState();
+    const state = this.getCachedState(buffer);
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const item = state.buffer[index];
@@ -138,7 +212,7 @@ class QueueIteration {
   }
 
   static *iterator<T>(buffer: CircularBuffer<T>): Iterator<T> {
-    const state = buffer.getInternalState();
+    const state = this.getCachedState(buffer);
     for (let i = 0; i < state.count; i++) {
       const index = (state.head + i) & state.mask;
       const item = state.buffer[index];
@@ -146,6 +220,23 @@ class QueueIteration {
         yield item;
       }
     }
+  }
+
+  /**
+   * Clear cache for a specific buffer (call when buffer is modified)
+   */
+  static clearCache<T>(buffer: CircularBuffer<T>): void {
+    this.stateCache.delete(buffer);
+    this.cacheTimestamps.delete(buffer);
+  }
+
+  /**
+   * Clear all caches and perform cleanup
+   */
+  static clearAllCaches(): void {
+    // Clear WeakMaps to aid garbage collection
+    this.stateCache = new WeakMap();
+    this.cacheTimestamps = new WeakMap();
   }
 }
 

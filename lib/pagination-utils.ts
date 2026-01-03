@@ -180,7 +180,10 @@ function validatePagination(req: any, res: any, options: any = {}) {
     const skip = (page - 1) * limit;
     // Return validated pagination parameters ready for database queries
     const pagination = { page, limit, skip };
-    console.log(`validatePagination is returning: ${JSON.stringify(pagination)}`);
+    // Debug logging in development only
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`validatePagination is returning: ${JSON.stringify(pagination)}`);
+    }
     return pagination;
   } catch (error) {
     // Handle unexpected errors using existing HTTP utility for consistency
@@ -402,7 +405,10 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
       sort,
       rawCursor: cursor,
     };
-    console.log(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
+    // Debug logging in development only
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
+    }
     return pagination;
   } catch (error) {
     qerrors.qerrors(error as Error, 'pagination-utils.validateCursorPagination', {
@@ -441,9 +447,12 @@ function createCursor(record, sortField = 'id') {
     };
     const cursorJson = JSON.stringify(cursorData);
     const encodedCursor = Buffer.from(cursorJson, 'utf-8').toString('base64');
-    console.log(
-      `createCursor generated cursor for ${sortField}=${record[sortField]}: ${encodedCursor}`
-    );
+    // Debug logging in development only
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(
+        `createCursor generated cursor for ${sortField}=${record[sortField]}: ${encodedCursor}`
+      );
+    }
     return encodedCursor;
   } catch (error) {
     qerrors.qerrors(error as Error, 'pagination-utils.createCursor', {
@@ -598,7 +607,10 @@ function validateSorting(req: any, res: any, options: any = {}) {
       sortString: sortParam,
       primarySort: sortConfig[0], // First sort field for cursor pagination
     };
-    console.log(`validateSorting is returning: ${JSON.stringify(result)}`);
+    // Debug logging in development only
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`validateSorting is returning: ${JSON.stringify(result)}`);
+    }
     return result;
   } catch (error) {
     qerrors.qerrors(error as Error, 'pagination-utils.validateSorting', {
