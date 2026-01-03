@@ -94,16 +94,11 @@ const requiresConsent = (path: string): boolean => {
 const getUserConsent = (req: Request): ConsentRecord | null => {
   const consentHeader = req.headers['x-user-consent'];
   if (typeof consentHeader === 'string') {
-    // Add size limit to prevent memory exhaustion
-    const MAX_CONSENT_HEADER_SIZE = 1024; // 1KB limit
-    if (consentHeader.length > MAX_CONSENT_HEADER_SIZE) {
-      return null;
-    }
+    const MAX_CONSENT_HEADER_SIZE = 1024;
+    if (consentHeader.length > MAX_CONSENT_HEADER_SIZE) return null;
     try {
       const decoded = Buffer.from(consentHeader, 'base64').toString();
-      if (decoded.length > MAX_CONSENT_HEADER_SIZE) {
-        return null;
-      }
+      if (decoded.length > MAX_CONSENT_HEADER_SIZE) return null;
       return JSON.parse(decoded);
     } catch {
       return null;
@@ -117,19 +112,12 @@ const getUserConsent = (req: Request): ConsentRecord | null => {
  */
 const hasValidConsent = (consent: ConsentRecord | null, path: string): boolean => {
   if (!consent) return false;
-
-  // Check consent age (max 1 year)
-  const maxAge = 365 * 24 * 60 * 60 * 1000; // 1 year in ms
-  if (Date.now() - consent.timestamp.getTime() > maxAge) {
-    return false;
-  }
-
-  // Path-specific consent checks
+  const maxAge = 365 * 24 * 60 * 60 * 1000;
+  if (Date.now() - consent.timestamp.getTime() > maxAge) return false;
   if (path.startsWith('/api/analytics') && !consent.analytics) return false;
   if (path.startsWith('/api/marketing') && !consent.marketing) return false;
   if (path.startsWith('/api/personalization') && !consent.dataProcessing) return false;
-
-  return consent.dataProcessing; // Base requirement
+  return consent.dataProcessing;
 };
 
 /**
@@ -151,7 +139,6 @@ const sendConsentRequired = (res: Response): void => {
  * Log data access for audit trail
  */
 const logDataAccess = (req: Request): void => {
-  // In production, this would log to secure audit storage
   const auditEntry: AuditLog = {
     userId:
       req.user && typeof req.user === 'object' && 'id' in req.user
@@ -160,20 +147,17 @@ const logDataAccess = (req: Request): void => {
     action: `${req.method} ${req.path}`,
     resource: req.path,
     timestamp: new Date(),
-    ipAddress: req.ip || req.socket.remoteAddress || 'unknown',
+    ipAddress: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     userAgent: req.headers['user-agent']
       ? req.headers['user-agent'].replace(/[<>]/g, '').substring(0, 100)
       : 'unknown',
-    success: true, // Would be updated based on response
-    dataAccessed: Object.keys(req.body || {}),
+    success: true,
+    dataAccessed: Object.keys(req.body ?? {}),
   };
-
-  // Log with proper sanitization (remove sensitive data)
   console.log(
     'AUDIT:',
     JSON.stringify({
       ...auditEntry,
-      // Sanitize sensitive fields in logs
       userAgent: auditEntry.userAgent ? auditEntry.userAgent.substring(0, 100) : 'unknown',
     })
   );
@@ -183,10 +167,7 @@ const logDataAccess = (req: Request): void => {
  * Privacy middleware to log data access and enforce consent
  */
 export const privacyMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  // Log data access for audit trail
   logDataAccess(req);
-
-  // Check consent if required
   if (requiresConsent(req.path)) {
     const consent = getUserConsent(req);
     if (!hasValidConsent(consent, req.path)) {
@@ -194,7 +175,6 @@ export const privacyMiddleware = (req: Request, res: Response, next: NextFunctio
       return;
     }
   }
-
   next();
 };
 
@@ -203,18 +183,11 @@ export const privacyMiddleware = (req: Request, res: Response, next: NextFunctio
  */
 export const anonymizePersonalData = (data: any): any => {
   if (process.env.NODE_ENV === 'production') return data;
-
   const anonymized = { ...data };
-
-  // Common PII fields to anonymize
   const piiFields = ['email', 'name', 'displayName', 'address', 'phone', 'ssn'];
-
   piiFields.forEach(field => {
-    if (anonymized[field]) {
-      anonymized[field] = `***${String(anonymized[field]).slice(-3)}`;
-    }
+    if (anonymized[field]) anonymized[field] = `***${String(anonymized[field]).slice(-3)}`;
   });
-
   return anonymized;
 };
 
@@ -222,11 +195,9 @@ export const anonymizePersonalData = (data: any): any => {
  * Data retention scheduler for cleanup operations
  */
 export const setupDataRetention = (): void => {
-  // Schedule cleanup jobs (in production, use proper job scheduler)
   const scheduleCleanup = (type: string, retentionDays: number): void => {
     console.log(`Scheduled cleanup for ${type} with retention: ${retentionDays} days`);
   };
-
   const policy = getRetentionPolicy();
   scheduleCleanup('personalData', policy.personalData);
   scheduleCleanup('userActivity', policy.userActivity);
@@ -253,25 +224,17 @@ export const handleDataDeletionRequest = async (req: Request, res: Response): Pr
   }
 
   try {
-    // Log deletion request
     console.log('DATA_DELETION_REQUEST:', {
       userId,
       requestId,
       timestamp: new Date().toISOString(),
-      ipAddress: req.ip || req.socket.remoteAddress || 'unknown',
+      ipAddress: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     });
-
-    // In production, trigger actual data deletion process
-    // This would include:
-    // - Personal data removal
-    // - Account anonymization
-    // - Cookie/cache clearing
-    // - Third-party service notifications
 
     res.json({
       message: 'Data deletion request received and processing',
       requestId,
-      estimatedCompletion: '30 days', // GDPR compliance window
+      estimatedCompletion: '30 days',
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -305,20 +268,18 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
   }
 
   try {
-    // In production, gather and format all user data
     const userData = {
-      personalInfo: {}, // User profile data
-      activity: [], // User activity logs
-      preferences: {}, // User settings
-      consents: [], // Consent records
+      personalInfo: {},
+      activity: [],
+      preferences: {},
+      consents: [],
       exportDate: new Date().toISOString(),
     };
 
-    // Log export request
     console.log('DATA_EXPORT_REQUEST:', {
       userId,
       timestamp: new Date().toISOString(),
-      ipAddress: req.ip || req.socket.remoteAddress || 'unknown',
+      ipAddress: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     });
 
     res.json({
@@ -345,19 +306,14 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
  */
 export const ccpaComplianceMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   const doNotSellHeader = req.headers['ccpa-do-not-sell'];
-
   if (doNotSellHeader === 'true') {
-    // Log DNTS request
     console.log('CCPA_DO_NOT_SELL:', {
       userId: (req as any).user?.id,
       timestamp: new Date().toISOString(),
-      ipAddress: req.ip || req.socket.remoteAddress || 'unknown',
+      ipAddress: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     });
-
-    // Set response header acknowledging request
     res.set('CCPA-Do-Not-Sell', 'true');
   }
-
   next();
 };
 
@@ -365,11 +321,9 @@ export const ccpaComplianceMiddleware = (req: Request, res: Response, next: Next
  * Privacy headers middleware
  */
 export const privacyHeadersMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  // GDPR compliance headers
   res.set({
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   });
-
   next();
 };

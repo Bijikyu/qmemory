@@ -16,16 +16,5 @@ import DatabaseMetrics from './performance/database-metrics.js';
 import RequestMetrics from './performance/request-metrics.js';
 import SystemMetrics from './performance/system-metrics.js';
 import PerformanceMonitor from './performance/performance-monitor.js';
-// Create singleton instance for immediate use across the application
-// This provides a ready-to-use global performance monitor while still allowing
-// custom instances for specialized monitoring requirements
 const performanceMonitor = new PerformanceMonitor();
-// Export individual components for flexible integration patterns
-// This allows consumers to use specific monitoring components independently
-// while also providing unified PerformanceMonitor for comprehensive monitoring
-export { DatabaseMetrics, // database performance tracking component
-RequestMetrics, // HTTP request performance tracking component
-SystemMetrics, // system resource monitoring component
-PerformanceMonitor, // unified performance monitoring orchestration
-performanceMonitor // singleton instance for immediate application-wide monitoring
- };
+export { DatabaseMetrics, RequestMetrics, SystemMetrics, PerformanceMonitor, performanceMonitor };

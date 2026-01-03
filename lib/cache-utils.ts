@@ -41,49 +41,10 @@
 import type { RedisClientType } from 'redis';
 import type { RedisOptions } from './core/cache-config-types.js';
 import { CacheClientFactory } from './core/cache-client-factory.js';
-
-/**
- * Creates a Redis client with the specified configuration
- *
- * This is the primary function for creating Redis clients in the application.
- * It delegates to the CacheClientFactory for consistent client creation
- * and connection management.
- *
- * @param options - Redis connection and configuration options
- * @returns {RedisClientType} A configured Redis client instance
- *
- * @example
- * // Create client with default settings
- * const client = createRedisClient();
- *
- * // Create client with custom configuration
- * const client = createRedisClient({
- *   host: 'localhost',
- *   port: 6379,
- *   password: 'secret'
- * });
- */
 export function createRedisClient(options: RedisOptions = {}): RedisClientType {
   return CacheClientFactory.createRedisClient(options);
 }
-
-/**
- * Type re-exports for backward compatibility and convenience
- *
- * These types are re-exported to maintain backward compatibility and provide
- * easy access to the most commonly used types without requiring additional imports.
- */
 export type { RedisClientType as RedisClient, RedisOptions };
-
-/**
- * Legacy Redis client creation function
- *
- * @deprecated Use createRedisClient() instead. This function is maintained
- * for backward compatibility with existing code that uses the old naming convention.
- *
- * @param options - Redis connection and configuration options
- * @returns {RedisClientType} A configured Redis client instance
- */
 export function redisCreateClient(options: RedisOptions = {}): RedisClientType {
   return createRedisClient(options);
 }

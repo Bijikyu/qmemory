@@ -136,14 +136,10 @@ const getCpuUsage = () => {
   const cpuInfo = getCpuInfo(); // Collect CPU core information with ESM-compatible helper
   const loadAvg = getLoadAverage(); // Collect load averages without falling back to CommonJS require
   return {
-    model: cpuInfo.length > 0 ? cpuInfo[0]?.model || 'unknown' : 'unknown',
-    speed: cpuInfo.length > 0 ? cpuInfo[0]?.speed || 0 : 0,
+    model: cpuInfo.length > 0 ? (cpuInfo[0]?.model ?? 'unknown') : 'unknown',
+    speed: cpuInfo.length > 0 ? (cpuInfo[0]?.speed ?? 0) : 0,
     cores: cpuInfo.length,
-    loadAverage: {
-      '1min': loadAvg[0] || 0,
-      '5min': loadAvg[1] || 0,
-      '15min': loadAvg[2] || 0,
-    },
+    loadAverage: { '1min': loadAvg[0] ?? 0, '5min': loadAvg[1] ?? 0, '15min': loadAvg[2] ?? 0 },
   };
 };
 /**

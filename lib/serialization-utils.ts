@@ -7,67 +7,65 @@
  * @param doc - Document to serialize
  * @returns Serialized document or null/undefined if input is null/undefined
  */
-export const serializeDocument = (doc) => {
-    if (!doc)
-        return doc;
-    if (typeof doc.toObject === 'function')
-        return doc.toObject();
-    if (typeof doc.toJSON === 'function')
-        return doc.toJSON();
-    return { ...doc };
+export const serializeDocument = (doc: any): any => {
+  if (!doc) return doc;
+  if (typeof doc.toObject === 'function') return doc.toObject();
+  if (typeof doc.toJSON === 'function') return doc.toJSON();
+  return { ...doc };
 };
 /**
  * Serialize a Mongoose document (alias for serializeDocument)
  * @param doc - Mongoose document to serialize
  * @returns Serialized document
  */
-export const serializeMongooseDocument = (doc) => serializeDocument(doc);
+export const serializeMongooseDocument = (doc: any): any => serializeDocument(doc);
 /**
  * Map and serialize an array of items
  * @param items - Array of items to serialize
  * @returns Array of serialized items
  */
-export const mapAndSerialize = (items) => items.map(item => serializeMongooseDocument(item));
+export const mapAndSerialize = (items: any[]): any[] =>
+  items.map(item => serializeMongooseDocument(item));
 /**
  * Save a document and then serialize it
  * @param doc - Document to save and serialize
  * @returns Serialized document after saving
  */
-export const saveAndSerialize = async (doc) => {
-    await doc.save();
-    return serializeMongooseDocument(doc);
+export const saveAndSerialize = async (doc: any): Promise<any> => {
+  await doc.save();
+  return serializeMongooseDocument(doc);
 };
 /**
  * Map and serialize items within an object structure
  * @param input - Object containing items array
  * @returns Object with serialized items
  */
-export const mapAndSerializeObj = (input) => ({
-    items: mapAndSerialize(input.items)
+export const mapAndSerializeObj = input => ({
+  items: mapAndSerialize(input.items),
 });
 /**
  * Serialize a document within an object structure
  * @param input - Object containing doc
  * @returns Object with serialized doc
  */
-export const serializeDocumentObj = (input) => ({
-    doc: serializeDocument(input.doc)
+export const serializeDocumentObj = input => ({
+  doc: serializeDocument(input.doc),
 });
 /**
  * Serialize a Mongoose document within an object structure
  * @param input - Object containing doc
  * @returns Object with serialized doc
  */
-export const serializeMongooseDocumentObj = (input) => ({
-    doc: serializeMongooseDocument(input.doc)
+export const serializeMongooseDocumentObj = input => ({
+  doc: serializeMongooseDocument(input.doc),
 });
 /**
  * Save and serialize a document within an object structure
  * @param input - Object containing doc
  * @returns Object with saved and serialized doc
  */
-export const saveAndSerializeObj = async (input) => ({
-    doc: await saveAndSerialize(input.doc)
+export const saveAndSerializeObj = async input => ({
+  doc: await saveAndSerialize(input.doc),
 });
 /**
  * Safely serialize a document with a default value for null/undefined
@@ -75,13 +73,15 @@ export const saveAndSerializeObj = async (input) => ({
  * @param defaultValue - Default value if doc is null/undefined
  * @returns Serialized document or default value
  */
-export const safeSerializeDocument = (doc, defaultValue = null) => (doc == null ? defaultValue : serializeDocument(doc));
+export const safeSerializeDocument = (doc, defaultValue = null) =>
+  doc == null ? defaultValue : serializeDocument(doc);
 /**
  * Safely map and serialize an array with null/undefined checks
  * @param items - Array to serialize
  * @returns Array of serialized items or empty array if input is invalid
  */
-export const safeMapAndSerialize = (items) => (!items || !Array.isArray(items)) ? [] : mapAndSerialize(items);
+export const safeMapAndSerialize = items =>
+  !items || !Array.isArray(items) ? [] : mapAndSerialize(items);
 /**
  * Serialize only specific fields from a document
  * @param doc - Document to serialize
@@ -89,15 +89,13 @@ export const safeMapAndSerialize = (items) => (!items || !Array.isArray(items)) 
  * @returns Object with only specified fields
  */
 export const serializeFields = (doc, fields) => {
-    if (!doc)
-        return null;
-    const serialized = serializeDocument(doc);
-    const result = {};
-    for (const field of fields) {
-        if (field in serialized)
-            result[field] = serialized[field];
-    }
-    return result;
+  if (!doc) return null;
+  const serialized = serializeDocument(doc);
+  const result = {};
+  for (const field of fields) {
+    if (field in serialized) result[field] = serialized[field];
+  }
+  return result;
 };
 /**
  * Serialize a document excluding specific fields
@@ -106,11 +104,9 @@ export const serializeFields = (doc, fields) => {
  * @returns Object without specified fields
  */
 export const serializeWithoutFields = (doc, excludeFields) => {
-    if (!doc)
-        return null;
-    const serialized = serializeDocument(doc);
-    const result = { ...serialized };
-    for (const field of excludeFields)
-        delete result[field];
-    return result;
+  if (!doc) return null;
+  const serialized = serializeDocument(doc);
+  const result = { ...serialized };
+  for (const field of excludeFields) delete result[field];
+  return result;
 };

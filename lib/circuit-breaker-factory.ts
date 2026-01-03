@@ -31,9 +31,7 @@ export class CircuitBreakerFactory {
    */
   getCircuitBreaker(domain: string, config: any = {}) {
     try {
-      if (this.isShutdown) {
-        throw new Error('Circuit breaker factory has been shut down');
-      }
+      if (this.isShutdown) throw new Error('Circuit breaker factory has been shut down');
       let breaker = this.breakers.get(domain);
       if (!breaker) {
         const newBreaker = createCircuitBreaker({
@@ -53,9 +51,7 @@ export class CircuitBreakerFactory {
         breaker._createdTime = Date.now();
         breaker._lastUsedTime = Date.now();
         this.breakers.set(domain, breaker);
-        if (this.breakers.size > this.maxBreakers) {
-          this.enforceBreakerLimit();
-        }
+        if (this.breakers.size > this.maxBreakers) this.enforceBreakerLimit();
       } else {
         breaker._lastUsedTime = Date.now();
       }
@@ -101,9 +97,7 @@ export class CircuitBreakerFactory {
       const breaker = this.breakers.get(domain);
       if (breaker) {
         try {
-          if (typeof breaker.destroy === 'function') {
-            breaker.destroy();
-          }
+          if (typeof breaker.destroy === 'function') breaker.destroy();
         } catch (error) {
           qerrors.qerrors(error as Error, 'circuit-breaker-factory.removeCircuitBreaker.destroy', {
             domain,
@@ -151,20 +145,13 @@ export class CircuitBreakerFactory {
       const now = Date.now();
       const toRemove = [];
       this.breakers.forEach((breaker, domain) => {
-        const lastUsed = breaker._lastUsedTime || 0;
-        const created = breaker._createdTime || 0;
-        if (now - lastUsed > this.breakerTimeoutMs) {
-          toRemove.push(domain);
-        } else if (now - created > this.breakerTimeoutMs * 2) {
-          toRemove.push(domain);
-        }
+        const lastUsed = breaker._lastUsedTime ?? 0;
+        const created = breaker._createdTime ?? 0;
+        if (now - lastUsed > this.breakerTimeoutMs) toRemove.push(domain);
+        else if (now - created > this.breakerTimeoutMs * 2) toRemove.push(domain);
       });
-      toRemove.forEach(domain => {
-        this.removeCircuitBreaker(domain);
-      });
-      if (toRemove.length > 0) {
-        console.log(`Cleaned up ${toRemove.length} idle circuit breakers`);
-      }
+      toRemove.forEach(domain => this.removeCircuitBreaker(domain));
+      if (toRemove.length > 0) console.log(`Cleaned up ${toRemove.length} idle circuit breakers`);
     } catch (error) {
       qerrors.qerrors(error as Error, 'circuit-breaker-factory.performCleanup', {
         currentBreakerCount: this.breakers.size,
@@ -187,12 +174,12 @@ export class CircuitBreakerFactory {
       const breakerStats = this.getBreakerState(breaker);
       stats.push({
         domain,
-        failures: breakerStats.failures || 0,
-        successes: breakerStats.successes || 0,
-        state: breakerStats.state || 'closed',
+        failures: breakerStats.failures ?? 0,
+        successes: breakerStats.successes ?? 0,
+        state: breakerStats.state ?? 'closed',
         lastFailureTime: breakerStats.lastFailureTime,
-        createdTime: breaker._createdTime || 0,
-        lastUsedTime: breaker._lastUsedTime || 0,
+        createdTime: breaker._createdTime ?? 0,
+        lastUsedTime: breaker._lastUsedTime ?? 0,
       });
     });
     return stats.sort((a, b) => b.lastUsedTime - a.lastUsedTime);
@@ -205,9 +192,9 @@ export class CircuitBreakerFactory {
   getBreakerState(breaker) {
     try {
       return {
-        state: breaker.getState?.() || 'closed',
-        failures: breaker.getFailures?.() || 0,
-        successes: breaker.getSuccesses?.() || 0,
+        state: breaker.getState?.() ?? 'closed',
+        failures: breaker.getFailures?.() ?? 0,
+        successes: breaker.getSuccesses?.() ?? 0,
         lastFailureTime: breaker.getLastFailureTime?.(),
       };
     } catch {
@@ -279,9 +266,8 @@ let globalFactory = null;
  * @returns Factory instance
  */
 export function getCircuitBreakerFactory(options = {}) {
-  if (!globalFactory || globalFactory.isShutdown) {
+  if (!globalFactory || globalFactory.isShutdown)
     globalFactory = new CircuitBreakerFactory(options);
-  }
   return globalFactory;
 }
 /**

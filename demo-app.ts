@@ -1,3 +1,4 @@
+import { setImmediate } from 'timers';
 /**
  * QMemory Library Demo Application - Frontend-Backend Integration Fixed
  * Demonstrates core functionality with a simple Express.js API

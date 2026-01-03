@@ -13,7 +13,7 @@ import {
   sendValidationError,
   sendAuthError,
   generateRequestId,
-} from './lib/http-utils.js';
+} from './lib/http-utils';
 // Database utilities
 import {
   ensureMongoDB,
@@ -24,10 +24,10 @@ import {
   ensureIdempotency,
   optimizeQuery,
   createAggregationPipeline,
-} from './lib/database-utils.js';
+} from './lib/database-utils';
 
 // Storage utilities
-import { MemStorage, storage, User, InsertUser } from './lib/storage.js';
+import { MemStorage, storage, User, InsertUser } from './lib/storage';
 // Document helpers
 import {
   findDocumentById,
@@ -38,7 +38,7 @@ import {
   findDocuments,
   findOneDocument,
   bulkUpdateDocuments,
-} from './lib/document-helpers.js';
+} from './lib/document-helpers';
 // Document operations
 import {
   performUserDocOp,
@@ -52,7 +52,7 @@ import {
   updateUserDoc,
   validateDocumentUniqueness,
   hasUniqueFieldChanges,
-} from './lib/document-ops.js';
+} from './lib/document-ops';
 // Storage
 // MemStorage and storage imported above
 // Utils
@@ -64,7 +64,7 @@ import {
   dedupeByLowercaseFirst,
   dedupeByLast,
   dedupe,
-} from './lib/utils.js';
+} from './lib/utils';
 // Email utilities
 import {
   getEmails,
@@ -73,9 +73,9 @@ import {
   normalizeEmail,
   getEmailDomain,
   filterValidEmails,
-} from './lib/email-utils.js';
+} from './lib/email-utils';
 // Circuit breaker
-import { createCircuitBreaker, STATES as CIRCUIT_BREAKER_STATES } from './lib/circuit-breaker.js';
+import { createCircuitBreaker, STATES as CIRCUIT_BREAKER_STATES } from './lib/circuit-breaker';
 // Circuit breaker factory
 import {
   CircuitBreakerFactory,
@@ -85,7 +85,7 @@ import {
   getCircuitBreakerFactoryStats,
   clearAllCircuitBreakers,
   shutdownCircuitBreakerFactory,
-} from './lib/circuit-breaker-factory.js';
+} from './lib/circuit-breaker-factory';
 // Health check
 import {
   updateMetrics as updateHealthMetrics,
@@ -102,13 +102,13 @@ import {
   createHealthEndpoint,
   createLivenessEndpoint,
   createReadinessEndpoint,
-} from './lib/health-check.js';
+} from './lib/health-check';
 // Test memory manager
 // teardownTestMemoryMonitoring,
 // Temporarily commented out due to broken implementation
-// } from './lib/test-memory-manager.js';
+// } from './lib/test-memory-manager';
 // Async queue
-import { createQueue } from './lib/async-queue.js';
+import { createQueue } from './lib/async-queue';
 // Database pool
 // // Temporarily commented out due to broken implementation
 // // import {
@@ -132,7 +132,7 @@ import {
   createDuplicateError,
   escapeRegex as escapeRegexCrud,
   validateData,
-} from './lib/crud-service-factory.js';
+} from './lib/crud-service-factory';
 // Unique validator
 import {
   checkDuplicateByField,
@@ -145,9 +145,9 @@ import {
   createUniqueFieldsMiddleware,
   isDuplicateError,
   createBatchUniqueChecker,
-} from './lib/unique-validator.js';
+} from './lib/unique-validator';
 // Streaming JSON
-import { safeJsonStringify, safeJsonParse, SafeJSON } from './lib/streaming-json.js';
+import { safeJsonStringify, safeJsonParse, SafeJSON } from './lib/streaming-json';
 // Fast operations
 import {
   FastMath,
@@ -160,9 +160,9 @@ import {
   FastOps,
   Cast,
   Prop,
-} from './lib/fast-operations.js';
+} from './lib/fast-operations';
 // Logging utilities
-import { logFunctionEntry, logFunctionExit, logFunctionError } from './lib/logging-utils.js';
+import { logFunctionEntry, logFunctionExit, logFunctionError } from './lib/logging-utils';
 // Pagination utilities
 import {
   validatePagination,
@@ -173,7 +173,7 @@ import {
   createCursorPaginationMeta,
   createCursorPaginatedResponse,
   validateSorting,
-} from './lib/pagination-utils.js';
+} from './lib/pagination-utils';
 // Performance utilities
 import {
   DatabaseMetrics,
@@ -181,13 +181,13 @@ import {
   SystemMetrics,
   PerformanceMonitor,
   performanceMonitor,
-} from './lib/performance-utils.js';
+} from './lib/performance-utils';
 // Cache utilities
-import { createRedisClient } from './lib/cache-utils.js';
+import { createRedisClient } from './lib/cache-utils';
 // LRU cache
 import { LRUCache } from 'lru-cache';
 // Bounded collections
-import { BoundedQueue, BoundedMap } from './lib/bounded-collections.js';
+import { BoundedQueue, BoundedMap } from './lib/bounded-collections';
 // Performance metrics
 import {
   incCacheHit,
@@ -195,7 +195,7 @@ import {
   setCacheKeys,
   getCacheMetrics,
   resetCacheMetrics,
-} from './lib/perf.js';
+} from './lib/perf';
 // Field utilities
 import {
   normalizeFieldName,
@@ -203,26 +203,26 @@ import {
   denormalizeFieldName,
   normalizeObjectFields,
   denormalizeObjectFields,
-} from './lib/field-utils.js';
+} from './lib/field-utils';
 // Type map
-import { getMongoType, getSupportedTypes } from './lib/typeMap.js';
+import { getMongoType, getSupportedTypes } from './lib/typeMap';
 // Mongoose mapper
 import {
   mapParameterToMongoType,
   mapParametersToSchema,
   generateMongooseSchema,
   generateMongoSchema,
-} from './lib/mongoose-mapper.js';
+} from './lib/mongoose-mapper';
 // Binary storage
 import {
   MemoryBinaryStorage,
   FileSystemBinaryStorage,
   StorageFactory,
   getDefaultStorage,
-} from './lib/binary-storage.js';
-import { IStorage } from './lib/storage-interfaces.js';
+} from './lib/binary-storage';
+import { IStorage } from './lib/storage-interfaces';
 // Security middleware
-import { setupSecurity, getSecurityConfig, destroySecurity } from './lib/security-middleware.js';
+import { setupSecurity, getSecurityConfig, destroySecurity } from './lib/security-middleware';
 // Privacy and compliance
 import {
   privacyMiddleware,
@@ -231,8 +231,8 @@ import {
   handleDataDeletionRequest,
   handleDataExportRequest,
   setupDataRetention,
-} from './lib/privacy-compliance.js';
-import { BasicRateLimiter } from './lib/security-middleware.js';
+} from './lib/privacy-compliance';
+import { BasicRateLimiter } from './lib/security-middleware';
 // Serialization utilities
 import {
   serializeDocument,
@@ -247,7 +247,7 @@ import {
   safeMapAndSerialize,
   serializeFields,
   serializeWithoutFields,
-} from './lib/serialization-utils.js';
+} from './lib/serialization-utils';
 // Export everything
 export {
   // HTTP utilities
@@ -465,6 +465,6 @@ export {
 };
 
 // Export types
-export type { User, InsertUser } from './lib/storage.js';
+export type { User, InsertUser } from './lib/storage';
 // No BasicRateLimiter export here to avoid duplicate
 export type { Application, Request, Response, NextFunction } from 'express';

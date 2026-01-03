@@ -1,6 +1,3 @@
-/**
- * Jest configuration for TypeScript with ESM support
- */
 /** @type {import('jest').Config} */
 export default {
   preset: 'ts-jest',

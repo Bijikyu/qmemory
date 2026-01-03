@@ -1,10 +1,3 @@
-/**
- * HTTP Utility Functions - Fixed Version
- *
- * Scalable HTTP utility functions using simple-wrapper.ts exports
- * to avoid the file corruption issues in the previous implementation.
- */
-
 import type { Response } from 'express';
 import {
   logger,
@@ -18,9 +11,6 @@ import {
   isValidObject,
 } from './simple-wrapper';
 
-/**
- * Validates Express response object
- */
 export const validateResponseObject = (res: any): void => {
   if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
     throw new Error('Invalid Express response object');
@@ -36,7 +26,6 @@ type HttpErrorType =
   | 'SERVICE_UNAVAILABLE'
   | 'VALIDATION_ERROR'
   | 'ERROR';
-
 type KnownStatusCode = 400 | 401 | 404 | 409 | 500 | 503;
 
 interface ErrorEnvelope {
@@ -50,7 +39,6 @@ interface ErrorEnvelope {
   };
 }
 
-// Reusable error response template to reduce object allocation
 const createErrorResponse = (
   statusCode: number,
   message: unknown,
@@ -86,25 +74,13 @@ const defaultMessageMap: Record<KnownStatusCode, string> = {
   503: 'Service temporarily unavailable',
 };
 
-const getErrorType = (statusCode: KnownStatusCode): HttpErrorType => {
-  return errorTypeMap[statusCode] ?? 'ERROR';
-};
+const getErrorType = (statusCode: KnownStatusCode): HttpErrorType =>
+  errorTypeMap[statusCode] ?? 'ERROR';
+const getDefaultMessage = (statusCode: KnownStatusCode): string =>
+  defaultMessageMap[statusCode] ?? 'An error occurred';
+const getTimestamp = (): string => new Date().toISOString();
+const generateRequestId = (): string => generateUniqueId();
 
-const getDefaultMessage = (statusCode: KnownStatusCode): string => {
-  return defaultMessageMap[statusCode] ?? 'An error occurred';
-};
-
-const getTimestamp = (): string => {
-  return new Date().toISOString();
-};
-
-const generateRequestId = (): string => {
-  return generateUniqueId();
-};
-
-/**
- * Sends a structured error response with consistent formatting.
- */
 const sendErrorResponse = (
   res: Response,
   statusCode: KnownStatusCode,
@@ -114,7 +90,6 @@ const sendErrorResponse = (
   const requestId = generateRequestId();
 
   try {
-    // Validate response object
     if (!res || typeof res !== 'object') {
       throw createTypedError(
         'Invalid response object: must be an object',
@@ -157,7 +132,6 @@ const sendErrorResponse = (
       responseSent: false,
     });
 
-    // Fallback response
     return res.status(500).json({
       error: {
         type: 'INTERNAL_ERROR',
@@ -169,26 +143,16 @@ const sendErrorResponse = (
   }
 };
 
-// HTTP response utility functions
-const sendNotFound = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
-  return sendErrorResponse(res, 404, message ?? 'Resource not found');
-};
-
-const sendConflict = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
-  return sendErrorResponse(res, 409, message ?? 'Resource conflict');
-};
-
-const sendInternalServerError = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
-  return sendErrorResponse(res, 500, message ?? 'Internal server error');
-};
-
-const sendServiceUnavailable = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
-  return sendErrorResponse(res, 503, message ?? 'Service temporarily unavailable');
-};
-
-const sendBadRequest = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
-  return sendErrorResponse(res, 400, message ?? 'Bad request');
-};
+const sendNotFound = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
+  sendErrorResponse(res, 404, message ?? 'Resource not found');
+const sendConflict = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
+  sendErrorResponse(res, 409, message ?? 'Resource conflict');
+const sendInternalServerError = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
+  sendErrorResponse(res, 500, message ?? 'Internal server error');
+const sendServiceUnavailable = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
+  sendErrorResponse(res, 503, message ?? 'Service temporarily unavailable');
+const sendBadRequest = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
+  sendErrorResponse(res, 400, message ?? 'Bad request');
 
 const sendValidationError = (
   res: Response,

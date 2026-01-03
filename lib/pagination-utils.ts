@@ -41,7 +41,6 @@ interface ParseIntegerResult {
 }
 
 const parseIntegerParam = (paramValue: unknown, paramName: string): ParseIntegerResult => {
-  // Handle null/undefined input early
   if (paramValue === null || paramValue === undefined) {
     return {
       isValid: false,

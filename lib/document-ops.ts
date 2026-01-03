@@ -205,12 +205,7 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
 const listUserDocsLean = async <TSchema extends AnyUserDoc>(
   model: Model<TSchema>,
   username: string,
-  options?: {
-    sort?: Record<string, 1 | -1>;
-    select?: string; // Field selection for reduced data transfer
-    limit?: number; // Pagination support
-    skip?: number; // Pagination support
-  }
+  options: { sort?: Record<string, 1 | -1>; select?: string; limit?: number; skip?: number } = {}
 ): Promise<Array<any>> => {
   logger.functionEntry('listUserDocsLean', { username });
   logger.functionEntry('listUserDocsLean', {
@@ -221,33 +216,16 @@ const listUserDocsLean = async <TSchema extends AnyUserDoc>(
   });
 
   try {
-    // Build query object for better type inference and performance
     const filter: FilterQuery<TSchema> = { user: username };
     const queryOptions: any = { lean: true };
 
-    // Apply field selection for reduced data transfer
-    if (options?.select) {
-      queryOptions.select = options.select;
-    }
+    options?.select && (queryOptions.select = options.select);
+    options?.sort && (queryOptions.sort = options.sort);
+    options?.skip && (queryOptions.skip = options.skip);
 
-    // Apply sorting
-    if (options?.sort) {
-      queryOptions.sort = options.sort;
-    }
-
-    // Apply pagination with default limit to prevent unlimited results
-    if (options?.skip) {
-      queryOptions.skip = options.skip;
-    }
-
-    // Enforce maximum limit for scalability (default 100, max 1000)
-    const maxLimit = 1000;
-    const defaultLimit = 100;
-    if (options?.limit) {
-      queryOptions.limit = Math.min(options.limit, maxLimit);
-    } else {
-      queryOptions.limit = defaultLimit;
-    }
+    const maxLimit = 1000,
+      defaultLimit = 100;
+    queryOptions.limit = options?.limit ? Math.min(options.limit, maxLimit) : defaultLimit;
 
     const docs = await model.find(filter, null, queryOptions);
 
@@ -288,19 +266,15 @@ const hasUniqueFieldChanges = <TSchema extends AnyUserDoc>(
   doc: HydratedDocument<TSchema>,
   fieldsToUpdate: Partial<TSchema>,
   uniqueQuery?: FilterQuery<TSchema>
-): boolean => {
-  if (!uniqueQuery) {
-    return false;
-  }
-  return Object.keys(uniqueQuery).some(key => {
-    if (!(key in fieldsToUpdate)) {
-      return false;
-    }
-    return (
-      (doc as Record<string, unknown>)[key] !== (fieldsToUpdate as Record<string, unknown>)[key]
-    );
-  });
-};
+): boolean =>
+  !uniqueQuery
+    ? false
+    : Object.keys(uniqueQuery).some(key =>
+        !(key in fieldsToUpdate)
+          ? false
+          : (doc as Record<string, unknown>)[key] !==
+            (fieldsToUpdate as Record<string, unknown>)[key]
+      );
 
 /**
  * Creates a user document after validating uniqueness constraints.

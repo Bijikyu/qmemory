@@ -55,12 +55,11 @@ const safeJsonParse = (jsonString, defaultValue = null) => {
   try {
     return JSON.parse(jsonString);
   } catch (error) {
-    // Log detailed error context for debugging and monitoring
     qerrors.qerrors(error as Error, 'streaming-json.safeJsonParse', {
-      stringLength: typeof jsonString === 'string' ? jsonString.length : -1, // Help identify size issues
-      stringType: typeof jsonString, // Help identify type mismatches
-      hasDefaultValue: defaultValue !== null, // Help debug fallback behavior
-      operation: 'json-parse', // Operation identifier for logs
+      stringLength: typeof jsonString === 'string' ? jsonString.length : -1,
+      stringType: typeof jsonString,
+      hasDefaultValue: defaultValue !== null,
+      operation: 'json-parse',
     });
     return defaultValue;
   }
@@ -86,15 +85,12 @@ const safeJsonStringify = (obj, indent = 0) => {
   try {
     return JSON.stringify(obj, null, indent);
   } catch (error) {
-    // Log detailed error context including circular reference detection
     qerrors.qerrors(error as Error, 'streaming-json.safeJsonStringify', {
-      objectType: typeof obj, // Help identify type issues
-      indent, // Help debug formatting problems
-      hasCircularReference: error.message?.includes('circular') || false, // Common issue detection
-      operation: 'json-stringify', // Operation identifier for logs
+      objectType: typeof obj,
+      indent,
+      hasCircularReference: error.message?.includes('circular') || false,
+      operation: 'json-stringify',
     });
-
-    // Return a structured error object instead of crashing
     return JSON.stringify({
       error: 'Serialization failed',
       message: (error as Error).message || 'Unknown serialization error',

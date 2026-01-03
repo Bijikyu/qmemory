@@ -21,7 +21,6 @@
  */
 
 import { greet, add, isEven } from '../../lib/utils.js';
-
 describe('Utils module', () => {
   describe('greet function', () => {
     test('should return greeting with provided name', () => {
@@ -32,12 +31,10 @@ describe('Utils module', () => {
     test('should handle empty string', () => {
       expect(greet('')).toBe('Hello, !');
     });
-
     test('should handle special characters', () => {
       expect(greet('María José')).toBe('Hello, María José!');
       expect(greet('123')).toBe('Hello, 123!');
     });
-
     test('should handle non-string inputs with type conversion', () => {
       expect(greet(123)).toBe('Hello, 123!');
       expect(greet(null)).toBe('Hello, null!');
@@ -45,18 +42,15 @@ describe('Utils module', () => {
       expect(greet(true)).toBe('Hello, true!');
     });
   });
-
   describe('add function', () => {
     test('should add positive numbers correctly', () => {
       expect(add(2, 3)).toBe(5);
       expect(add(10, 15)).toBe(25);
     });
-
     test('should add negative numbers correctly', () => {
       expect(add(-2, -3)).toBe(-5);
       expect(add(-10, 5)).toBe(-5);
     });
-
     test('should handle zero', () => {
       expect(add(0, 5)).toBe(5);
       expect(add(5, 0)).toBe(5);

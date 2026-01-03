@@ -3,9 +3,6 @@
  * Maintains backward compatibility while implementing SRP principles
  */
 
-/**
- * Core circular buffer operations - separated for SRP compliance
- */
 class CircularBuffer<T> {
   private buffer: (T | undefined)[];
   private head: number = 0;
@@ -13,25 +10,13 @@ class CircularBuffer<T> {
   private count: number = 0;
   private readonly capacity: number;
   private readonly mask: number;
-  private readonly _maxSize: number; // Store original maxSize for bounded behavior enforcement
-
+  private readonly _maxSize: number;
   constructor(maxSize: number) {
-    if (maxSize <= 0) {
-      throw new Error('Max size must be greater than 0');
-    }
-    // Prevent integer overflow in bit masking operations and Math.pow
-    if (maxSize > 1073741824) {
-      // 2^30, safe limit for bitwise operations
-      throw new Error('Max size too large for bit masking optimization');
-    }
-
-    // Round up to next power of 2 for efficient bit masking with overflow protection
+    if (maxSize <= 0) throw new Error('Max size must be greater than 0');
+    if (maxSize > 1073741824) throw new Error('Max size too large for bit masking optimization');
     this.capacity = Math.min(Math.pow(2, Math.ceil(Math.log2(maxSize))), 1073741824);
-    // Create bit mask for fast modulo operations (capacity is always power of 2)
     this.mask = this.capacity - 1;
-    // Initialize buffer with calculated capacity
     this.buffer = new Array(this.capacity);
-    // Store original maxSize for bounded behavior enforcement
     this._maxSize = maxSize;
   }
 

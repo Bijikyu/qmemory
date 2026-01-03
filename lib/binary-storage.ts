@@ -59,7 +59,6 @@ export class MemoryBinaryStorage extends IStorage {
     if (key.length > 250) {
       throw new Error('Key must be 250 characters or less');
     }
-    // Prevent path traversal and ensure safe key format
     if (key.includes('..') || key.includes('/') || key.includes('\\')) {
       throw new Error('Key cannot contain path separators or relative paths');
     }
@@ -68,9 +67,7 @@ export class MemoryBinaryStorage extends IStorage {
    * Validate data is a Buffer object
    */
   private _validateData(data: any): asserts data is Buffer {
-    if (!Buffer.isBuffer(data)) {
-      throw new Error('Data must be a Buffer object');
-    }
+    if (!Buffer.isBuffer(data)) throw new Error('Data must be a Buffer object');
   }
   /**
    * Check if adding new data would exceed size limit
@@ -85,12 +82,10 @@ export class MemoryBinaryStorage extends IStorage {
   async save(key: string, data: Buffer): Promise<void> {
     this._validateKey(key);
     this._validateData(data);
-    // Calculate size difference for existing vs new data
     const existingSize = this.storage.has(key) ? this.storage.get(key).length : 0;
     const sizeDifference = data.length - existingSize;
     this._checkSizeLimit(sizeDifference);
-    // Store the data and update size tracking
-    this.storage.set(key, data); // Zero-copy storage for better performance
+    this.storage.set(key, data);
     this.currentSize += sizeDifference;
     console.log(
       `Stored ${data.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`
@@ -99,16 +94,10 @@ export class MemoryBinaryStorage extends IStorage {
   async get(key: string): Promise<Buffer | null> {
     this._validateKey(key);
     const data = this.storage.get(key);
-    if (!data) {
-      return null;
-    }
-    // Return read-only Buffer view instead of copy for better memory efficiency
-    // This prevents external mutations while avoiding memory duplication
+    if (!data) return null;
     if (Buffer.isBuffer(data)) {
-      // Create a read-only view of the underlying ArrayBuffer
       return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
     }
-    // Fallback for non-Buffer data (shouldn't happen with proper validation)
     return Buffer.from(data);
   }
   async delete(key: string): Promise<void> {
@@ -163,8 +152,6 @@ export class FileSystemBinaryStorage extends IStorage {
   constructor(storageDir = './data/binary-storage') {
     super();
     this.storageDir = resolve(storageDir);
-    // Note: Directory creation is now deferred to first operation
-    // This prevents blocking the event loop during initialization
     console.log(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
   }
 
@@ -175,15 +162,11 @@ export class FileSystemBinaryStorage extends IStorage {
    * Updated to use async operations to prevent blocking the event loop.
    */
   private async _ensureDirectoryExists(): Promise<void> {
-    if (this.directoryInitialized) {
-      return;
-    }
-
+    if (this.directoryInitialized) return;
     try {
       await fs.mkdir(this.storageDir, { recursive: true });
       this.directoryInitialized = true;
     } catch (error) {
-      // Ignore error if directory already exists
       if (error && typeof error === 'object' && 'code' in error && error.code !== 'EEXIST') {
         qerrors.qerrors(
           error as Error,
@@ -204,7 +187,6 @@ export class FileSystemBinaryStorage extends IStorage {
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('Key must be a non-empty string');
     }
-    // Ensure safe file names
     if (key.includes('..') || key.includes('/') || key.includes('\\') || key.includes('\0')) {
       throw new Error('Key contains invalid characters for file system storage');
     }
@@ -219,22 +201,14 @@ export class FileSystemBinaryStorage extends IStorage {
   async save(key: string, data: Buffer): Promise<void> {
     await this._ensureDirectoryExists();
     this._validateKey(key);
-    if (!Buffer.isBuffer(data)) {
-      throw new Error('Data must be a Buffer object');
-    }
+    if (!Buffer.isBuffer(data)) throw new Error('Data must be a Buffer object');
     const filePath = this._getFilePath(key);
     const tempPath = `${filePath}.tmp`;
     try {
-      // Combine metadata with data in single file to reduce I/O operations
-      const metadata = {
-        key,
-        size: data.length,
-        created: new Date().toISOString(),
-      };
+      const metadata = { key, size: data.length, created: new Date().toISOString() };
       const combinedData = [JSON.stringify(metadata), data.toString('base64')].join('\n');
       await fs.writeFile(tempPath, combinedData);
       await fs.rename(tempPath, filePath);
-      // Invalidate stats cache when file is modified
       this.statsCache = null;
       console.log(`Stored ${data.length} bytes at key '${key}' in file system`);
     } catch (error) {
@@ -245,12 +219,9 @@ export class FileSystemBinaryStorage extends IStorage {
         tempPath,
         storageDir: this.storageDir,
       });
-      // Clean up temp file if it exists
       try {
         await fs.unlink(tempPath);
-      } catch (cleanupError) {
-        // Ignore cleanup errors
-      }
+      } catch (cleanupError) {}
       throw new Error(`Failed to save data: ${error.message}`);
     }
   }
@@ -261,18 +232,13 @@ export class FileSystemBinaryStorage extends IStorage {
     const filePath = this._getFilePath(key);
     try {
       const fileContent = await fs.readFile(filePath, 'utf8');
-      // Split metadata from data (first line is metadata, rest is base64 data)
       const newlineIndex = fileContent.indexOf('\n');
-      if (newlineIndex === -1) {
-        // Legacy format - return raw data
-        return Buffer.from(fileContent, 'binary');
-      }
+      if (newlineIndex === -1) return Buffer.from(fileContent, 'binary');
       const base64Data = fileContent.substring(newlineIndex + 1);
       return Buffer.from(base64Data, 'base64');
     } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-        return null; // File doesn't exist
-      }
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')
+        return null;
       qerrors.qerrors(error as Error, 'binary-storage.FileSystemBinaryStorage.get', {
         key,
         filePath,
@@ -423,8 +389,6 @@ export class StorageFactory {
         return new FileSystemBinaryStorage(config.storageDir);
       case 'object':
       case 'cloud':
-        // For object storage, we need to handle async loading differently
-        // Return memory storage initially and warn about async nature
         console.warn(
           'Object storage requires async initialization. Use createObjectStorage() method instead.'
         );
@@ -460,16 +424,11 @@ export class StorageFactory {
     const config: { maxSize?: number; storageDir?: string; [key: string]: any } = {};
     if (storageType === 'filesystem') {
       const storageDir = BINARY_STORAGE_DIR;
-      if (storageDir) {
-        config.storageDir = storageDir;
-      }
+      if (storageDir) config.storageDir = storageDir;
     } else if (storageType === 'memory') {
       const maxSizeStr = BINARY_STORAGE_MAX_SIZE;
-      if (maxSizeStr) {
-        config.maxSize = parseInt(maxSizeStr);
-      }
+      if (maxSizeStr) config.maxSize = parseInt(maxSizeStr);
     } else if (storageType === 'object' || storageType === 'cloud') {
-      // Special handling for object storage - return memory storage and warn
       console.warn(
         'Object storage detected in environment. Use createObjectStorageFromEnvironment() for async initialization.'
       );
@@ -485,7 +444,6 @@ export class StorageFactory {
     if (storageType === 'object' || storageType === 'cloud') {
       return await StorageFactory.createObjectStorage();
     }
-    // Fall back to regular environment-based creation
     return StorageFactory.createFromEnvironment();
   }
 }
@@ -498,8 +456,6 @@ let defaultStorage: IStorage | null = null;
  * Creates one if it doesn't exist yet
  */
 export function getDefaultStorage(): IStorage {
-  if (!defaultStorage) {
-    defaultStorage = StorageFactory.createFromEnvironment();
-  }
+  if (!defaultStorage) defaultStorage = StorageFactory.createFromEnvironment();
   return defaultStorage;
 }

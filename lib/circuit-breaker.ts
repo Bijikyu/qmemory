@@ -93,19 +93,19 @@ export class CircuitBreakerWrapper {
   constructor(options: any = {}) {
     // Set up opossum configuration with sensible defaults for production use
     const opossumOptions = {
-      timeout: options.timeout || 30000, // 30 second timeout for most operations
-      errorThresholdPercentage: options.errorThresholdPercentage || 50, // Trip at 50% error rate
-      resetTimeout: options.resetTimeout || 60000, // 1 minute recovery window
-      rollingCountTimeout: options.rollingCountTimeout || 10000, // 10 second error rate window
-      rollingCountBuckets: options.rollingCountBuckets || 10, // Granular statistics tracking
-      minimumNumberOfCalls: options.minimumNumberOfCalls || 5, // Need 5 calls before error rate matters
-      volumeThreshold: options.volumeThreshold || 5, // Minimum volume for circuit breaking
-      statusMinRequestThreshold: options.statusMinRequestThreshold || 1, // Status updates on every call
-      cacheEnabled: options.cacheEnabled || false, // Disable caching by default for consistency
-      maxRetries: options.maxRetries || 0, // No automatic retries by default
-      retryDelay: options.retryDelay || 100, // 100ms delay between retries if enabled
+      timeout: options.timeout ?? 30000, // 30 second timeout for most operations
+      errorThresholdPercentage: options.errorThresholdPercentage ?? 50, // Trip at 50% error rate
+      resetTimeout: options.resetTimeout ?? 60000, // 1 minute recovery window
+      rollingCountTimeout: options.rollingCountTimeout ?? 10000, // 10 second error rate window
+      rollingCountBuckets: options.rollingCountBuckets ?? 10, // Granular statistics tracking
+      minimumNumberOfCalls: options.minimumNumberOfCalls ?? 5, // Need 5 calls before error rate matters
+      volumeThreshold: options.volumeThreshold ?? 5, // Minimum volume for circuit breaking
+      statusMinRequestThreshold: options.statusMinRequestThreshold ?? 1, // Status updates on every call
+      cacheEnabled: options.cacheEnabled ?? false, // Disable caching by default for consistency
+      maxRetries: options.maxRetries ?? 0, // No automatic retries by default
+      retryDelay: options.retryDelay ?? 100, // 100ms delay between retries if enabled
     };
-    this.resetTimeout = options.resetTimeout || 60000;
+    this.resetTimeout = options.resetTimeout ?? 60000;
 
     try {
       // Create a dummy breaker instance for state monitoring
@@ -154,20 +154,18 @@ export class CircuitBreakerWrapper {
    * );
    */
   async execute(operation: (...args: any[]) => Promise<any>, ...args: any[]): Promise<any> {
-    if (!operation) {
-      throw new Error('Operation is required');
-    }
+    if (!operation) throw new Error('Operation is required');
 
     // Create a dedicated circuit breaker instance for this operation to avoid race conditions
     // This ensures that different operations don't interfere with each other's failure patterns
     const operationOptions = {
-      timeout: 30000, // Standard 30 second timeout
-      errorThresholdPercentage: 50, // Trip at 50% error rate
-      resetTimeout: this.resetTimeout, // Use instance's reset timeout
-      rollingCountTimeout: 10000, // 10 second error rate calculation window
-      rollingCountBuckets: 10, // Granular statistics tracking
-      minimumNumberOfCalls: 5, // Need 5 calls before error rate matters
-      volumeThreshold: 5, // Minimum volume for circuit breaking consideration
+      timeout: 30000,
+      errorThresholdPercentage: 50,
+      resetTimeout: this.resetTimeout,
+      rollingCountTimeout: 10000,
+      rollingCountBuckets: 10,
+      minimumNumberOfCalls: 5,
+      volumeThreshold: 5,
     };
 
     const operationBreaker = new CircuitBreakerBase(operation, operationOptions);
@@ -178,16 +176,14 @@ export class CircuitBreakerWrapper {
     } catch (error) {
       // Log detailed error context for debugging and monitoring
       qerrors.qerrors(error as Error, 'circuit-breaker.execute', {
-        operationName: operation.name || 'anonymous', // Help identify which operation failed
-        isOpen: operationBreaker.opened, // Circuit state for debugging
-        isHalfOpen: operationBreaker.halfOpen, // Recovery state information
-        argCount: args.length, // Help debug parameter issues
+        operationName: operation.name || 'anonymous',
+        isOpen: operationBreaker.opened,
+        isHalfOpen: operationBreaker.halfOpen,
+        argCount: args.length,
       });
 
       // If the circuit is open, provide a clear error message
-      if (operationBreaker.opened) {
-        throw new Error('Circuit breaker is OPEN');
-      }
+      if (operationBreaker.opened) throw new Error('Circuit breaker is OPEN');
 
       // Re-throw the original error if circuit breaker is not open
       // This preserves the original error context for the caller
