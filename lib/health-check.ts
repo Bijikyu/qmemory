@@ -26,7 +26,9 @@ import { totalmem, freemem, cpus as getCpuInfo, loadavg as getLoadAverage } from
 import { createTerminus, HealthCheck } from '@godaddy/terminus';
 import { Server } from 'http';
 import { Request, Response } from 'express';
-import qerrors from 'qerrors';
+import { createModuleUtilities } from './common-patterns.js';
+
+const utils = createModuleUtilities('health-check');
 
 interface MemoryUsage {
   rss: number;
@@ -152,7 +154,7 @@ const getFilesystemUsage = async (): Promise<FilesystemUsage> => {
     await fs.stat('.');
     return { status: 'pass', message: 'Filesystem accessible' };
   } catch (error) {
-    qerrors.qerrors(error as Error, 'health-check.getFilesystemUsage', {
+    utils.logError(error as Error, 'getFilesystemUsage', {
       operation: 'filesystem-check',
     });
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -258,7 +260,7 @@ async function performHealthCheck() {
       },
     };
   } catch (error) {
-    qerrors.qerrors(error as Error, 'health-check.performHealthCheck', {
+    utils.logError(error as Error, 'performHealthCheck', {
       operation: 'comprehensive-health-check',
     });
     throw error;
@@ -290,7 +292,7 @@ function createLivenessCheck() {
         uptime: health.uptime,
       };
     } catch (error) {
-      qerrors.qerrors(error as Error, 'health-check.createLivenessCheck', {
+      utils.logError(error as Error, 'createLivenessCheck', {
         operation: 'liveness-check',
       });
       throw error;
@@ -329,7 +331,7 @@ function createReadinessCheck() {
         uptime: health.uptime,
       };
     } catch (error) {
-      qerrors.qerrors(error as Error, 'health-check.createReadinessCheck', {
+      utils.logError(error as Error, 'createReadinessCheck', {
         operation: 'readiness-check',
       });
       throw error;
@@ -406,7 +408,7 @@ function createHealthEndpoint(req: Request, res: Response): void {
       res.status(statusCode).json(health);
     })
     .catch(error => {
-      qerrors.qerrors(error as Error, 'health-check.createHealthEndpoint', {
+      utils.logError(error as Error, 'createHealthEndpoint', {
         operation: 'health-endpoint',
         hasRequest: req !== undefined,
         hasResponse: res !== undefined,
@@ -427,7 +429,7 @@ function createLivenessEndpoint(req: Request, res: Response): void {
   createLivenessCheck()()
     .then(result => res.json(result))
     .catch(error => {
-      qerrors.qerrors(error as Error, 'health-check.createLivenessEndpoint', {
+      utils.logError(error as Error, 'createLivenessEndpoint', {
         operation: 'liveness-endpoint',
         hasRequest: req !== undefined,
         hasResponse: res !== undefined,
@@ -448,7 +450,7 @@ function createReadinessEndpoint(req: Request, res: Response): void {
   createReadinessCheck()()
     .then(result => res.json(result))
     .catch(error => {
-      qerrors.qerrors(error as Error, 'health-check.createReadinessEndpoint', {
+      utils.logError(error as Error, 'createReadinessEndpoint', {
         operation: 'readiness-endpoint',
         hasRequest: req !== undefined,
         hasResponse: res !== undefined,

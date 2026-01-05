@@ -3,7 +3,6 @@
  * Memory management with separated concerns and improved testability
  */
 
-import qerrors from 'qerrors';
 import type {
   MemoryCheckpoint,
   LeakAnalysis,
@@ -12,6 +11,9 @@ import type {
 import { MemoryTracker } from './memory-tracker.js';
 import { MemoryLeakAnalyzer } from './memory-leak-analyzer.js';
 import { MemoryReporter } from './memory-reporter.js';
+import { createModuleUtilities } from '../common-patterns.js';
+
+const utils = createModuleUtilities('test-memory-manager');
 
 /**
  * Refactored test memory manager with separated concerns
@@ -42,22 +44,19 @@ export class TestMemoryManager {
       this.tracker.startTracking(context);
       this.analyzer.startAnalysis();
 
-      qerrors.qerrors(
-        new Error('Memory monitoring started'),
-        'test-memory-manager.startMonitoring',
-        {
-          context,
-          components: {
-            tracker: this.tracker,
-            analyzer: this.analyzer,
-            reporter: this.reporter,
-          },
-        }
-      );
-    } catch (error) {
-      qerrors.qerrors(error as Error, 'test-memory-manager.startMonitoring', {
+      utils.debugLog('Memory monitoring started', {
         context,
-        error: error.message,
+        components: {
+          tracker: this.tracker,
+          analyzer: this.analyzer,
+          reporter: this.reporter,
+        },
+      });
+    } catch (error) {
+      utils.logError(error as Error, 'startMonitoring', {
+        context,
+        hasError: error instanceof Error,
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -75,19 +74,20 @@ export class TestMemoryManager {
       this.analyzer.stopAnalysis();
       this.tracker.stopTracking();
 
-      qerrors.qerrors(
-        new Error('Memory monitoring stopped'),
-        'test-memory-manager.stopMonitoring',
-        {
-          components: {
-            tracker: this.tracker,
-            analyzer: this.analyzer,
-            reporter: this.reporter,
-          },
-        }
-      );
+      utils.debugLog('Memory monitoring stopped', {
+        components: {
+          tracker: this.tracker,
+          analyzer: this.analyzer,
+          reporter: this.reporter,
+        },
+      });
     } catch (error) {
-      qerrors.qerrors(error as Error, 'test-memory-manager.stopMonitoring', {
+      utils.logError(error as Error, 'stopMonitoring', {
+        components: {
+          tracker: this.tracker,
+          analyzer: this.analyzer,
+          reporter: this.reporter,
+        },
         error: error.message,
       });
     }
@@ -156,35 +156,23 @@ export class TestMemoryManager {
    * Perform aggressive memory cleanup
    */
   startAggressiveCleanup(): void {
-    qerrors.qerrors(
-      new Error('Starting aggressive memory cleanup'),
-      'test-memory-manager.startAggressiveCleanup',
-      {
-        action: 'aggressive-cleanup',
-      }
-    );
+    utils.debugLog('Starting aggressive memory cleanup', {
+      action: 'aggressive-cleanup',
+    });
 
     // Force garbage collection
     if (this.forceGarbageCollection()) {
-      qerrors.qerrors(
-        new Error('Forced garbage collection completed'),
-        'test-memory-manager.startAggressiveCleanup',
-        {
-          action: 'garbage-collection-forced',
-        }
-      );
+      utils.debugLog('Forced garbage collection completed', {
+        action: 'garbage-collection-forced',
+      });
     }
 
     // Clear all checkpoints to free memory
     this.clearCheckpoints();
 
-    qerrors.qerrors(
-      new Error('Aggressive memory cleanup completed'),
-      'test-memory-manager.startAggressiveCleanup',
-      {
-        action: 'aggressive-cleanup-completed',
-      }
-    );
+    utils.debugLog('Aggressive memory cleanup completed', {
+      action: 'aggressive-cleanup-completed',
+    });
   }
 
   /**
@@ -243,18 +231,13 @@ export class TestMemoryManager {
       },
     };
 
-    qerrors.qerrors(
-      new Error('CI memory analysis completed'),
-      'test-memory-manager.performCIAnalysis',
-      {
-        analysis,
-        thresholds: {
-          heap: '80%',
-          rss: '512MB',
-          external: '100MB',
-        },
-      }
-    );
+    utils.debugLog('CI memory analysis completed', {
+      analysis,
+      thresholds: {
+        heap: '80%',
+        objects: '1000',
+      },
+    });
 
     // Return structured data for CI tools
     console.log('CI_MEMORY_ANALYSIS:', JSON.stringify(analysis));
@@ -338,18 +321,15 @@ export class TestMemoryManager {
       this.tracker.cleanup();
       this.analyzer.cleanup();
 
-      qerrors.qerrors(
-        new Error('Memory manager cleanup completed'),
-        'test-memory-manager.cleanup',
-        {
-          components: {
-            tracker: this.tracker,
-            analyzer: this.analyzer,
-          },
-        }
-      );
+      utils.debugLog('Memory manager cleanup completed', {
+        components: {
+          tracker: this.tracker,
+          analyzer: this.analyzer,
+          reporter: this.reporter,
+        },
+      });
     } catch (error) {
-      qerrors.qerrors(error as Error, 'test-memory-manager.cleanup', {
+      utils.logError(error as Error, 'cleanup', {
         error: error.message,
       });
     }

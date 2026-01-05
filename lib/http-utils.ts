@@ -10,11 +10,10 @@ import {
   isValidString,
   isValidObject,
 } from './simple-wrapper';
+import { validateResponse } from './common-patterns.js';
 
 export const validateResponseObject = (res: any): void => {
-  if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
-    throw new Error('Invalid Express response object');
-  }
+  validateResponse(res, 'validateResponseObject');
 };
 
 type HttpErrorType =

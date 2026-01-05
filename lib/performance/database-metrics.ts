@@ -12,6 +12,9 @@ import {
   DEFAULT_MAX_RECENT_TIMES,
 } from '../../config/localVars.js';
 import * as qerrors from 'qerrors';
+import { createModuleUtilities } from '../common-patterns.js';
+
+const utils = createModuleUtilities('database-metrics');
 
 // Type definitions
 interface DatabaseMetricsOptions {
@@ -100,7 +103,10 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
       created: 0, // total connections created since startup
       destroyed: 0, // total connections destroyed (for leak detection)
     };
-    console.log('DatabaseMetrics initialized with slow query threshold:', this.slowQueryThreshold);
+    utils.debugLog(
+      'DatabaseMetrics initialized with slow query threshold:',
+      this.slowQueryThreshold
+    );
   }
   /**
    * Records comprehensive database query performance metrics
@@ -117,7 +123,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
     metadata: Record<string, unknown> = {}
   ): void {
     try {
-      console.log(
+      utils.debugLog(
         `DatabaseMetrics recording query: ${queryName}, duration: ${duration}ms, success: ${success}`
       );
       // Increment global query counter with overflow protection
@@ -132,7 +138,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
           // Remove least recently used query type to maintain memory bounds
           const oldestKey = this.queryTimes.keys().next().value;
           this.queryTimes.delete(oldestKey);
-          console.log(
+          utils.debugLog(
             `DatabaseMetrics: Removed query type '${oldestKey}' to maintain memory bounds`
           );
         }
@@ -166,7 +172,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
       // Track failure rates for reliability monitoring and alerting
       if (!success) {
         stats.failures++;
-        console.log(`DatabaseMetrics recorded failed query: ${queryName}`);
+        utils.debugLog(`DatabaseMetrics recorded failed query: ${queryName}`);
       }
       // Detect and track slow queries for performance optimization opportunities
       if (duration > this.slowQueryThreshold) {
@@ -178,7 +184,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
           metadata: { ...metadata }, // deep copy to prevent reference mutations
         };
         this.slowQueries.push(slowQuery);
-        console.log(`DatabaseMetrics detected slow query: ${queryName} took ${duration}ms`);
+        utils.debugLog(`DatabaseMetrics detected slow query: ${queryName} took ${duration}ms`);
         // Emit event for real-time alerting and monitoring system integration
         this.emit('slowQuery', slowQuery);
         // Maintain bounded slow query history to prevent unlimited memory growth
@@ -209,7 +215,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
    */
   updateConnectionMetrics(active: number, available: number, created: number, destroyed: number) {
     try {
-      console.log(
+      utils.debugLog(
         `DatabaseMetrics updating connection metrics: active=${active}, available=${available}, created=${created}, destroyed=${destroyed}`
       );
       this.connectionMetrics = {
@@ -230,7 +236,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
         hasValidConnectionMetrics: this.connectionMetrics !== undefined,
       });
       // Log error but don't re-throw for monitoring failures to prevent cascading issues
-      console.error('DatabaseMetrics connection metrics update failed:', error);
+      utils.debugLog('DatabaseMetrics connection metrics update failed:', error);
     }
   }
   /**
@@ -240,7 +246,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
    */
   getMetrics(): MetricsReport {
     try {
-      console.log('DatabaseMetrics generating comprehensive metrics report');
+      utils.debugLog('DatabaseMetrics generating comprehensive metrics report');
       const metrics: MetricsReport = {
         totalQueries: this.queryCount, // overall throughput indicator
         slowQueries: this.slowQueries.length, // performance degradation indicator
@@ -260,7 +266,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
           queriesPerSecond: this.calculateQPS(stats.count), // throughput metric
         };
       }
-      console.log(
+      utils.debugLog(
         `DatabaseMetrics report generated with ${Object.keys(metrics.queryStats).length} query types`
       );
       return metrics;
@@ -292,7 +298,7 @@ export default class DatabaseMetrics extends EventEmitter<DatabaseMetricsEvents>
     try {
       const hoursRunning = Math.max(process.uptime() / 3600, 1); // Minimum 1 hour to prevent extreme values
       const qps = Math.round((queryCount / hoursRunning) * 100) / 100;
-      console.log(
+      utils.debugLog(
         `DatabaseMetrics calculated QPS: ${qps} for ${queryCount} queries over ${hoursRunning} hours`
       );
       return qps;

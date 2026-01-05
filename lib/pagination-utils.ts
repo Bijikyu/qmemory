@@ -32,46 +32,13 @@ import {
   sendErrorResponse,
   validateResponseObject,
 } from './http-utils.js';
+import { validateResponse } from './common-patterns.js';
 import { logFunctionEntry } from './logging-utils.js';
+import { createModuleUtilities, parseIntegerParam } from './common-patterns.js';
 import qerrors from 'qerrors';
-interface ParseIntegerResult {
-  isValid: boolean;
-  value: number | null;
-  error: string | null;
-}
 
-const parseIntegerParam = (paramValue: unknown, paramName: string): ParseIntegerResult => {
-  if (paramValue === null || paramValue === undefined) {
-    return {
-      isValid: false,
-      value: null,
-      error: `${paramName} must be a positive integer starting from 1`,
-    };
-  }
+const utils = createModuleUtilities('pagination-utils');
 
-  const paramStr = String(paramValue).trim();
-  const paramNum = parseInt(paramStr, 10);
-
-  // Check if input is a valid integer string (no decimals, no non-numeric chars)
-  if (isNaN(paramNum) || paramStr.length === 0 || !/^\d+$/.test(paramStr)) {
-    return {
-      isValid: false,
-      value: null,
-      error: `${paramName} must be a positive integer starting from 1`,
-    };
-  }
-
-  // Check if the parsed number is positive (>= 1) and within safe integer range
-  if (paramNum < 1 || paramNum > Number.MAX_SAFE_INTEGER) {
-    return {
-      isValid: false,
-      value: null,
-      error: `${paramName} must be a positive integer starting from 1`,
-    };
-  }
-
-  return { isValid: true, value: paramNum, error: null };
-};
 /**
  * Validates and extracts pagination parameters from request query string
  *
@@ -107,15 +74,14 @@ const parseIntegerParam = (paramValue: unknown, paramName: string): ParseInteger
  * @param options.maxLimit - Maximum allowed records per page (default: 100)
  * @returns Pagination parameters object with page, limit, skip, or null if validation fails
  */
-function validatePagination(req: any, res: any, options: any = {}) {
+function validatePagination(req: Request, res: Response, options: any = {}) {
   // Validate Express response object using shared utility
-  validateResponseObject(res);
+  validateResponse(res, 'validatePagination');
   // Validate request object
   if (!req) {
     throw new Error('Invalid Express request object provided');
   }
   logFunctionEntry('validatePagination', { query: req.query });
-  try {
     // Set default configuration values with reasonable limits
     // These defaults balance usability with performance considerations
     const {
@@ -134,7 +100,9 @@ function validatePagination(req: any, res: any, options: any = {}) {
     if (req.query.page !== undefined) {
       const pageResult = parseIntegerParam(req.query.page, 'Page');
       if (!pageResult.isValid) {
-        console.log(`validatePagination is returning null due to invalid page: ${req.query.page}`);
+        utils.debugLog(
+          `validatePagination is returning null due to invalid page: ${req.query.page}`
+        );
         sendErrorResponse(res, 400, pageResult.error);
         return null;
       }
@@ -144,7 +112,7 @@ function validatePagination(req: any, res: any, options: any = {}) {
     if (req.query.limit !== undefined) {
       const limitResult = parseIntegerParam(req.query.limit, 'Limit');
       if (!limitResult.isValid) {
-        console.log(
+        utils.debugLog(
           `validatePagination is returning null due to invalid limit: ${req.query.limit}`
         );
         sendErrorResponse(res, 400, limitResult.error);
@@ -155,21 +123,21 @@ function validatePagination(req: any, res: any, options: any = {}) {
     // Validate page parameter using same validation pattern as other library modules
     // Page must be positive integer starting from 1 for user-friendly URLs
     if (page < 1 || !Number.isInteger(page)) {
-      console.log(`validatePagination is returning null due to invalid page: ${page}`);
+      utils.debugLog(`validatePagination is returning null due to invalid page: ${page}`);
       sendErrorResponse(res, 400, 'Page must be a positive integer starting from 1');
       return null;
     }
     // Validate limit parameter to prevent invalid page sizes
     // Limit must be positive integer starting from 1 to ensure meaningful results
     if (limit < 1 || !Number.isInteger(limit)) {
-      console.log(`validatePagination is returning null due to invalid limit: ${limit}`);
+      utils.debugLog(`validatePagination is returning null due to invalid limit: ${limit}`);
       sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
       return null;
     }
     // Enforce maximum limit to prevent resource exhaustion and maintain performance
     // This protects against both accidental and malicious large page size requests
     if (limit > maxLimit) {
-      console.log(
+      utils.debugLog(
         `validatePagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`
       );
       sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
@@ -182,7 +150,7 @@ function validatePagination(req: any, res: any, options: any = {}) {
     const pagination = { page, limit, skip };
     // Debug logging in development only
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`validatePagination is returning: ${JSON.stringify(pagination)}`);
+      utils.debugLog(`validatePagination is returning: ${JSON.stringify(pagination)}`);
     }
     return pagination;
   } catch (error) {
@@ -193,7 +161,7 @@ function validatePagination(req: any, res: any, options: any = {}) {
       hasQuery: req && req.query !== undefined,
       queryKeys: req && req.query ? Object.keys(req.query) : [],
     });
-    console.error('Pagination validation error:', error);
+    utils.debugLog('Pagination validation error:', error);
     sendInternalServerError(res, 'Internal server error during pagination validation');
     return null;
   }
@@ -309,7 +277,7 @@ function createPaginatedResponse(data, page, limit, totalRecords) {
 function validateCursorPagination(req: any, res: any, options: any = {}) {
   logFunctionEntry('validateCursorPagination', { query: req.query });
   // Validate Express response object using shared utility
-  validateResponseObject(res);
+  validateResponse(res, 'validateCursorPagination');
   // Validate request object
   if (!req) {
     throw new Error('Invalid Express request object provided');
@@ -328,7 +296,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
     if (req.query.limit !== undefined) {
       const limitResult = parseIntegerParam(req.query.limit, 'Limit');
       if (!limitResult.isValid) {
-        console.log(
+        utils.debugLog(
           `validateCursorPagination is returning null due to invalid limit: ${req.query.limit}`
         );
         sendErrorResponse(res, 400, limitResult.error);
@@ -338,13 +306,13 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
     }
     // Validate limit parameter range
     if (limit < 1 || !Number.isInteger(limit)) {
-      console.log(`validateCursorPagination is returning null due to invalid limit: ${limit}`);
+      utils.debugLog(`validateCursorPagination is returning null due to invalid limit: ${limit}`);
       sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
       return null;
     }
     // Enforce maximum limit to prevent resource exhaustion
     if (limit > maxLimit) {
-      console.log(
+      utils.debugLog(
         `validateCursorPagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`
       );
       sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
@@ -352,7 +320,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
     }
     // Validate direction parameter
     if (!['next', 'prev'].includes(direction)) {
-      console.log(
+      utils.debugLog(
         `validateCursorPagination is returning null due to invalid direction: ${direction}`
       );
       sendErrorResponse(res, 400, 'Direction must be either "next" or "prev"');
@@ -389,9 +357,9 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
           sendErrorResponse(res, 400, 'Invalid cursor structure');
           return null;
         }
-        console.log(`validateCursorPagination decoded cursor:`, decodedCursor);
+        utils.debugLog('validateCursorPagination decoded cursor:', decodedCursor);
       } catch (error) {
-        console.log(
+        utils.debugLog(
           `validateCursorPagination is returning null due to invalid cursor: ${error.message}`
         );
         sendErrorResponse(res, 400, 'Invalid cursor format');
@@ -407,7 +375,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
     };
     // Debug logging in development only
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
+      utils.debugLog(`validateCursorPagination is returning: ${JSON.stringify(pagination)}`);
     }
     return pagination;
   } catch (error) {
@@ -416,7 +384,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
       hasQuery: req && req.query !== undefined,
       queryKeys: req && req.query ? Object.keys(req.query) : [],
     });
-    console.error('Cursor pagination validation error:', error);
+    utils.debugLog('Cursor pagination validation error:', error);
     sendInternalServerError(res, 'Internal server error during cursor pagination validation');
     return null;
   }
@@ -449,7 +417,7 @@ function createCursor(record, sortField = 'id') {
     const encodedCursor = Buffer.from(cursorJson, 'utf-8').toString('base64');
     // Debug logging in development only
     if (process.env.NODE_ENV !== 'production') {
-      console.log(
+      utils.debugLog(
         `createCursor generated cursor for ${sortField}=${record[sortField]}: ${encodedCursor}`
       );
     }
@@ -461,7 +429,7 @@ function createCursor(record, sortField = 'id') {
       recordType: typeof record,
       operation: 'cursor-creation',
     });
-    console.error('Cursor creation error:', error);
+    utils.debugLog('Cursor creation error:', error);
     return null;
   }
 }
@@ -506,7 +474,7 @@ function createCursorPaginationMeta(
   if (pagination.rawCursor) {
     meta.cursors.current = pagination.rawCursor;
   }
-  console.log(`createCursorPaginationMeta generated metadata:`, meta);
+  utils.debugLog(`createCursorPaginationMeta generated metadata:`, meta);
   return meta;
 }
 /**
@@ -537,7 +505,7 @@ function createCursorPaginationMeta(
 function validateSorting(req: any, res: any, options: any = {}) {
   logFunctionEntry('validateSorting', { query: req.query });
   // Validate Express response object using shared utility
-  validateResponseObject(res);
+  validateResponse(res, 'validateSorting');
   // Validate request object
   if (!req) {
     throw new Error('Invalid Express request object provided');
@@ -558,7 +526,7 @@ function validateSorting(req: any, res: any, options: any = {}) {
       .filter(Boolean);
     // Validate number of sort fields
     if (sortFields.length > maxSortFields) {
-      console.log(
+      utils.debugLog(
         `validateSorting is returning null due to too many sort fields: ${sortFields.length} > ${maxSortFields}`
       );
       sendErrorResponse(res, 400, `Cannot sort by more than ${maxSortFields} fields`);
@@ -572,27 +540,33 @@ function validateSorting(req: any, res: any, options: any = {}) {
       // Block dangerous property names
       const dangerousProps = ['__proto__', 'constructor', 'prototype'];
       if (dangerousProps.includes(fieldName)) {
-        console.log(`validateSorting is returning null due to dangerous field name: ${fieldName}`);
+        utils.debugLog(
+          `validateSorting is returning null due to dangerous field name: ${fieldName}`
+        );
         sendErrorResponse(res, 400, `Invalid sort field: ${fieldName}`);
         return null;
       }
 
       // Additional MongoDB operator checks
       if (fieldName.includes('$') || fieldName.includes('.')) {
-        console.log(`validateSorting is returning null due to invalid field format: ${fieldName}`);
+        utils.debugLog(
+          `validateSorting is returning null due to invalid field format: ${fieldName}`
+        );
         sendErrorResponse(res, 400, `Invalid sort field format: ${fieldName}`);
         return null;
       }
 
       // Validate field name format (alphanumeric and underscore only)
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(fieldName)) {
-        console.log(`validateSorting is returning null due to invalid field format: ${fieldName}`);
+        utils.debugLog(
+          `validateSorting is returning null due to invalid field format: ${fieldName}`
+        );
         sendErrorResponse(res, 400, `Invalid field name format: ${fieldName}`);
         return null;
       }
       // Validate field name against allowlist
       if (!allowedFields.includes(fieldName)) {
-        console.log(`validateSorting is returning null due to invalid field: ${fieldName}`);
+        utils.debugLog(`validateSorting is returning null due to invalid field: ${fieldName}`);
         sendErrorResponse(
           res,
           400,
@@ -609,7 +583,7 @@ function validateSorting(req: any, res: any, options: any = {}) {
     };
     // Debug logging in development only
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`validateSorting is returning: ${JSON.stringify(result)}`);
+      utils.debugLog(`validateSorting is returning: ${JSON.stringify(result)}`);
     }
     return result;
   } catch (error) {
@@ -618,7 +592,7 @@ function validateSorting(req: any, res: any, options: any = {}) {
       hasQuery: req && req.query !== undefined,
       queryKeys: req && req.query ? Object.keys(req.query) : [],
     });
-    console.error('Sorting validation error:', error);
+    utils.debugLog('Sorting validation error:', error);
     sendInternalServerError(res, 'Internal server error during sorting validation');
     return null;
   }

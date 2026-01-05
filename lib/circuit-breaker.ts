@@ -31,6 +31,9 @@
 
 import CircuitBreakerBase from 'opossum';
 import qerrors from 'qerrors';
+import { createModuleUtilities } from './common-patterns.js';
+
+const utils = createModuleUtilities('circuit-breaker');
 
 /**
  * Circuit breaker state constants
@@ -117,7 +120,7 @@ export class CircuitBreakerWrapper {
       }, opossumOptions);
     } catch (error) {
       // Log initialization failure with configuration context for debugging
-      qerrors.qerrors(error as Error, 'circuit-breaker.constructor', {
+      utils.logError(error as Error, 'constructor', {
         timeout: opossumOptions.timeout,
         errorThresholdPercentage: opossumOptions.errorThresholdPercentage,
         resetTimeout: opossumOptions.resetTimeout,
@@ -175,7 +178,7 @@ export class CircuitBreakerWrapper {
       return await operationBreaker.fire(...args);
     } catch (error) {
       // Log detailed error context for debugging and monitoring
-      qerrors.qerrors(error as Error, 'circuit-breaker.execute', {
+      utils.logError(error as Error, 'execute', {
         operationName: operation.name || 'anonymous',
         isOpen: operationBreaker.opened,
         isHalfOpen: operationBreaker.halfOpen,

@@ -14,23 +14,10 @@ import {
   sendConflict,
   sendValidationError,
 } from './http-utils.js';
-import qerrors from 'qerrors';
 import { safeDelay, calculateBackoffDelay } from './core/secure-delay';
+import { createModuleUtilities } from './common-patterns.js';
 
-interface Logger {
-  logDebug(message: string, context?: Record<string, unknown>): void;
-  warn(message: string, context?: Record<string, unknown>): void;
-  error(message: string, context?: Record<string, unknown>): void;
-}
-
-const logger: Logger = {
-  logDebug: (message: string, context?: Record<string, unknown>) =>
-    console.log('DEBUG:', message, context ?? ''),
-  warn: (message: string, context?: Record<string, unknown>) =>
-    console.warn('WARN:', message, context ?? ''),
-  error: (message: string, context?: Record<string, unknown>) =>
-    console.error('ERROR:', message, context ?? ''),
-};
+const utils = createModuleUtilities('database-utils');
 
 type AnyDocumentShape = Record<string, unknown>;
 
@@ -52,27 +39,25 @@ const isCastError = (error: unknown): error is { name: 'CastError' } =>
   typeof error === 'object' && error !== null && (error as { name?: string }).name === 'CastError';
 
 export const ensureMongoDB = (res: Response): boolean => {
-  logger.logDebug('ensureMongoDB is running', { readyState: mongoose.connection.readyState });
-  try {
-    const isReady = mongoose.connection.readyState === 1;
-    if (!isReady) {
-      sendServiceUnavailable(res, 'Database functionality unavailable');
-      logger.warn('Database connection not ready when ensureMongoDB executed');
-      return false;
-    }
-    logger.logDebug('ensureMongoDB confirmed healthy database connection');
-    return true;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'database-utils.ensureMongoDB', {
-      readyState: mongoose.connection.readyState,
-    });
-    logger.error('Database availability check error', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    sendInternalServerError(res, 'Error checking database connection');
-    return false;
-  }
+  return (
+    utils.safeSync(
+      () => {
+        utils
+          .getFunctionLogger('ensureMongoDB')
+          .debug('is running', { readyState: mongoose.connection.readyState });
+        const isReady = mongoose.connection.readyState === 1;
+        if (!isReady) {
+          sendServiceUnavailable(res, 'Database functionality unavailable');
+          utils.debugLog('Database connection not ready when ensureMongoDB executed');
+          return false;
+        }
+        utils.debugLog('ensureMongoDB confirmed healthy database connection');
+        return true;
+      },
+      'ensureMongoDB',
+      { readyState: mongoose.connection.readyState }
+    ) || false
+  );
 };
 
 export const ensureUnique = async <TSchema extends AnyDocumentShape>(
@@ -81,40 +66,35 @@ export const ensureUnique = async <TSchema extends AnyDocumentShape>(
   res: Response,
   duplicateMsg?: string
 ): Promise<boolean> => {
-  logger.logDebug('ensureUnique is running', { query });
-  try {
-    const existingDoc = await model.exists(query);
-    if (existingDoc) {
-      const duplicateId = String(existingDoc._id);
-      logger.warn('Duplicate document detected during ensureUnique', { query, duplicateId });
-      sendConflict(res, duplicateMsg ?? 'Resource already exists');
-      return false;
-    }
-    logger.logDebug('ensureUnique completed without detecting duplicates');
-    return true;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'database-utils.ensureUnique', {
-      queryKeys: Object.keys(query),
-    });
-    logger.error('Error checking document uniqueness', {
-      query,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    sendInternalServerError(res, 'Error checking document uniqueness');
-    return false;
-  }
+  return (
+    utils.safeAsync(
+      async () => {
+        utils.getFunctionLogger('ensureUnique').debug('is running', { query });
+        const existingDoc = await model.exists(query);
+        if (existingDoc) {
+          const duplicateId = String(existingDoc._id);
+          utils.debugLog('Duplicate document detected during ensureUnique', { query, duplicateId });
+          sendConflict(res, duplicateMsg ?? 'Resource already exists');
+          return false;
+        }
+        utils.debugLog('ensureUnique completed without detecting duplicates');
+        return true;
+      },
+      'ensureUnique',
+      { queryKeys: Object.keys(query) }
+    ) || false
+  );
 };
 
 export const handleMongoError = (error: unknown, res: Response | null, operation: string): void => {
-  qerrors.qerrors(error as Error, 'database-utils.handleMongoError', {
+  utils.logError(error as Error, 'handleMongoError', {
     operation,
     isMongoServerError: isMongoServerError(error),
     errorCode: isMongoServerError(error) ? error.code : undefined,
     hasResponse: res !== null,
   });
 
-  logger.error('MongoDB error during operation', {
+  utils.debugLog('MongoDB error during operation', {
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
     operation,
@@ -152,24 +132,23 @@ export const safeDbOperation = async <TResult>(
   res: Response | null,
   operationName: string
 ): Promise<TResult | null> => {
-  logger.logDebug('safeDbOperation executing', { operationName });
-  try {
-    const result = await operation();
-    logger.logDebug('safeDbOperation completed successfully', { operationName });
-    return result;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'database-utils.safeDbOperation', {
+  return utils
+    .safeAsync(
+      async () => {
+        utils.getFunctionLogger('safeDbOperation').debug('executing', { operationName });
+        const result = await operation();
+        utils
+          .getFunctionLogger('safeDbOperation')
+          .debug('completed successfully', { operationName });
+        return result;
+      },
       operationName,
-      hasResponse: res !== null,
+      { operationName, hasResponse: res !== null }
+    )
+    .catch(error => {
+      handleMongoError(error, res ?? null, operationName);
+      return null;
     });
-    logger.error('safeDbOperation failed', {
-      operationName,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    handleMongoError(error, res ?? null, operationName);
-    return null;
-  }
 };
 
 export const retryDbOperation = async <TResult>(
@@ -177,40 +156,46 @@ export const retryDbOperation = async <TResult>(
   maxRetries: number = 3,
   baseDelay: number = 1000
 ): Promise<TResult> => {
-  let lastError: Error = new Error('Unknown error');
-  let activeConnection = null;
+  return utils.safeAsync(
+    async () => {
+      let lastError: Error = new Error('Unknown error');
+      let activeConnection = null;
 
-  try {
-    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
       try {
-        logger.logDebug('retryDbOperation attempt', { attempt, maxRetries });
-        const result = await operation();
-        logger.logDebug('retryDbOperation succeeded', { attempt });
-        return result;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        qerrors.qerrors(lastError, 'database-utils.retryDbOperation', {
-          attempt,
-          maxRetries,
-          isFinalAttempt: attempt === maxRetries,
-        });
-        logger.warn('retryDbOperation attempt failed', {
-          attempt,
-          maxRetries,
-          message: lastError.message,
-        });
-        if (attempt < maxRetries) {
-          const totalDelay = calculateBackoffDelay(baseDelay, attempt, 60000);
-          logger.logDebug('retryDbOperation scheduling next attempt', { totalDelay });
-          await safeDelay(totalDelay);
+        for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+          try {
+            utils.getFunctionLogger('retryDbOperation').debug('attempt', { attempt, maxRetries });
+            const result = await operation();
+            utils.getFunctionLogger('retryDbOperation').debug('succeeded', { attempt });
+            return result;
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            utils.logError(lastError, 'retryDbOperation', {
+              attempt,
+              maxRetries,
+              isFinalAttempt: attempt === maxRetries,
+            });
+            utils.debugLog('retryDbOperation attempt failed', {
+              attempt,
+              maxRetries,
+              message: lastError.message,
+            });
+            if (attempt < maxRetries) {
+              const totalDelay = calculateBackoffDelay(baseDelay, attempt, 60000);
+              utils.debugLog('retryDbOperation scheduling next attempt', { totalDelay });
+              await safeDelay(totalDelay);
+            }
+          }
+        }
+        throw lastError;
+      } finally {
+        if (activeConnection) {
         }
       }
-    }
-    throw lastError;
-  } finally {
-    if (activeConnection) {
-    }
-  }
+    },
+    'retryDbOperation',
+    { maxRetries, baseDelay }
+  );
 };
 
 export const ensureIdempotency = async <TResult, TRecord extends IdempotencyRecord<TResult>>(
@@ -218,30 +203,27 @@ export const ensureIdempotency = async <TResult, TRecord extends IdempotencyReco
   idempotencyKey: string,
   operation: () => Promise<TResult>
 ): Promise<TResult> => {
-  logger.logDebug('ensureIdempotency checking key', { idempotencyKey });
-  try {
-    const existing = await model.findOne({ idempotencyKey }).exec();
-    if (existing) {
-      logger.logDebug('ensureIdempotency found cached result', { idempotencyKey });
-      return existing.result;
-    }
-    logger.logDebug('ensureIdempotency executing new operation', { idempotencyKey });
-    const result = await operation();
-    await model.create({ idempotencyKey, result, createdAt: new Date() } as TRecord);
-    logger.logDebug('ensureIdempotency stored new result', { idempotencyKey });
-    return result;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'database-utils.ensureIdempotency', {
-      idempotencyKey,
-      operationType: typeof operation,
-    });
-    logger.error('ensureIdempotency operation failed', {
-      idempotencyKey,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    throw error;
-  }
+  return utils.safeAsync(
+    async () => {
+      utils.getFunctionLogger('ensureIdempotency').debug('checking key', { idempotencyKey });
+      const existing = await model.findOne({ idempotencyKey }).exec();
+      if (existing) {
+        utils
+          .getFunctionLogger('ensureIdempotency')
+          .debug('found cached result', { idempotencyKey });
+        return existing.result;
+      }
+      utils
+        .getFunctionLogger('ensureIdempotency')
+        .debug('executing new operation', { idempotencyKey });
+      const result = await operation();
+      await model.create({ idempotencyKey, result, createdAt: new Date() } as TRecord);
+      utils.getFunctionLogger('ensureIdempotency').debug('stored new result', { idempotencyKey });
+      return result;
+    },
+    'ensureIdempotency',
+    { idempotencyKey, operationType: typeof operation }
+  );
 };
 
 export const optimizeQuery = <
@@ -252,17 +234,24 @@ export const optimizeQuery = <
 >(
   query: QueryWithHelpers<TResult, HydratedDocument<TSchema>, THelpers, TRawDocType>
 ): QueryWithHelpers<TResult, HydratedDocument<TSchema>, THelpers, TRawDocType> => {
-  logger.logDebug('optimizeQuery processing query');
-  let optimizedQuery = query;
-  if (typeof optimizedQuery.lean === 'function') {
-    optimizedQuery = optimizedQuery.lean() as typeof optimizedQuery;
-  }
-  const options: QueryOptions<TSchema> = optimizedQuery.getOptions();
-  if (!options.select && typeof optimizedQuery.select === 'function') {
-    optimizedQuery = optimizedQuery.select('-__v') as typeof optimizedQuery;
-  }
-  logger.logDebug('optimizeQuery completed');
-  return optimizedQuery;
+  return utils.safeSync(() => {
+    utils.debugLog('optimizeQuery processing query');
+    let optimizedQuery = query;
+    if (typeof optimizedQuery.lean === 'function') {
+      optimizedQuery = optimizedQuery.lean() as typeof optimizedQuery;
+    }
+    const options: QueryOptions<TSchema> = optimizedQuery.getOptions();
+    if (!options.select && typeof optimizedQuery.select === 'function') {
+      optimizedQuery = optimizedQuery.select('-__v') as typeof optimizedQuery;
+    }
+    utils.debugLog('optimizeQuery completed');
+    return optimizedQuery;
+  }, 'optimizeQuery') as QueryWithHelpers<
+    TResult,
+    HydratedDocument<TSchema>,
+    THelpers,
+    TRawDocType
+  >;
 };
 
 interface AggregationStageDefinition {
@@ -279,21 +268,27 @@ interface AggregationStageDefinition {
 export const createAggregationPipeline = (
   stages: AggregationStageDefinition[]
 ): PipelineStage[] => {
-  logger.logDebug('createAggregationPipeline building pipeline', { stageCount: stages.length });
-  const pipeline: PipelineStage[] = [];
-  stages.forEach((stage, index) => {
-    logger.logDebug('createAggregationPipeline processing stage', { index, stage });
-    if (stage.match) pipeline.push({ $match: stage.match });
-    if (stage.group) pipeline.push({ $group: stage.group });
-    if (stage.sort) pipeline.push({ $sort: stage.sort });
-    if (stage.skip !== undefined) pipeline.push({ $skip: stage.skip });
-    if (stage.limit !== undefined) pipeline.push({ $limit: stage.limit });
-    if (stage.project) pipeline.push({ $project: stage.project });
-    if (stage.lookup) pipeline.push({ $lookup: stage.lookup });
-    if (stage.unwind) pipeline.push({ $unwind: stage.unwind });
-  });
-  logger.logDebug('createAggregationPipeline completed', { pipelineLength: pipeline.length });
-  return pipeline;
+  return utils.safeSync(
+    () => {
+      utils.debugLog('createAggregationPipeline building pipeline', { stageCount: stages.length });
+      const pipeline: PipelineStage[] = [];
+      stages.forEach((stage, index) => {
+        utils.debugLog('createAggregationPipeline processing stage', { index, stage });
+        if (stage.match) pipeline.push({ $match: stage.match });
+        if (stage.group) pipeline.push({ $group: stage.group });
+        if (stage.sort) pipeline.push({ $sort: stage.sort });
+        if (stage.skip !== undefined) pipeline.push({ $skip: stage.skip });
+        if (stage.limit !== undefined) pipeline.push({ $limit: stage.limit });
+        if (stage.project) pipeline.push({ $project: stage.project });
+        if (stage.lookup) pipeline.push({ $lookup: stage.lookup });
+        if (stage.unwind) pipeline.push({ $unwind: stage.unwind });
+      });
+      utils.debugLog('createAggregationPipeline completed', { pipelineLength: pipeline.length });
+      return pipeline;
+    },
+    'createAggregationPipeline',
+    { stageCount: stages.length }
+  ) as PipelineStage[];
 };
 
 interface DatabaseIndexDefinition {
@@ -306,49 +301,49 @@ interface DatabaseIndexDefinition {
 export const createDocumentIndexes = async <TSchema extends AnyDocumentShape>(
   model: Model<TSchema>
 ): Promise<void> => {
-  try {
-    logger.logDebug('createDocumentIndexes starting index creation', {
-      modelName: model.modelName,
-    });
+  return utils.safeAsync(
+    async () => {
+      utils.debugLog('createDocumentIndexes starting index creation', {
+        modelName: model.modelName,
+      });
 
-    const indexes: DatabaseIndexDefinition[] = [
-      { fields: { user: 1 }, background: true },
-      { fields: { user: 1, createdAt: -1 }, background: true },
-      { fields: { user: 1, updatedAt: -1 }, background: true },
-      { fields: { user: 1, title: 1 }, unique: true, sparse: true, background: true },
-    ];
+      const indexes: DatabaseIndexDefinition[] = [
+        { fields: { user: 1 }, background: true },
+        { fields: { user: 1, createdAt: -1 }, background: true },
+        { fields: { user: 1, updatedAt: -1 }, background: true },
+        { fields: { user: 1, title: 1 }, unique: true, sparse: true, background: true },
+      ];
 
-    await Promise.all(
-      indexes.map(async (indexDef, index) => {
-        try {
-          await model.collection.createIndex(indexDef.fields, {
-            unique: indexDef.unique,
-            sparse: indexDef.sparse,
-            background: indexDef.background,
-          });
-          logger.logDebug('createDocumentIndexes index created', {
-            modelName: model.modelName,
-            indexNumber: index + 1,
-            fields: Object.keys(indexDef.fields),
-            unique: indexDef.unique,
-          });
-        } catch (indexError) {
-          logger.warn('createDocumentIndexes index creation failed', {
-            modelName: model.modelName,
-            indexNumber: index + 1,
-            fields: Object.keys(indexDef.fields),
-            error: indexError instanceof Error ? indexError.message : String(indexError),
-          });
-        }
-      })
-    );
+      await Promise.all(
+        indexes.map(async (indexDef, index) => {
+          try {
+            await model.collection.createIndex(indexDef.fields, {
+              unique: indexDef.unique,
+              sparse: indexDef.sparse,
+              background: indexDef.background,
+            });
+            utils.debugLog('createDocumentIndexes index created', {
+              modelName: model.modelName,
+              indexNumber: index + 1,
+              fields: Object.keys(indexDef.fields),
+              unique: indexDef.unique,
+            });
+          } catch (indexError) {
+            utils.debugLog('createDocumentIndexes index creation failed', {
+              modelName: model.modelName,
+              indexNumber: index + 1,
+              fields: Object.keys(indexDef.fields),
+              error: indexError instanceof Error ? indexError.message : String(indexError),
+            });
+          }
+        })
+      );
 
-    logger.logDebug('createDocumentIndexes completed successfully', { modelName: model.modelName });
-  } catch (error) {
-    logger.error('createDocumentIndexes failed', {
-      modelName: model.modelName,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
+      utils.debugLog('createDocumentIndexes completed successfully', {
+        modelName: model.modelName,
+      });
+    },
+    'createDocumentIndexes',
+    { modelName: model.modelName }
+  );
 };

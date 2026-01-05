@@ -12,6 +12,9 @@ import {
   databaseConnectionPool as sharedDatabaseConnectionPool,
 } from './database/connection-pool-manager.js';
 import qerrors from 'qerrors';
+import { createModuleUtilities, validateObject, validateObjectOrNull } from './common-patterns.js';
+
+const utils = createModuleUtilities('database-pool');
 
 export interface DatabasePoolConfig {
   maxConnections?: number;
@@ -107,9 +110,7 @@ function isSimplePoolInstance(value: unknown): value is SimpleDatabasePoolInstan
   if (value instanceof SimpleDatabasePool) {
     return true;
   }
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
+  validateObjectOrNull(value, 'pool instance');
   const candidate = value as Partial<SimpleDatabasePoolContract>;
   return (
     typeof candidate.getStats === 'function' &&
@@ -157,9 +158,7 @@ function assertPoolsByTypeRecord(value: unknown, context: string): Record<string
   if (value === undefined) {
     return {};
   }
-  if (value === null || typeof value !== 'object') {
-    throw new Error(`${context} must be an object map of pool counts`);
-  }
+  validateObject(value, `${context} must be an object map of pool counts`);
   const record: Record<string, number> = {};
   for (const [key, count] of Object.entries(value as Record<string, unknown>)) {
     record[key] = assertFiniteNumber(count, `${context}.${key}`);
@@ -169,9 +168,7 @@ function assertPoolsByTypeRecord(value: unknown, context: string): Record<string
 
 // Normalize individual pool metric snapshots, rejecting malformed payloads.
 function assertPoolStatistics(value: unknown, context: string): PoolStatistics {
-  if (value === null || typeof value !== 'object') {
-    throw new Error(`${context} must be an object containing pool statistics`);
-  }
+  validateObject(value, `${context} must be an object containing pool statistics`);
   const stats = value as Record<string, unknown>;
   return {
     active: assertFiniteNumber(stats.active, `${context}.active`),
@@ -202,9 +199,7 @@ function assertPoolStatisticsRecord(
 
 // Validate per-pool health entries, including nested statistics and textual issue details.
 function assertHealthStatus(value: unknown, context: string): PoolHealthStatus {
-  if (value === null || typeof value !== 'object') {
-    throw new Error(`${context} must be an object containing pool health data`);
-  }
+  validateObject(value, `${context} must be an object containing pool health data`);
   const health = value as Record<string, unknown>;
   const status = assertNonEmptyString(health.status, `${context}.status`);
   if (!HEALTH_STATUSES.has(status as PoolHealthStatus['status'])) {
@@ -243,9 +238,7 @@ function assertOverallHealth(
 
 // Validate the aggregated statistics payload pulled from the connection manager.
 function assertGlobalStatistics(value: unknown, context: string): GlobalPoolStatistics {
-  if (value === null || typeof value !== 'object') {
-    throw new Error(`${context} must return an object with global statistics`);
-  }
+  validateObject(value, `${context} must return an object with global statistics`);
   const stats = value as Record<string, unknown>;
   return {
     totalPools: assertFiniteNumber(stats.totalPools, `${context}.totalPools`),
@@ -297,7 +290,7 @@ function getDatabasePool(databaseUrl: string): SimpleDatabasePoolInstance | null
     }
     return pool;
   } catch (error) {
-    qerrors.qerrors(error as Error, 'database-pool.getDatabasePool', {
+    utils.logError(error as Error, 'getDatabasePool', {
       databaseUrl: databaseUrl.replace(/\/\/.*@/, '//***:***@'), // Sanitize potential credentials
     });
     throw error;

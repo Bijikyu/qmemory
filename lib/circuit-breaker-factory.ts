@@ -1,5 +1,7 @@
 import { createCircuitBreaker } from './circuit-breaker.js';
-import qerrors from 'qerrors';
+import { createModuleUtilities } from './common-patterns.js';
+
+const utils = createModuleUtilities('circuit-breaker-factory');
 export class CircuitBreakerFactory {
   private breakers: Map<string, any>;
   private cleanupInterval: NodeJS.Timeout | null;
@@ -57,12 +59,11 @@ export class CircuitBreakerFactory {
       }
       return breaker;
     } catch (error) {
-      qerrors.qerrors(error as Error, 'circuit-breaker-factory.getCircuitBreaker', {
+      utils.logError(error as Error, 'getCircuitBreaker', {
         domain,
         isShutdown: this.isShutdown,
         currentBreakerCount: this.breakers.size,
         maxBreakers: this.maxBreakers,
-        operation: 'breaker-creation',
       });
       throw error;
     }
@@ -75,6 +76,7 @@ export class CircuitBreakerFactory {
   enforceBreakerLimit() {
     const entries = Array.from(this.breakers.entries());
     entries.sort(([, a], [, b]) => {
+      if (!a || !b) return 0;
       const timeA = a._lastUsedTime || 0;
       const timeB = b._lastUsedTime || 0;
       return timeA - timeB;
@@ -99,19 +101,19 @@ export class CircuitBreakerFactory {
         try {
           if (typeof breaker.destroy === 'function') breaker.destroy();
         } catch (error) {
-          qerrors.qerrors(error as Error, 'circuit-breaker-factory.removeCircuitBreaker.destroy', {
+          utils.logError(error as Error, 'removeCircuitBreaker.destroy', {
             domain,
             hasDestroyMethod: typeof breaker.destroy === 'function',
             operation: 'breaker-destruction',
           });
-          console.warn(`Error destroying circuit breaker for ${domain}:`, error);
+          utils.debugLog(`Error destroying circuit breaker for ${domain}:`, error);
         }
         this.breakers.delete(domain);
         return true;
       }
       return false;
     } catch (error) {
-      qerrors.qerrors(error as Error, 'circuit-breaker-factory.removeCircuitBreaker', {
+      utils.logError(error as Error, 'removeCircuitBreaker', {
         domain,
         currentBreakerCount: this.breakers.size,
         operation: 'breaker-removal',
@@ -153,12 +155,12 @@ export class CircuitBreakerFactory {
       toRemove.forEach(domain => this.removeCircuitBreaker(domain));
       if (toRemove.length > 0) console.log(`Cleaned up ${toRemove.length} idle circuit breakers`);
     } catch (error) {
-      qerrors.qerrors(error as Error, 'circuit-breaker-factory.performCleanup', {
+      utils.logError(error as Error, 'performCleanup', {
         currentBreakerCount: this.breakers.size,
         breakerTimeoutMs: this.breakerTimeoutMs,
         operation: 'cleanup',
       });
-      console.error('Error during circuit breaker cleanup:', error);
+      utils.debugLog('Error during circuit breaker cleanup:', error);
     }
   }
   /**
@@ -247,13 +249,13 @@ export class CircuitBreakerFactory {
       this.clearAllBreakers();
       console.log('Circuit breaker factory shutdown complete');
     } catch (error) {
-      qerrors.qerrors(error as Error, 'circuit-breaker-factory.shutdown', {
+      utils.logError(error as Error, 'shutdown', {
         isShutdown: this.isShutdown,
         hasCleanupInterval: this.cleanupInterval !== null,
         currentBreakerCount: this.breakers.size,
         operation: 'factory-shutdown',
       });
-      console.error('Error during circuit breaker factory shutdown:', error);
+      utils.debugLog('Error during circuit breaker factory shutdown:', error);
       throw error;
     }
   }
@@ -266,7 +268,7 @@ let globalFactory = null;
  * @returns Factory instance
  */
 export function getCircuitBreakerFactory(options = {}) {
-  if (!globalFactory || globalFactory.isShutdown)
+  if (!globalFactory || (globalFactory && globalFactory.isShutdown))
     globalFactory = new CircuitBreakerFactory(options);
   return globalFactory;
 }

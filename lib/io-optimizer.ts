@@ -1,6 +1,6 @@
 /**
  * I/O Optimization Module
- * 
+ *
  * Moves expensive I/O operations out of request paths by implementing:
  * - Background processing queues
  * - Caching strategies
@@ -48,7 +48,7 @@ class IOOptimizer {
   private batchQueue: Map<string, BatchOperation<unknown>>;
   private processingInterval: NodeJS.Timeout | null;
   private cacheCleanupInterval: NodeJS.Timeout | null;
-  
+
   // Configuration
   private readonly MAX_QUEUE_SIZE = 1000;
   private readonly CACHE_CLEANUP_INTERVAL = 60000; // 1 minute
@@ -62,7 +62,7 @@ class IOOptimizer {
     this.batchQueue = new Map();
     this.processingInterval = null;
     this.cacheCleanupInterval = null;
-    
+
     this.startBackgroundProcessing();
   }
 
@@ -86,7 +86,7 @@ class IOOptimizer {
 
     this.taskQueue.push(fullTask);
     this.eventEmitter.emit('taskQueued', fullTask);
-    
+
     return taskId;
   }
 
@@ -107,7 +107,7 @@ class IOOptimizer {
    */
   getCachedResponse(key: string): CachedResponse | null {
     const cached = this.responseCache.get(key);
-    
+
     if (!cached) {
       return null;
     }
@@ -142,12 +142,12 @@ class IOOptimizer {
       // Override resolve/reject for actual operations
       batchOperation.operations = operations.map((op, index) => ({
         ...op,
-        resolve: (result) => {
+        resolve: result => {
           batchOperation.operations[index].resolve = () => {};
           // Handle batch completion
           this.checkBatchCompletion(batchType, batchOperation);
         },
-        reject: (error) => {
+        reject: error => {
           batchOperation.operations[index].reject = () => {};
           // Handle batch failure
           this.checkBatchCompletion(batchType, batchOperation);
@@ -223,20 +223,20 @@ class IOOptimizer {
 
     try {
       this.eventEmitter.emit('taskProcessing', taskToProcess);
-      
+
       // Simulate async processing - in real use, this would be actual work
       await this.executeTask(taskToProcess);
-      
+
       this.eventEmitter.emit('taskCompleted', taskToProcess);
-      
+
       if (taskToProcess.callback) {
         taskToProcess.callback(undefined, 'Task completed successfully');
       }
     } catch (error) {
       this.eventEmitter.emit('taskFailed', taskToProcess, error);
-      
+
       taskToProcess.retryCount = (taskToProcess.retryCount || 0) + 1;
-      
+
       // Retry failed tasks up to 3 times
       if (taskToProcess.retryCount < 3) {
         this.taskQueue.push(taskToProcess);
@@ -253,7 +253,10 @@ class IOOptimizer {
    */
   private async processBatchQueue(): Promise<void> {
     for (const [batchType, batch] of this.batchQueue) {
-      if (batch.operations.length > 0 && Date.now() - (batch.operations[0]?.data as any)?.timestamp > batch.timeout) {
+      if (
+        batch.operations.length > 0 &&
+        Date.now() - (batch.operations[0]?.data as any)?.timestamp > batch.timeout
+      ) {
         this.batchQueue.delete(batchType);
         continue;
       }
@@ -266,14 +269,14 @@ class IOOptimizer {
             (op as any).resolve(results[index]);
           }
         });
-        
+
         this.batchQueue.delete(batchType);
         this.eventEmitter.emit('batchCompleted', batchType, results);
       } catch (error) {
-        batch.operations.forEach((op) => {
+        batch.operations.forEach(op => {
           (op as any).reject(error as Error);
         });
-        
+
         this.batchQueue.delete(batchType);
         this.eventEmitter.emit('batchFailed', batchType, error);
       }
@@ -348,7 +351,9 @@ class IOOptimizer {
    */
   private checkBatchCompletion(batchType: string, batch: BatchOperation<unknown>): void {
     // Simple check - all operations processed
-    const allProcessed = batch.operations.every(op => (op as any).resolve !== () => {});
+    const allProcessed = batch.operations.every(
+      op => typeof (op as any).resolve === 'function' && (op as any).resolve !== undefined
+    );
     if (allProcessed) {
       this.batchQueue.delete(batchType);
     }
@@ -378,7 +383,7 @@ class IOOptimizer {
    */
   private getTaskTypeDistribution(): Record<string, number> {
     const distribution: Record<string, number> = {};
-    
+
     for (const task of this.taskQueue) {
       distribution[task.type] = (distribution[task.type] || 0) + 1;
     }
@@ -446,10 +451,4 @@ class IOOptimizer {
 // Global I/O optimizer instance
 const ioOptimizer = new IOOptimizer();
 
-export {
-  IOOptimizer,
-  ioOptimizer,
-  type BackgroundTask,
-  type CachedResponse,
-  type BatchOperation,
-};
+export { IOOptimizer, ioOptimizer, type BackgroundTask, type CachedResponse, type BatchOperation };

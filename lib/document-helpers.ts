@@ -12,21 +12,9 @@ import {
 type LeanDocument<T> = T;
 import type { UpdateResult } from 'mongodb';
 import { safeDbOperation } from './database-utils.js';
-import qerrors from 'qerrors';
+import { createModuleUtilities } from './common-patterns.js';
 
-interface Logger {
-  logFunctionEntry(functionName: string, data?: Record<string, unknown>): void;
-  logDebug(message: string, data?: Record<string, unknown>): void;
-  logError(message: string, error: unknown): void;
-}
-
-const logger: Logger = {
-  logFunctionEntry: (functionName: string, data?: Record<string, unknown>) =>
-    console.log(`ENTRY: ${functionName}`, data ?? ''),
-  logDebug: (message: string, data?: Record<string, unknown>) =>
-    console.log(`DEBUG: ${message}`, data ?? ''),
-  logError: (message: string, error: unknown) => console.error(`ERROR: ${message}`, error),
-};
+const utils = createModuleUtilities('document-helpers');
 
 type AnyDocumentShape = AnyObject;
 type DocumentId = Types.ObjectId | string;
@@ -54,23 +42,24 @@ const findDocumentById = async <TSchema extends AnyDocumentShape>(
   model: Model<TSchema>,
   id: DocumentId
 ): Promise<HydratedDocument<TSchema> | null> => {
-  if (!model) {
-    throw new Error('Model is required');
-  }
-  logger.logFunctionEntry('findDocumentById', { model: model.modelName, id });
-  try {
-    const result = await safeDbOperation(() => model.findById(id).exec(), null, 'findDocumentById');
-    logger.logDebug('findDocumentById returning result', { hasResult: Boolean(result) });
-    return result;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'document-helpers.findDocumentById', {
-      modelName: model.modelName,
-      id,
-      operation: 'findById',
-    });
-    logger.logError('findDocumentById encountered an error', error);
-    throw error; // Re-throw to preserve error propagation
-  }
+  return utils.safeAsync(
+    async () => {
+      if (!model) {
+        throw new Error('Model is required');
+      }
+      const result = await safeDbOperation(
+        () => model.findById(id).exec(),
+        null,
+        'findDocumentById'
+      );
+      utils
+        .getFunctionLogger('findDocumentById')
+        .debug('returning result', { hasResult: Boolean(result) });
+      return result;
+    },
+    'findDocumentById',
+    { model: model.modelName, id }
+  );
 };
 
 /**
@@ -85,32 +74,28 @@ const updateDocumentById = async <TSchema extends AnyDocumentShape>(
   id: DocumentId,
   updates: UpdateQuery<TSchema>
 ): Promise<HydratedDocument<TSchema> | null> => {
-  if (!model) {
-    throw new Error('Model is required');
-  }
-  logger.logFunctionEntry('updateDocumentById', {
-    model: model.modelName,
-    id,
-    updateFields: Object.keys(updates ?? {}),
-  });
-  try {
-    const result = await safeDbOperation(
-      () => model.findByIdAndUpdate(id, updates, { new: true }).exec(),
-      null,
-      'updateDocumentById'
-    );
-    logger.logDebug('updateDocumentById returning result', { hasResult: Boolean(result) });
-    return result;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'document-helpers.updateDocumentById', {
-      modelName: model.modelName,
+  return utils.safeAsync(
+    async () => {
+      if (!model) {
+        throw new Error('Model is required');
+      }
+      const result = await safeDbOperation(
+        () => model.findByIdAndUpdate(id, updates, { new: true }).exec(),
+        null,
+        'updateDocumentById'
+      );
+      utils
+        .getFunctionLogger('updateDocumentById')
+        .debug('returning result', { hasResult: Boolean(result) });
+      return result;
+    },
+    'updateDocumentById',
+    {
+      model: model.modelName,
       id,
-      updateFieldCount: Object.keys(updates ?? {}).length,
-      operation: 'findByIdAndUpdate',
-    });
-    logger.logError('updateDocumentById encountered an error', error);
-    throw error; // Re-throw to preserve error propagation
-  }
+      updateFields: Object.keys(updates ?? {}),
+    }
+  );
 };
 
 /**
@@ -123,17 +108,22 @@ const deleteDocumentById = async <TSchema extends AnyDocumentShape>(
   model: Model<TSchema>,
   id: DocumentId
 ): Promise<boolean> => {
-  logger.logFunctionEntry('deleteDocumentById', { model: model.modelName, id });
-  const result = await safeDbOperation(
+  return utils.safeAsync(
     async () => {
-      const deleted = await model.findByIdAndDelete(id).exec();
-      return Boolean(deleted);
+      const result = await safeDbOperation(
+        async () => {
+          const deleted = await model.findByIdAndDelete(id).exec();
+          return Boolean(deleted);
+        },
+        null,
+        'deleteDocumentById'
+      );
+      utils.getFunctionLogger('deleteDocumentById').debug('returning result', { result });
+      return result ?? false;
     },
-    null,
-    'deleteDocumentById'
+    'deleteDocumentById',
+    { model: model.modelName, id }
   );
-  logger.logDebug('deleteDocumentById returning result', { result });
-  return result ?? false;
 };
 
 /**
@@ -151,18 +141,20 @@ const cascadeDeleteDocument = async <
   id: DocumentId,
   relatedModels: Array<Model<TRelatedSchema>> = []
 ): Promise<boolean> => {
-  logger.logFunctionEntry('cascadeDeleteDocument', {
+  const funcLogger = utils.getFunctionLogger('cascadeDeleteDocument');
+  funcLogger.entry({
     model: model.modelName,
     id,
     relatedModels: relatedModels.map(m => m.modelName),
   });
+
   const session = await model.startSession();
   try {
     session.startTransaction();
 
     const doc = await model.findById(id).session(session).exec();
     if (!doc) {
-      logger.logDebug('cascadeDeleteDocument aborted - primary document missing');
+      funcLogger.debug('aborted - primary document missing');
       await session.abortTransaction();
       return false;
     }
@@ -179,35 +171,32 @@ const cascadeDeleteDocument = async <
     }
     await model.findByIdAndDelete(id).session(session).exec();
     await session.commitTransaction();
-    logger.logDebug('cascadeDeleteDocument removed primary and related documents');
+    funcLogger.debug('removed primary and related documents');
     return true;
   } catch (error) {
     try {
       await session.abortTransaction();
     } catch (abortError) {
-      qerrors.qerrors(abortError as Error, 'document-helpers.cascadeDeleteDocument.abort', {
+      utils.logError(abortError as Error, 'cascadeDeleteDocument.abort', {
         originalError: (error as Error).message,
         abortError: (abortError as Error).message,
       });
-      logger.logError('Failed to abort transaction during cascade delete', abortError);
     }
 
-    qerrors.qerrors(error as Error, 'document-helpers.cascadeDeleteDocument', {
+    utils.logError(error as Error, 'cascadeDeleteDocument', {
       modelName: model.modelName,
       id,
       relatedModelCount: relatedModels.length,
       relatedModelNames: relatedModels.map(m => m.modelName),
     });
-    logger.logError('cascadeDeleteDocument encountered an error', error);
     return false;
   } finally {
     try {
       await session.endSession();
     } catch (sessionError) {
-      qerrors.qerrors(sessionError as Error, 'document-helpers.cascadeDeleteDocument.session', {
+      utils.logError(sessionError as Error, 'cascadeDeleteDocument.session', {
         error: (sessionError as Error).message,
       });
-      logger.logError('Failed to end session during cascade delete', sessionError);
     }
   }
 };
@@ -222,26 +211,23 @@ const createDocument = async <TSchema extends AnyDocumentShape>(
   model: Model<TSchema>,
   data: AnyKeys<TSchema>
 ): Promise<HydratedDocument<TSchema> | null> => {
-  if (!model) {
-    throw new Error('Model is required');
-  }
-  logger.logFunctionEntry('createDocument', {
-    model: model.modelName,
-    dataFields: Object.keys((data as Record<string, unknown>) ?? {}),
-  });
-  try {
-    const result = await safeDbOperation(() => model.create(data), null, 'createDocument');
-    logger.logDebug('createDocument returning result', { hasResult: Boolean(result) });
-    return result;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'document-helpers.createDocument', {
-      modelName: model.modelName,
-      dataFieldCount: Object.keys((data as Record<string, unknown>) ?? {}).length,
-      operation: 'create',
-    });
-    logger.logError('createDocument encountered an error', error);
-    throw error; // Re-throw to preserve error propagation
-  }
+  return utils.safeAsync(
+    async () => {
+      if (!model) {
+        throw new Error('Model is required');
+      }
+      const result = await safeDbOperation(() => model.create(data), null, 'createDocument');
+      utils
+        .getFunctionLogger('createDocument')
+        .debug('returning result', { hasResult: Boolean(result) });
+      return result;
+    },
+    'createDocument',
+    {
+      model: model.modelName,
+      dataFields: Object.keys((data as Record<string, unknown>) ?? {}),
+    }
+  );
 };
 
 /**
@@ -256,45 +242,36 @@ const findDocuments = async <TSchema extends AnyDocumentShape>(
   query: FilterQuery<TSchema> = {},
   options: FindDocumentsOptions<TSchema> = {}
 ): Promise<Array<LeanDocument<TSchema>>> => {
-  logger.logFunctionEntry('findDocuments', { model: model.modelName, query, options });
-  try {
-    const result = await safeDbOperation(
-      async () => {
-        let queryBuilder = model.find(query);
-        if (options.sort) {
-          queryBuilder = queryBuilder.sort(options.sort);
-        }
-        if (options.limit) {
-          queryBuilder = queryBuilder.limit(options.limit);
-        }
-        if (options.skip) {
-          queryBuilder = queryBuilder.skip(options.skip);
-        }
-        if (options.select) {
-          queryBuilder = queryBuilder.select(options.select);
-        }
-        return queryBuilder.lean().exec();
-      },
-      null,
-      'findDocuments'
-    );
-    logger.logDebug('findDocuments returning documents', {
-      count: Array.isArray(result) ? result.length : 0,
-    });
-    return (result ?? []) as TSchema[];
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'document-helpers.findDocuments', {
-      modelName: model.modelName,
-      queryFieldCount: Object.keys(query).length,
-      hasSort: options.sort !== undefined,
-      hasLimit: options.limit !== undefined,
-      hasSkip: options.skip !== undefined,
-      hasSelect: options.select !== undefined,
-      operation: 'find',
-    });
-    logger.logError('findDocuments encountered an error', error);
-    throw error; // Re-throw to preserve error propagation
-  }
+  return utils.safeAsync(
+    async () => {
+      const result = await safeDbOperation(
+        async () => {
+          let queryBuilder = model.find(query);
+          if (options.sort) {
+            queryBuilder = queryBuilder.sort(options.sort);
+          }
+          if (options.limit) {
+            queryBuilder = queryBuilder.limit(options.limit);
+          }
+          if (options.skip) {
+            queryBuilder = queryBuilder.skip(options.skip);
+          }
+          if (options.select) {
+            queryBuilder = queryBuilder.select(options.select);
+          }
+          return queryBuilder.lean().exec();
+        },
+        null,
+        'findDocuments'
+      );
+      utils.getFunctionLogger('findDocuments').debug('returning documents', {
+        count: Array.isArray(result) ? result.length : 0,
+      });
+      return (result ?? []) as TSchema[];
+    },
+    'findDocuments',
+    { model: model.modelName, query, options }
+  );
 };
 
 /**
@@ -307,24 +284,21 @@ const findOneDocument = async <TSchema extends AnyDocumentShape>(
   model: Model<TSchema>,
   query: FilterQuery<TSchema>
 ): Promise<LeanDocument<TSchema> | null> => {
-  logger.logFunctionEntry('findOneDocument', { model: model.modelName, query });
-  try {
-    const result = await safeDbOperation(
-      () => model.findOne(query).lean().exec(),
-      null,
-      'findOneDocument'
-    );
-    logger.logDebug('findOneDocument returning result', { hasResult: Boolean(result) });
-    return result as LeanDocument<TSchema> | null;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'document-helpers.findOneDocument', {
-      modelName: model.modelName,
-      queryFieldCount: Object.keys(query).length,
-      operation: 'findOne',
-    });
-    logger.logError('findOneDocument encountered an error', error);
-    throw error; // Re-throw to preserve error propagation
-  }
+  return utils.safeAsync(
+    async () => {
+      const result = await safeDbOperation(
+        () => model.findOne(query).lean().exec(),
+        null,
+        'findOneDocument'
+      );
+      utils
+        .getFunctionLogger('findOneDocument')
+        .debug('returning result', { hasResult: Boolean(result) });
+      return result as LeanDocument<TSchema> | null;
+    },
+    'findOneDocument',
+    { model: model.modelName, query }
+  );
 };
 
 /**
@@ -337,31 +311,30 @@ const bulkUpdateDocuments = async <TSchema extends AnyDocumentShape>(
   model: Model<TSchema>,
   updates: Array<BulkUpdateInstruction<TSchema>>
 ): Promise<Array<UpdateResult> | null> => {
-  if (!model) {
-    throw new Error('Model is required');
-  }
-  logger.logFunctionEntry('bulkUpdateDocuments', {
-    model: model.modelName,
-    updateCount: updates.length,
-  });
-  try {
-    const results = await Promise.all(
-      updates.map(async updateInstruction => {
-        const { filter, data, options = {} } = updateInstruction;
-        return await model.updateMany(filter, data, options as any).exec();
-      })
-    );
-    logger.logDebug('bulkUpdateDocuments returning batch results', { count: results.length });
-    return results;
-  } catch (error) {
-    qerrors.qerrors(error as Error, 'document-helpers.bulkUpdateDocuments', {
-      modelName: model.modelName,
-      updateCount: updates.length,
-      updateFields: updates.map(u => (u.filter ? Object.keys(u.filter) : [])),
-    });
-    logger.logError('bulkUpdateDocuments error', error);
-    return null;
-  }
+  return (
+    utils.safeAsync(
+      async () => {
+        if (!model) {
+          throw new Error('Model is required');
+        }
+        const results = await Promise.all(
+          updates.map(async updateInstruction => {
+            const { filter, data, options = {} } = updateInstruction;
+            return await model.updateMany(filter, data, options as any).exec();
+          })
+        );
+        utils
+          .getFunctionLogger('bulkUpdateDocuments')
+          .debug('returning batch results', { count: results.length });
+        return results;
+      },
+      'bulkUpdateDocuments',
+      {
+        model: model.modelName,
+        updateCount: updates.length,
+      }
+    ) || null
+  );
 };
 
 export {
