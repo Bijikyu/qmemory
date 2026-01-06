@@ -113,6 +113,11 @@ export const createModuleUtilities = (module: string) => {
     safeSync: <T>(operation: () => T, functionName: string, context?: Record<string, unknown>) =>
       safeOperationSync(operation, functionName, module, context),
     validateResponse: (res: any, functionName: string) => validateResponse(res, functionName),
+    sendErrorResponse: sendStandardErrorResponse,
+    createErrorResponse: createStandardErrorResponse,
+    generateUniqueId,
+    validateStringField,
+    validateBooleanField,
   };
 };
 
@@ -146,6 +151,42 @@ export const validateObject = (obj: any, paramName: string = 'object'): void => 
 export const validateObjectOrNull = (obj: any, paramName: string = 'object'): void => {
   if (obj !== null && (obj === undefined || typeof obj !== 'object')) {
     throw new Error(`${paramName} must be an object or null`);
+  }
+};
+
+// String field validation utilities
+export const validateStringField = (
+  obj: any,
+  fieldName: string,
+  required: boolean = true,
+  allowEmpty: boolean = false
+): void => {
+  if (required && (obj[fieldName] === undefined || obj[fieldName] === null)) {
+    throw new Error(`${fieldName} is required`);
+  }
+  if (obj[fieldName] !== undefined && obj[fieldName] !== null) {
+    if (typeof obj[fieldName] !== 'string') {
+      throw new Error(`${fieldName} must be a string`);
+    }
+    if (!allowEmpty && !obj[fieldName].trim()) {
+      throw new Error(`${fieldName} must be a non-empty string`);
+    }
+  }
+};
+
+// Boolean field validation utilities
+export const validateBooleanField = (
+  obj: any,
+  fieldName: string,
+  required: boolean = false
+): void => {
+  if (required && (obj[fieldName] === undefined || obj[fieldName] === null)) {
+    throw new Error(`${fieldName} is required`);
+  }
+  if (obj[fieldName] !== undefined && obj[fieldName] !== null) {
+    if (typeof obj[fieldName] !== 'boolean') {
+      throw new Error(`${fieldName} must be a boolean`);
+    }
   }
 };
 
@@ -273,6 +314,63 @@ export const getTimestamp = (): string => new Date().toISOString();
 // Object validation utility to eliminate typeof object checks duplication
 export const isValidPlainObject = (value: any): boolean =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+// Unique ID generator utility
+export const generateUniqueId = (): string => {
+  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+};
+
+// HTTP Error Response utilities to eliminate duplicate error response patterns
+export const createStandardErrorResponse = (
+  errorType: string,
+  message: string,
+  statusCode: number = 500,
+  details?: unknown
+) => {
+  return {
+    error: {
+      type: errorType,
+      message: message || 'An error occurred while processing your request',
+      timestamp: getTimestamp(),
+      requestId: generateUniqueId(),
+      ...(details && { details }),
+    },
+  };
+};
+
+export const sendStandardErrorResponse = (
+  res: any,
+  errorType: string,
+  message: string,
+  statusCode: number = 500,
+  details?: unknown
+) => {
+  try {
+    if (!res || typeof res !== 'object') {
+      throw new Error('Invalid response object: must be an object');
+    }
+    if (typeof res.status !== 'function') {
+      throw new Error('Invalid response object: missing status() method');
+    }
+    if (typeof res.json !== 'function') {
+      throw new Error('Invalid response object: missing json() method');
+    }
+
+    const response = createStandardErrorResponse(errorType, message, statusCode, details);
+    return res.status(statusCode).json(response);
+  } catch (err) {
+    console.error('Failed to send error response:', err);
+    return res
+      .status(500)
+      .json(
+        createStandardErrorResponse(
+          'INTERNAL_ERROR',
+          'An error occurred while processing your request',
+          500
+        )
+      );
+  }
+};
 
 // Export types for external usage
 export type ModuleUtilities = ReturnType<typeof createModuleUtilities>;

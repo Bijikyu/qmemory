@@ -3,7 +3,9 @@
  * Provides GDPR/CCPA compliance features for data handling and user rights
  */
 import type { Request, Response, NextFunction } from 'express';
-import { getTimestamp } from './common-patterns.js';
+import { getTimestamp, createModuleUtilities } from './common-patterns.js';
+
+const utils = createModuleUtilities('privacy-compliance');
 
 // Extend Request interface to include user property
 declare global {
@@ -125,14 +127,15 @@ const hasValidConsent = (consent: ConsentRecord | null, path: string): boolean =
  * Send consent required response
  */
 const sendConsentRequired = (res: Response): void => {
-  res.status(451).json({
-    error: {
-      type: 'CONSENT_REQUIRED',
-      message: 'User consent required for this operation',
-      timestamp: getTimestamp(),
+  utils.sendErrorResponse(
+    res,
+    'CONSENT_REQUIRED',
+    'User consent required for this operation',
+    451,
+    {
       requiredConsents: ['dataProcessing', 'analytics', 'marketing'],
-    },
-  });
+    }
+  );
   return;
 };
 
@@ -214,13 +217,7 @@ export const handleDataDeletionRequest = async (req: Request, res: Response): Pr
   const requestId = req.body.requestId;
 
   if (!userId || !requestId) {
-    res.status(400).json({
-      error: {
-        type: 'INVALID_REQUEST',
-        message: 'User ID and request ID required',
-        timestamp: getTimestamp(),
-      },
-    });
+    utils.sendErrorResponse(res, 'INVALID_REQUEST', 'User ID and request ID required', 400);
     return;
   }
 
@@ -241,13 +238,7 @@ export const handleDataDeletionRequest = async (req: Request, res: Response): Pr
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Data deletion request failed:', errorMessage);
-    res.status(500).json({
-      error: {
-        type: 'DELETION_FAILED',
-        message: 'Failed to process data deletion request',
-        timestamp: getTimestamp(),
-      },
-    });
+    utils.sendErrorResponse(res, 'DELETION_FAILED', 'Failed to process data deletion request', 500);
   }
 };
 
@@ -258,13 +249,7 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
   const userId = (req as any).user?.id;
 
   if (!userId) {
-    res.status(400).json({
-      error: {
-        type: 'INVALID_REQUEST',
-        message: 'User ID required',
-        timestamp: getTimestamp(),
-      },
-    });
+    utils.sendErrorResponse(res, 'INVALID_REQUEST', 'User ID required', 400);
     return;
   }
 
@@ -292,13 +277,7 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Data export failed:', errorMessage);
-    res.status(500).json({
-      error: {
-        type: 'EXPORT_FAILED',
-        message: 'Failed to prepare data export',
-        timestamp: getTimestamp(),
-      },
-    });
+    utils.sendErrorResponse(res, 'EXPORT_FAILED', 'Failed to prepare data export', 500);
   }
 };
 

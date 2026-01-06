@@ -16,6 +16,19 @@ type DocumentId = Types.ObjectId | string;
 // Create module-specific utilities
 const utils = createModuleUtilities('document-ops');
 
+// Helper functions to eliminate duplicate logging patterns
+const logAndReturnUndefined = (log: any, functionName: string): undefined => {
+  log.return('undefined');
+  utils.debugLog(functionName, 'returning undefined');
+  return undefined;
+};
+
+const logAndReturnDoc = (log: any, functionName: string, doc: any): any => {
+  log.return(doc);
+  utils.debugLog(functionName, 'returning document');
+  return doc;
+};
+
 // 🚩AI: CORE_USER_OWNERSHIP_ENFORCEMENT
 /**
  * Executes a user-scoped document operation while centralizing ownership enforcement.
@@ -118,13 +131,9 @@ const userDocActionOr404 = async <TSchema extends AnyUserDoc>(
       const doc = await action(model, id, user);
       if (doc == null) {
         sendNotFound(res, msg);
-        log.return('undefined');
-        utils.debugLog('userDocActionOr404', 'returning undefined');
-        return undefined;
+        return logAndReturnUndefined(log, 'userDocActionOr404');
       }
-      log.return(doc);
-      utils.debugLog('userDocActionOr404', `returning ${doc}`);
-      return doc;
+      return logAndReturnDoc(log, 'userDocActionOr404', doc);
     },
     'userDocActionOr404',
     {
@@ -152,13 +161,9 @@ const fetchUserDocOr404 = async <TSchema extends AnyUserDoc>(
       log.entry({ id, user });
       const doc = await userDocActionOr404(model, id, user, res, findUserDoc, msg);
       if (!doc) {
-        log.return('undefined');
-        utils.debugLog('fetchUserDocOr404', 'returning undefined');
-        return undefined;
+        return logAndReturnUndefined(log, 'fetchUserDocOr404');
       }
-      log.return(doc);
-      utils.debugLog('fetchUserDocOr404', `returning ${doc}`);
-      return doc;
+      return logAndReturnDoc(log, 'fetchUserDocOr404', doc);
     },
     'fetchUserDocOr404',
     { id, user, message: msg }
@@ -181,13 +186,9 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
       log.entry({ id, user });
       const doc = await userDocActionOr404(model, id, user, res, deleteUserDoc, msg);
       if (!doc) {
-        log.return('undefined');
-        utils.debugLog('deleteUserDocOr404', 'returning undefined');
-        return undefined;
+        return logAndReturnUndefined(log, 'deleteUserDocOr404');
       }
-      log.return(doc);
-      utils.debugLog('deleteUserDocOr404', `returning ${doc}`);
-      return doc;
+      return logAndReturnDoc(log, 'deleteUserDocOr404', doc);
     },
     'deleteUserDocOr404',
     { id, user, message: msg }
@@ -290,15 +291,11 @@ const createUniqueDoc = async <TSchema extends AnyUserDoc>(
       });
       const isUnique = await validateDocumentUniqueness(model, uniqueQuery, res, duplicateMsg);
       if (!isUnique) {
-        log.return('undefined');
-        utils.debugLog('createUniqueDoc', 'returning undefined');
-        return undefined;
+        return logAndReturnUndefined(log, 'createUniqueDoc');
       }
       const doc = new model(fields);
       const saved = await doc.save();
-      log.return(saved);
-      utils.debugLog('createUniqueDoc', `returning ${saved}`);
-      return saved;
+      return logAndReturnDoc(log, 'createUniqueDoc', saved);
     },
     'createUniqueDoc',
     {
@@ -332,9 +329,7 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
       }
       const doc = await fetchUserDocOr404(model, id, username, res, 'Document not found');
       if (!doc) {
-        log.return('undefined');
-        utils.debugLog('updateUserDoc', 'returning undefined');
-        return undefined;
+        return logAndReturnUndefined(log, 'updateUserDoc');
       }
       if (uniqueQuery && hasUniqueFieldChanges(doc, updates, uniqueQuery)) {
         const uniqueQueryWithExclusion = {
@@ -348,16 +343,12 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
           duplicateMsg
         );
         if (!isStillUnique) {
-          log.return('undefined');
-          utils.debugLog('updateUserDoc', 'returning undefined');
-          return undefined;
+          return logAndReturnUndefined(log, 'updateUserDoc');
         }
       }
       Object.assign(doc, updates);
       await doc.save();
-      log.return(doc);
-      utils.debugLog('updateUserDoc', `returning ${doc}`);
-      return doc;
+      return logAndReturnDoc(log, 'updateUserDoc', doc);
     },
     'updateUserDoc',
     {

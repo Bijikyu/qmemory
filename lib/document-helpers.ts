@@ -9,12 +9,20 @@ import {
   AnyKeys,
   AnyObject,
 } from 'mongoose';
+import type { Response } from 'express';
 type LeanDocument<T> = T;
 import type { UpdateResult } from 'mongodb';
 import { safeDbOperation } from './database-utils.js';
 import { createModuleUtilities } from './common-patterns.js';
 
 const utils = createModuleUtilities('document-helpers');
+
+// Helper function to eliminate duplicate model validation pattern
+const validateModel = (model: Model<any>): void => {
+  if (!model) {
+    throw new Error('Model is required');
+  }
+};
 
 type AnyDocumentShape = AnyObject;
 type DocumentId = Types.ObjectId | string;
@@ -44,9 +52,7 @@ const findDocumentById = async <TSchema extends AnyDocumentShape>(
 ): Promise<HydratedDocument<TSchema> | null> => {
   return utils.safeAsync(
     async () => {
-      if (!model) {
-        throw new Error('Model is required');
-      }
+      validateModel(model);
       const result = await safeDbOperation(
         () => model.findById(id).exec(),
         null,
@@ -76,9 +82,7 @@ const updateDocumentById = async <TSchema extends AnyDocumentShape>(
 ): Promise<HydratedDocument<TSchema> | null> => {
   return utils.safeAsync(
     async () => {
-      if (!model) {
-        throw new Error('Model is required');
-      }
+      validateModel(model);
       const result = await safeDbOperation(
         () => model.findByIdAndUpdate(id, updates, { new: true }).exec(),
         null,
@@ -213,9 +217,7 @@ const createDocument = async <TSchema extends AnyDocumentShape>(
 ): Promise<HydratedDocument<TSchema> | null> => {
   return utils.safeAsync(
     async () => {
-      if (!model) {
-        throw new Error('Model is required');
-      }
+      validateModel(model);
       const result = await safeDbOperation(() => model.create(data), null, 'createDocument');
       utils
         .getFunctionLogger('createDocument')

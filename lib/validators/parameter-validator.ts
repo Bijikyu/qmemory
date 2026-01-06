@@ -41,7 +41,7 @@
  * @version 1.0.0
  */
 
-import { validateObject } from '../common-patterns.js';
+import { validateObject, validateStringField, validateBooleanField } from '../common-patterns.js';
 
 /**
  * Parameter interface for validation
@@ -96,20 +96,10 @@ function validateParameter(param: unknown): asserts param is Parameter {
   validateObject(param, 'Parameter'); // Enforce object shape to avoid runtime key access errors
   const candidate = param as UnknownRecord;
 
-  // Validate parameter name - required for schema field generation
-  if (typeof candidate.name !== 'string' || !candidate.name.trim()) {
-    throw new Error('Parameter name must be a non-empty string'); // Name drives schema keys so blank values are unsafe
-  }
-
-  // Validate parameter type - required for MongoDB type mapping
-  if (typeof candidate.type !== 'string' || !candidate.type.trim()) {
-    throw new Error('Parameter type must be a non-empty string'); // Type is required to generate Mongoose schema fields
-  }
-
-  // Validate required flag - needs strict boolean for schema semantics
-  if (typeof candidate.required !== 'boolean') {
-    throw new Error('Parameter required must be a boolean'); // Required flag needs strict boolean semantics for clarity
-  }
+  // Validate parameter fields using centralized validation utilities
+  validateStringField(candidate, 'name', true, false); // Name is required and cannot be empty
+  validateStringField(candidate, 'type', true, false); // Type is required and cannot be empty
+  validateBooleanField(candidate, 'required', false); // Required flag is optional but must be boolean if present
 }
 
 /**

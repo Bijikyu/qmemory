@@ -24,6 +24,7 @@ import {
 import qerrors from 'qerrors';
 import { StorageStats, IStorageInterface, StorageOptions, IStorage } from './storage-interfaces.js';
 import { getTimestamp } from './common-patterns.js';
+import { logger } from './simple-wrapper.js';
 
 /**
  * In-Memory Binary Storage Implementation
@@ -48,7 +49,7 @@ export class MemoryBinaryStorage extends IStorage {
     this.storage = new Map();
     this.currentSize = 0;
     this.maxSize = maxSize;
-    console.log(`Initialized MemoryBinaryStorage with ${maxSize} bytes limit`);
+    logger.info(`Initialized MemoryBinaryStorage with ${maxSize} bytes limit`);
   }
   /**
    * Validate key format and ensure it's safe for storage
@@ -88,7 +89,7 @@ export class MemoryBinaryStorage extends IStorage {
     this._checkSizeLimit(sizeDifference);
     this.storage.set(key, data);
     this.currentSize += sizeDifference;
-    console.log(
+    logger.info(
       `Stored ${data.length} bytes at key '${key}'. Total storage: ${this.currentSize} bytes`
     );
   }
@@ -107,7 +108,7 @@ export class MemoryBinaryStorage extends IStorage {
     if (data) {
       this.currentSize -= data.length;
       this.storage.delete(key);
-      console.log(`Deleted data at key '${key}'. Remaining storage: ${this.currentSize} bytes`);
+      logger.info(`Deleted data at key '${key}'. Remaining storage: ${this.currentSize} bytes`);
     }
   }
   async exists(key: string): Promise<boolean> {
@@ -130,7 +131,7 @@ export class MemoryBinaryStorage extends IStorage {
   clear() {
     this.storage.clear();
     this.currentSize = 0;
-    console.log('Cleared all data from memory storage');
+    logger.info('Cleared all data from memory storage');
   }
 }
 
@@ -153,7 +154,7 @@ export class FileSystemBinaryStorage extends IStorage {
   constructor(storageDir = './data/binary-storage') {
     super();
     this.storageDir = resolve(storageDir);
-    console.log(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
+    logger.info(`Initialized FileSystemBinaryStorage at ${this.storageDir}`);
   }
 
   /**
@@ -211,7 +212,7 @@ export class FileSystemBinaryStorage extends IStorage {
       await fs.writeFile(tempPath, combinedData);
       await fs.rename(tempPath, filePath);
       this.statsCache = null;
-      console.log(`Stored ${data.length} bytes at key '${key}' in file system`);
+      logger.info(`Stored ${data.length} bytes at key '${key}' in file system`);
     } catch (error) {
       qerrors.qerrors(error as Error, 'binary-storage.FileSystemBinaryStorage.save', {
         key,
@@ -265,7 +266,7 @@ export class FileSystemBinaryStorage extends IStorage {
       }
       // Invalidate stats cache when file is deleted
       this.statsCache = null;
-      console.log(`Deleted data at key '${key}' from file system`);
+      logger.info(`Deleted data at key '${key}' from file system`);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code !== 'ENOENT') {
         qerrors.qerrors(error as Error, 'binary-storage.FileSystemBinaryStorage.delete', {
@@ -390,12 +391,12 @@ export class StorageFactory {
         return new FileSystemBinaryStorage(config.storageDir);
       case 'object':
       case 'cloud':
-        console.warn(
+        logger.warn(
           'Object storage requires async initialization. Use createObjectStorage() method instead.'
         );
         return new MemoryBinaryStorage();
       default:
-        console.warn(`Unknown storage type '${type}', falling back to memory storage`);
+        logger.warn(`Unknown storage type '${type}', falling back to memory storage`);
         return new MemoryBinaryStorage();
     }
   }
