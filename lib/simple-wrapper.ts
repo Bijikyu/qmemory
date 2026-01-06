@@ -317,9 +317,8 @@ export const requireEnvVars = (names: string[]): void => {
  *
  * @returns Unique identifier string
  */
-export const generateUniqueId = (): string => {
-  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
-};
+// Re-export generateUniqueId from qgenutils-wrapper to use centralized implementation
+export { generateUniqueId } from './qgenutils-wrapper';
 
 /**
  * Error type definitions and utilities

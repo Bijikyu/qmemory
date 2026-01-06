@@ -3,6 +3,7 @@
  * Provides GDPR/CCPA compliance features for data handling and user rights
  */
 import type { Request, Response, NextFunction } from 'express';
+import { getTimestamp } from './common-patterns.js';
 
 // Extend Request interface to include user property
 declare global {
@@ -128,7 +129,7 @@ const sendConsentRequired = (res: Response): void => {
     error: {
       type: 'CONSENT_REQUIRED',
       message: 'User consent required for this operation',
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       requiredConsents: ['dataProcessing', 'analytics', 'marketing'],
     },
   });
@@ -217,7 +218,7 @@ export const handleDataDeletionRequest = async (req: Request, res: Response): Pr
       error: {
         type: 'INVALID_REQUEST',
         message: 'User ID and request ID required',
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestamp(),
       },
     });
     return;
@@ -227,7 +228,7 @@ export const handleDataDeletionRequest = async (req: Request, res: Response): Pr
     console.log('DATA_DELETION_REQUEST:', {
       userId,
       requestId,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       ipAddress: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     });
 
@@ -235,7 +236,7 @@ export const handleDataDeletionRequest = async (req: Request, res: Response): Pr
       message: 'Data deletion request received and processing',
       requestId,
       estimatedCompletion: '30 days',
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -244,7 +245,7 @@ export const handleDataDeletionRequest = async (req: Request, res: Response): Pr
       error: {
         type: 'DELETION_FAILED',
         message: 'Failed to process data deletion request',
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestamp(),
       },
     });
   }
@@ -261,7 +262,7 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
       error: {
         type: 'INVALID_REQUEST',
         message: 'User ID required',
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestamp(),
       },
     });
     return;
@@ -273,12 +274,12 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
       activity: [],
       preferences: {},
       consents: [],
-      exportDate: new Date().toISOString(),
+      exportDate: getTimestamp(),
     };
 
     console.log('DATA_EXPORT_REQUEST:', {
       userId,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       ipAddress: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     });
 
@@ -286,7 +287,7 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
       message: 'Data export prepared',
       data: anonymizePersonalData(userData),
       format: 'json',
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -295,7 +296,7 @@ export const handleDataExportRequest = async (req: Request, res: Response): Prom
       error: {
         type: 'EXPORT_FAILED',
         message: 'Failed to prepare data export',
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestamp(),
       },
     });
   }
@@ -309,7 +310,7 @@ export const ccpaComplianceMiddleware = (req: Request, res: Response, next: Next
   if (doNotSellHeader === 'true') {
     console.log('CCPA_DO_NOT_SELL:', {
       userId: (req as any).user?.id,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       ipAddress: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     });
     res.set('CCPA-Do-Not-Sell', 'true');

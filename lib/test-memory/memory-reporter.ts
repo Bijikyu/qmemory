@@ -9,6 +9,7 @@ import type {
   MemoryManagerOptions,
 } from './memory-tracker-types.js';
 import qerrors from 'qerrors';
+import { getTimestamp } from '../common-patterns.js';
 
 export interface MemoryReport {
   timestamp: string;
@@ -27,7 +28,7 @@ export class MemoryReporter {
   generateReport(checkpoints: MemoryCheckpoint[], leakAnalysis: LeakAnalysis): MemoryReport {
     try {
       const report: MemoryReport = {
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestamp(),
         checkpoints,
         leakAnalysis,
         recommendations: this.generateRecommendations(leakAnalysis),
@@ -75,7 +76,7 @@ export class MemoryReporter {
    */
   private generateFallbackReport(): MemoryReport {
     return {
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       checkpoints: [],
       leakAnalysis: {
         hasLeaks: false,

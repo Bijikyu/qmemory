@@ -35,6 +35,7 @@
  */
 
 import qerrors from 'qerrors';
+import { getTimestamp } from '../common-patterns.js';
 
 /**
  * Performance Monitor Class
@@ -180,7 +181,7 @@ export class PerformanceMonitor {
 
     return {
       status: overallStatus,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       checks: {
         database: {
           status: dbStatus,
@@ -203,7 +204,7 @@ export class PerformanceMonitor {
 
   getComprehensiveMetrics() {
     return {
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       database: this.database.getMetrics(),
       requests: this.requests.getMetrics(),
       system: this.system.getMetrics(),

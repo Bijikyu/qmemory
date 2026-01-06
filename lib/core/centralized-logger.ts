@@ -1,3 +1,5 @@
+import { getTimestamp } from '../common-patterns';
+
 /**
  * Centralized Logging Utility
  *
@@ -62,7 +64,7 @@ class CentralizedLogger {
 
     // Add timestamp if enabled
     if (this.config.includeTimestamp) {
-      parts.push(`[${new Date().toISOString()}]`);
+      parts.push(`[${getTimestamp()}]`);
     }
 
     // Add log level

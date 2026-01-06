@@ -23,6 +23,7 @@ import {
 } from '../config/localVars.js';
 import qerrors from 'qerrors';
 import { StorageStats, IStorageInterface, StorageOptions, IStorage } from './storage-interfaces.js';
+import { getTimestamp } from './common-patterns.js';
 
 /**
  * In-Memory Binary Storage Implementation
@@ -205,7 +206,7 @@ export class FileSystemBinaryStorage extends IStorage {
     const filePath = this._getFilePath(key);
     const tempPath = `${filePath}.tmp`;
     try {
-      const metadata = { key, size: data.length, created: new Date().toISOString() };
+      const metadata = { key, size: data.length, created: getTimestamp() };
       const combinedData = [JSON.stringify(metadata), data.toString('base64')].join('\n');
       await fs.writeFile(tempPath, combinedData);
       await fs.rename(tempPath, filePath);

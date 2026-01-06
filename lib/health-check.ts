@@ -26,7 +26,7 @@ import { totalmem, freemem, cpus as getCpuInfo, loadavg as getLoadAverage } from
 import { createTerminus, HealthCheck } from '@godaddy/terminus';
 import { Server } from 'http';
 import { Request, Response } from 'express';
-import { createModuleUtilities } from './common-patterns.js';
+import { createModuleUtilities, getTimestamp } from './common-patterns.js';
 
 const utils = createModuleUtilities('health-check');
 
@@ -250,7 +250,7 @@ async function performHealthCheck() {
     }
     return {
       status: overallStatus,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       uptime: process.uptime(),
       checks,
       metrics: {
@@ -276,27 +276,28 @@ async function performHealthCheck() {
  */
 function createLivenessCheck() {
   return async () => {
-    try {
-      const health = await performHealthCheck();
-      // For liveness, we only care if the process is responsive
-      // Critical failures only
-      if (
-        health.status === 'fail' &&
-        health.checks.some(check => check.name === 'filesystem' && check.status === 'fail')
-      ) {
-        throw new Error('Application is not in a recoverable state');
-      }
-      return {
-        status: 'ok',
-        timestamp: health.timestamp,
-        uptime: health.uptime,
-      };
-    } catch (error) {
-      utils.logError(error as Error, 'createLivenessCheck', {
+    return utils.safeAsync(
+      async () => {
+        const health = await performHealthCheck();
+        // For liveness, we only care if the process is responsive
+        // Critical failures only
+        if (
+          health.status === 'fail' &&
+          health.checks.some(check => check.name === 'filesystem' && check.status === 'fail')
+        ) {
+          throw new Error('Application is not in a recoverable state');
+        }
+        return {
+          status: 'ok',
+          timestamp: health.timestamp,
+          uptime: health.uptime,
+        };
+      },
+      'createLivenessCheck',
+      {
         operation: 'liveness-check',
-      });
-      throw error;
-    }
+      }
+    );
   };
 }
 /**
@@ -308,34 +309,37 @@ function createLivenessCheck() {
  */
 function createReadinessCheck() {
   return async () => {
-    try {
-      const health = await performHealthCheck();
-      // For readiness, we check if we can handle traffic
-      // High memory usage or high error rates make us not ready
-      if (health.status === 'fail') {
-        throw new Error('Application is not ready to serve traffic');
-      }
-      if (
-        health.status === 'warn' &&
-        health.checks.some(
-          check =>
-            (check.name === 'memory' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 85) ||
-            (check.name === 'error_rate' && parseFloat(check.message.match(/\d+/)?.[0] || '0') > 20)
-        )
-      ) {
-        throw new Error('Application is degraded and not ready for full traffic');
-      }
-      return {
-        status: 'ok',
-        timestamp: health.timestamp,
-        uptime: health.uptime,
-      };
-    } catch (error) {
-      utils.logError(error as Error, 'createReadinessCheck', {
+    return utils.safeAsync(
+      async () => {
+        const health = await performHealthCheck();
+        // For readiness, we check if we can handle traffic
+        // High memory usage or high error rates make us not ready
+        if (health.status === 'fail') {
+          throw new Error('Application is not ready to serve traffic');
+        }
+        if (
+          health.status === 'warn' &&
+          health.checks.some(
+            check =>
+              (check.name === 'memory' &&
+                parseFloat(check.message.match(/\d+/)?.[0] || '0') > 85) ||
+              (check.name === 'error_rate' &&
+                parseFloat(check.message.match(/\d+/)?.[0] || '0') > 20)
+          )
+        ) {
+          throw new Error('Application is degraded and not ready for full traffic');
+        }
+        return {
+          status: 'ok',
+          timestamp: health.timestamp,
+          uptime: health.uptime,
+        };
+      },
+      'createReadinessCheck',
+      {
         operation: 'readiness-check',
-      });
-      throw error;
-    }
+      }
+    );
   };
 }
 /**

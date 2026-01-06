@@ -1,3 +1,5 @@
+import { getTimestamp } from './common-patterns';
+
 /**
  * Pagination Utilities
  * Standardized pagination parameter validation and response formatting
@@ -247,7 +249,7 @@ function createPaginatedResponse(data, page, limit, totalRecords) {
   return {
     data, // Current page results
     pagination: createPaginationMeta(page, limit, totalRecords), // Navigation metadata
-    timestamp: new Date().toISOString(), // Response timestamp for consistency
+    timestamp: getTimestamp(), // Response timestamp for consistency
   };
 }
 /**
@@ -413,7 +415,7 @@ function createCursor(record, sortField = 'id') {
     const cursorData = {
       [sortField]: record[sortField],
       id: record.id || record._id, // Support both SQL and MongoDB style IDs
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
     };
     const cursorJson = JSON.stringify(cursorData);
     const encodedCursor = Buffer.from(cursorJson, 'utf-8').toString('base64');
@@ -616,7 +618,7 @@ function createCursorPaginatedResponse(data, pagination, hasMore, sortField = 'i
   return {
     data,
     pagination: createCursorPaginationMeta(data, pagination, hasMore, sortField),
-    timestamp: new Date().toISOString(),
+    timestamp: getTimestamp(),
   };
 }
 // Export pagination utilities using consistent module pattern

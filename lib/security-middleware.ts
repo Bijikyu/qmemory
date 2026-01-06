@@ -4,6 +4,7 @@
  */
 import helmet from 'helmet';
 import type { Application, Request, Response, NextFunction } from 'express';
+import { getTimestamp } from './common-patterns.js';
 
 /**
  * Rate limiting middleware (basic implementation)
@@ -61,7 +62,7 @@ class BasicRateLimiter {
           error: {
             type: 'RATE_LIMIT_EXCEEDED',
             message: 'Too many requests. Please try again later.',
-            timestamp: new Date().toISOString(),
+            timestamp: getTimestamp(),
             retryAfter: resetIn,
           },
         });

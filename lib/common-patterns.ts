@@ -112,6 +112,7 @@ export const createModuleUtilities = (module: string) => {
     ) => safeOperation(operation, functionName, module, context),
     safeSync: <T>(operation: () => T, functionName: string, context?: Record<string, unknown>) =>
       safeOperationSync(operation, functionName, module, context),
+    validateResponse: (res: any, functionName: string) => validateResponse(res, functionName),
   };
 };
 
@@ -265,6 +266,13 @@ export const arrayReduce = <T, U>(
 ): U => {
   return array.reduce(reducer, initialValue);
 };
+
+// Timestamp utility to eliminate new Date().toISOString() duplication
+export const getTimestamp = (): string => new Date().toISOString();
+
+// Object validation utility to eliminate typeof object checks duplication
+export const isValidPlainObject = (value: any): boolean =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 // Export types for external usage
 export type ModuleUtilities = ReturnType<typeof createModuleUtilities>;

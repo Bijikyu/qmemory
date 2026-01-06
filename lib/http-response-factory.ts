@@ -13,7 +13,7 @@
  */
 
 import type { Response } from 'express';
-import { createModuleUtilities, validateResponse } from './common-patterns';
+import { createModuleUtilities, validateResponse, getTimestamp } from './common-patterns';
 import { generateUniqueId } from './simple-wrapper';
 
 // Standard error response structure
@@ -39,14 +39,9 @@ export interface SuccessResponse<T = unknown> {
 export const createResponseFactory = (module: string) => {
   const utils = createModuleUtilities(module);
 
-  // Generate unique request ID
-  const generateRequestId = (): string => {
-    return generateUniqueId();
-  };
-
   // Validate Express response object using common utility
-  const validateResponse = (res: Response): void => {
-    utils.validateResponse(res, 'validateResponse');
+  const validateExpressResponse = (res: Response): void => {
+    utils.validateResponse(res, 'validateExpressResponse');
     // Additional check for json method
     if (typeof res.json !== 'function') {
       throw new Error('Express response object missing json() method');
@@ -65,8 +60,8 @@ export const createResponseFactory = (module: string) => {
       error: {
         type,
         message,
-        timestamp: new Date().toISOString(),
-        requestId: requestId || generateRequestId(),
+        timestamp: getTimestamp(),
+        requestId: requestId || generateUniqueId(),
         details,
       },
     };
@@ -77,8 +72,8 @@ export const createResponseFactory = (module: string) => {
     return {
       success: true,
       data,
-      timestamp: new Date().toISOString(),
-      requestId: requestId || generateRequestId(),
+      timestamp: getTimestamp(),
+      requestId: requestId || generateUniqueId(),
     };
   };
 
@@ -93,7 +88,7 @@ export const createResponseFactory = (module: string) => {
   ): Response => {
     utils.debugLog(`Sending ${type} error`, { type, message, statusCode, details });
 
-    validateResponse(res);
+    validateExpressResponse(res);
     const errorResponse = createErrorResponse(type, message, statusCode, details);
 
     return res.status(statusCode).json(errorResponse);
@@ -108,7 +103,7 @@ export const createResponseFactory = (module: string) => {
   ): Response => {
     utils.debugLog('Sending success response', { statusCode });
 
-    validateResponse(res);
+    validateExpressResponse(res);
     const successResponse = createSuccessResponse(data);
 
     return res.status(statusCode).json(successResponse);
@@ -169,7 +164,7 @@ export const createResponseFactory = (module: string) => {
     // No content response (204)
     noContent: (res: Response) => {
       utils.debugLog('Sending no content response');
-      validateResponse(res);
+      validateExpressResponse(res);
       return res.status(204).send();
     },
 
@@ -179,8 +174,8 @@ export const createResponseFactory = (module: string) => {
 
   return {
     utils,
-    generateRequestId,
-    validateResponse,
+    generateUniqueId,
+    validateExpressResponse,
     createErrorResponse,
     createSuccessResponse,
     sendError,

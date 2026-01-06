@@ -58,8 +58,8 @@ const findUserDoc = async <TSchema extends AnyUserDoc>(
   id: DocumentId,
   username: string
 ): Promise<HydratedDocument<TSchema> | null> => {
-  const log = utils.logFunctionCall('findUserDoc', { id, username });
-  log.entry();
+  const log = utils.getFunctionLogger('findUserDoc');
+  log.entry({ id, username });
   const op = (m: Model<TSchema>, i: DocumentId, u: string) =>
     m.findOne({ _id: i, user: u } as FilterQuery<TSchema>).exec();
   utils.debugLog('findUserDoc', 'returning result from performUserDocOp');
@@ -80,8 +80,8 @@ const deleteUserDoc = async <TSchema extends AnyUserDoc>(
   id: DocumentId,
   username: string
 ): Promise<HydratedDocument<TSchema> | null> => {
-  const log = utils.logFunctionCall('deleteUserDoc', { id, username });
-  log.entry();
+  const log = utils.getFunctionLogger('deleteUserDoc');
+  log.entry({ id, username });
   const op = (m: Model<TSchema>, i: DocumentId, u: string) =>
     m.findOneAndDelete({ _id: i, user: u } as FilterQuery<TSchema>).exec();
   utils.debugLog('deleteUserDoc', 'returning result from performUserDocOp');
@@ -113,8 +113,8 @@ const userDocActionOr404 = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
-      const log = utils.logFunctionCall('userDocActionOr404', { id, user });
-      log.entry();
+      const log = utils.getFunctionLogger('userDocActionOr404');
+      log.entry({ id, user });
       const doc = await action(model, id, user);
       if (doc == null) {
         sendNotFound(res, msg);
@@ -148,8 +148,8 @@ const fetchUserDocOr404 = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
-      const log = utils.logFunctionCall('fetchUserDocOr404', { id, user });
-      log.entry();
+      const log = utils.getFunctionLogger('fetchUserDocOr404');
+      log.entry({ id, user });
       const doc = await userDocActionOr404(model, id, user, res, findUserDoc, msg);
       if (!doc) {
         log.return('undefined');
@@ -177,8 +177,8 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
-      const log = utils.logFunctionCall('deleteUserDocOr404', { id, user });
-      log.entry();
+      const log = utils.getFunctionLogger('deleteUserDocOr404');
+      log.entry({ id, user });
       const doc = await userDocActionOr404(model, id, user, res, deleteUserDoc, msg);
       if (!doc) {
         log.return('undefined');
@@ -205,13 +205,13 @@ const listUserDocsLean = async <TSchema extends AnyUserDoc>(
 ): Promise<Array<any>> => {
   return utils.safeAsync(
     async () => {
-      const log = utils.logFunctionCall('listUserDocsLean', {
+      const log = utils.getFunctionLogger('listUserDocsLean');
+      log.entry({
         username,
         sort: JSON.stringify(options?.sort),
-        select: options?.select,
         limit: options?.limit,
+        skip: options?.skip,
       });
-      log.entry();
 
       const filter: FilterQuery<TSchema> = { user: username };
       const queryOptions: any = { lean: true };
@@ -284,10 +284,10 @@ const createUniqueDoc = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
-      const log = utils.logFunctionCall('createUniqueDoc', {
+      const log = utils.getFunctionLogger('createUniqueDoc');
+      log.entry({
         fields: JSON.stringify(fields ?? {}),
       });
-      log.entry();
       const isUnique = await validateDocumentUniqueness(model, uniqueQuery, res, duplicateMsg);
       if (!isUnique) {
         log.return('undefined');
@@ -323,8 +323,8 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
-      const log = utils.logFunctionCall('updateUserDoc', { id, username });
-      log.entry();
+      const log = utils.getFunctionLogger('updateUserDoc');
+      log.entry({ id, username });
       const updates: Partial<TSchema> = { ...fieldsToUpdate };
       if (Object.prototype.hasOwnProperty.call(updates, 'user')) {
         console.warn(`updateUserDoc ignored user change for doc: ${id}`);

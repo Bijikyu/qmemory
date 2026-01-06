@@ -16,6 +16,7 @@ import { IStorage } from './storage-interfaces.js';
 import { ObjectStorageService, ObjectNotFoundError } from '../server/objectStorage.js';
 import { createHash } from 'crypto';
 import { StorageStats, ObjectMetadata } from './storage-interfaces.js';
+import { getTimestamp } from '../lib/common-patterns.js';
 
 interface ObjectPath {
   bucketName: string;
@@ -108,7 +109,7 @@ class ObjectStorageBinaryStorage extends IStorage {
         originalKey: key,
         size: data.length,
         contentType: 'application/octet-stream',
-        created: new Date().toISOString(),
+        created: getTimestamp(),
         objectPath: fullObjectPath,
       };
 

@@ -5,6 +5,7 @@
 
 import { Response } from 'express';
 import type { ErrorContext, ErrorResponse, StandardResponse } from './error-handler-types.js';
+import { getTimestamp } from '../common-patterns';
 
 export class ErrorResponseFormatter {
   /**
@@ -21,7 +22,7 @@ export class ErrorResponseFormatter {
       error: {
         type,
         message,
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestamp(),
         requestId: context?.requestId,
         ...(details && { details }),
       },
@@ -135,7 +136,7 @@ export class ErrorResponseFormatter {
     return {
       success: true,
       data,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       requestId: context?.requestId,
     };
   }
@@ -153,7 +154,7 @@ export class ErrorResponseFormatter {
       success,
       data,
       error,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       requestId: context?.requestId,
     };
   }

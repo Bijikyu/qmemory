@@ -10,7 +10,7 @@ import {
   isValidString,
   isValidObject,
 } from './simple-wrapper';
-import { validateResponse } from './common-patterns.js';
+import { validateResponse, getTimestamp } from './common-patterns.js';
 
 export const validateResponseObject = (res: any): void => {
   validateResponse(res, 'validateResponseObject');
@@ -43,7 +43,7 @@ const createErrorResponse = (
   message: unknown,
   requestId: string
 ): ErrorEnvelope => {
-  const errorId = generateRequestId();
+  const errorId = generateUniqueId();
   return {
     error: {
       type: getErrorType(statusCode as KnownStatusCode),
@@ -77,8 +77,6 @@ const getErrorType = (statusCode: KnownStatusCode): HttpErrorType =>
   errorTypeMap[statusCode] ?? 'ERROR';
 const getDefaultMessage = (statusCode: KnownStatusCode): string =>
   defaultMessageMap[statusCode] ?? 'An error occurred';
-const getTimestamp = (): string => new Date().toISOString();
-const generateRequestId = (): string => generateUniqueId();
 
 const sendErrorResponse = (
   res: Response,
@@ -86,7 +84,7 @@ const sendErrorResponse = (
   message: unknown,
   error: Error | null = null
 ): Response<ErrorEnvelope> => {
-  const requestId = generateRequestId();
+  const requestId = generateUniqueId();
 
   try {
     if (!res || typeof res !== 'object') {
@@ -118,7 +116,7 @@ const sendErrorResponse = (
       );
     }
 
-    const errorId = error ? generateRequestId() : undefined;
+    const errorId = error ? generateUniqueId() : undefined;
     const response = createErrorResponse(statusCode, message, requestId);
 
     return res.status(statusCode).json(response);
@@ -163,7 +161,7 @@ const sendValidationError = (
       type: 'VALIDATION_ERROR',
       message: sanitizeString(message as string) || 'Validation failed',
       timestamp: getTimestamp(),
-      requestId: generateRequestId(),
+      requestId: generateUniqueId(),
       details: details ?? null,
     },
   };
@@ -184,7 +182,7 @@ const sendSuccess = (
 };
 
 const sendAuthError = (res: Response, message?: unknown): Response<ErrorEnvelope> => {
-  const requestId = generateRequestId();
+  const requestId = generateUniqueId();
   try {
     const response: ErrorEnvelope = {
       error: {
@@ -219,7 +217,7 @@ const sendTooManyRequests = (
   message: string = 'Rate limit exceeded',
   rateLimitInfo?: unknown
 ): Response<ErrorEnvelope> => {
-  const requestId = generateRequestId();
+  const requestId = generateUniqueId();
   try {
     const response: ErrorEnvelope & { rateLimit?: unknown } = {
       error: {
@@ -266,7 +264,7 @@ export {
   sendTooManyRequests,
   sanitizeString,
   getTimestamp,
-  generateRequestId,
+  generateUniqueId,
   isValidString,
   isValidObject,
   ErrorTypes,

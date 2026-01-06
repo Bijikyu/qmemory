@@ -10,6 +10,7 @@ import {
   sanitizeContext,
   generateUniqueId,
 } from './simple-wrapper.js';
+import { getTimestamp } from './common-patterns.js';
 
 // Minimal implementations for missing functions
 function logDebug(message: string, meta?: any): void {
@@ -233,7 +234,7 @@ export const logFunctionEntry = (
     logDebug(`Function entry: ${functionName}`, {
       functionName,
       requestId,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       params: sanitizedParams,
       userId: options.userId,
       metadata: options.metadata ?? {},
@@ -308,7 +309,7 @@ export const logFunctionExit = (
     logInfo(`Function exit: ${functionName}`, {
       functionName,
       requestId,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       result: sanitizedResult,
       duration: `${duration}ms`,
       performance,
@@ -395,7 +396,7 @@ export const logFunctionError = (
     const errorContext = {
       functionName,
       requestId,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       error: {
         name: error.name,
         message: sanitizedMessage,
@@ -420,7 +421,7 @@ export const logFunctionError = (
       message: sanitizedMessage,
       stack: error.stack,
       name: error.name,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
     });
 
     return {
@@ -475,7 +476,7 @@ export const logAuditEvent = (
   try {
     const auditEntry = {
       action,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       userId: context.userId,
       sessionId: context.sessionId,
       requestId: context.requestId ?? generateUniqueId(),

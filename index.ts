@@ -12,7 +12,7 @@ import {
   getTimestamp,
   sendValidationError,
   sendAuthError,
-  generateRequestId,
+  generateUniqueId,
 } from './lib/http-utils';
 // Database utilities
 import {
@@ -259,7 +259,7 @@ export {
   getTimestamp,
   sendValidationError,
   sendAuthError,
-  generateRequestId,
+  generateUniqueId,
   // Security and privacy
   setupSecurity,
   getSecurityConfig,
