@@ -45,17 +45,9 @@ export { default as qerrors } from 'qerrors';
 // Logging
 export { createLogger, type LogContext } from './core/centralized-logger';
 
-// Common types
-export type {
-  // Database document types
-  UserDocument,
-  // HTTP types
-  ApiRequest,
-  ApiResponse,
-  // Utility types
-  AsyncFunction,
-  SyncFunction,
-} from './types';
+// Internal utilities
+export { createModuleUtilities } from './common-patterns';
+export type { ModuleUtilities, FunctionLogger, ErrorLogger } from './common-patterns';
 
 // Environment and configuration
 export const ENVIRONMENT = {
@@ -63,7 +55,7 @@ export const ENVIRONMENT = {
   PORT: process.env.PORT || 3000,
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/test',
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-} as const;
+};
 
 // Development helpers
 export const DEV = ENVIRONMENT.NODE_ENV === 'development';
