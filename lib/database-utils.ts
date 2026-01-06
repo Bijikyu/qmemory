@@ -86,6 +86,28 @@ export const ensureUnique = async <TSchema extends AnyDocumentShape>(
   );
 };
 
+/**
+ * Handle MongoDB duplicate key error (code 11000)
+ * Extracts common pattern used across multiple error handling functions
+ */
+export const handleMongoDuplicateError = (
+  error: unknown,
+  res: Response | null,
+  customMessage?: string
+): boolean => {
+  if (isMongoServerError(error) && error.code === 11000) {
+    if (res) {
+      const field = Object.keys(
+        (error as MongoServerError & { keyPattern?: Record<string, number> }).keyPattern ?? {}
+      )[0];
+      const message = customMessage || `Duplicate value for field: ${field ?? 'unknown'}`;
+      sendConflict(res, message);
+    }
+    return true;
+  }
+  return false;
+};
+
 export const handleMongoError = (error: unknown, res: Response | null, operation: string): void => {
   utils.logError(error as Error, 'handleMongoError', {
     operation,
@@ -103,11 +125,8 @@ export const handleMongoError = (error: unknown, res: Response | null, operation
 
   if (!res) return;
 
-  if (isMongoServerError(error) && error.code === 11000) {
-    const field = Object.keys(
-      (error as MongoServerError & { keyPattern?: Record<string, number> }).keyPattern ?? {}
-    )[0];
-    sendConflict(res, `Duplicate value for field: ${field ?? 'unknown'}`);
+  // Handle duplicate key error using extracted helper
+  if (handleMongoDuplicateError(error, res)) {
     return;
   }
 

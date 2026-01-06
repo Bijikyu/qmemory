@@ -20,7 +20,7 @@
  * - Boundary value testing
  */
 
-import { greet, add, isEven } from '../../lib/utils.js';
+import { greet, add, isEven } from '../../lib/utils';
 describe('Utils module', () => {
   describe('greet function', () => {
     test('should return greeting with provided name', () => {

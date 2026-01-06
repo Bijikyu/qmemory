@@ -21,6 +21,7 @@
 import { createClient as createRedisClient } from 'redis';
 import { MongoClient } from 'mongodb';
 import { safeDelay, calculateBackoffDelay } from '../core/secure-delay';
+import { createTimer } from '../common-patterns.js';
 import {
   DEFAULT_POOL_MAX_CONNECTIONS,
   DEFAULT_POOL_MIN_CONNECTIONS,
@@ -261,48 +262,48 @@ class SimpleDatabasePool {
         if (!connection) {
           connection = await this.acquireConnection();
         }
-        const startTime = Date.now();
+        const queryTimer = createTimer('database-query');
         let result;
         switch (this.dbType) {
           case 'redis': {
             const redisClient = connection.client;
             if (query && typeof query === 'object' && query.method && params) {
-              const redisQuery = query;
-              const method = redisClient[redisQuery.method];
-              if (typeof method === 'function') {
-                result = await method(...params);
-              } else {
-                throw new Error(`Invalid Redis method: ${redisQuery.method}`);
-              }
+              result = await redisClient[query.method](...(params as any[]));
             } else if (typeof query === 'string') {
-              const method = redisClient[query];
-              if (typeof method === 'function') {
-                result = await method(...(params || []));
-              } else {
-                throw new Error(`Invalid Redis method: ${query}`);
-              }
+              result = await redisClient[query](...(params as any[]));
             } else {
-              throw new Error('Invalid Redis query format');
+              throw new Error('Invalid query format for Redis');
             }
             break;
           }
-          case 'postgresql': {
-            const pgPool = connection.client;
-            result = await pgPool.query(query, params);
+          case 'mongodb': {
+            const mongoClient = connection.client;
+            if (query && typeof query === 'object' && query.collection && query.method) {
+              const collection = mongoClient.db().collection(query.collection);
+              result = await collection[query.method](...(params as any[]));
+            } else if (typeof query === 'function') {
+              result = await query(mongoClient.db());
+            } else {
+              throw new Error('Invalid query format for MongoDB');
+            }
             break;
           }
+          case 'postgresql':
           case 'mysql': {
-            const mysqlConn = connection.client;
-            result = await mysqlConn.execute(query, params);
+            const sqlClient = connection.client;
+            if (typeof query === 'string') {
+              result = await sqlClient.query(query, params);
+            } else if (query && typeof query === 'object' && query.sql) {
+              result = await sqlClient.query(query.sql, params);
+            } else {
+              throw new Error('Invalid query format for SQL database');
+            }
             break;
           }
-          case 'mongodb':
-            result = await query();
-            break;
           default:
             throw new Error(`Unsupported database type: ${this.dbType}`);
         }
-        const queryTime = Date.now() - startTime;
+        const queryTime = queryTimer();
         if (queryTime > this.config.maxQueryTime) {
           console.warn(`[dbPool] Slow query detected: ${queryTime}ms`);
         }

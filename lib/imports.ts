@@ -25,8 +25,6 @@ export {
 export type { Request, Response, NextFunction, RequestHandler } from 'express';
 
 // Internal utilities
-export { createModuleUtilities } from './common-patterns';
-export type { ModuleUtilities, FunctionLogger, ErrorLogger } from './common-patterns';
 
 export { createDatabaseOperations, createMockModel } from './database-operation-factory';
 export type {
@@ -46,8 +44,6 @@ export { default as qerrors } from 'qerrors';
 export { createLogger, type LogContext } from './core/centralized-logger';
 
 // Internal utilities
-export { createModuleUtilities } from './common-patterns';
-export type { ModuleUtilities, FunctionLogger, ErrorLogger } from './common-patterns';
 
 // Environment and configuration
 export const ENVIRONMENT = {

@@ -3,6 +3,6 @@
  * Centralized framework components to eliminate code duplication
  */
 
-export { UnifiedLogger, LogLevel } from './logger.js';
+export { createLogger, type LogContext, LogLevel } from './centralized-logger.js';
 export { ErrorHandler } from './error-handler.js';
 export type { ErrorContext, ErrorResponse, StandardResponse } from './error-handler-types.js';

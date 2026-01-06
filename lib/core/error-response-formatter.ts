@@ -8,6 +8,27 @@ import type { ErrorContext, ErrorResponse, StandardResponse } from './error-hand
 
 export class ErrorResponseFormatter {
   /**
+   * Create base error response structure
+   * Extracts common pattern used across all error formatters
+   */
+  private static createBaseErrorResponse(
+    type: string,
+    message: string,
+    context?: ErrorContext,
+    details?: unknown
+  ): ErrorResponse {
+    return {
+      error: {
+        type,
+        message,
+        timestamp: new Date().toISOString(),
+        requestId: context?.requestId,
+        ...(details && { details }),
+      },
+    };
+  }
+
+  /**
    * Format database error response
    */
   static formatDatabaseError(
@@ -15,92 +36,65 @@ export class ErrorResponseFormatter {
     operation: string,
     context?: ErrorContext
   ): ErrorResponse {
-    const errorResponse: ErrorResponse = {
-      error: {
-        type: 'DATABASE_ERROR',
-        message:
-          process.env.NODE_ENV === 'production'
-            ? 'Database operation failed'
-            : error instanceof Error
-              ? error.message
-              : 'Unknown database error',
-        timestamp: new Date().toISOString(),
-        requestId: context?.requestId,
-        details:
-          process.env.NODE_ENV !== 'production'
-            ? {
-                operation,
-                originalError: error instanceof Error ? error.stack : String(error),
-              }
-            : undefined,
-      },
-    };
+    const message =
+      process.env.NODE_ENV === 'production'
+        ? 'Database operation failed'
+        : error instanceof Error
+          ? error.message
+          : 'Unknown database error';
 
-    return errorResponse;
+    const details =
+      process.env.NODE_ENV !== 'production'
+        ? {
+            operation,
+            originalError: error instanceof Error ? error.stack : String(error),
+          }
+        : undefined;
+
+    return ErrorResponseFormatter.createBaseErrorResponse(
+      'DATABASE_ERROR',
+      message,
+      context,
+      details
+    );
   }
 
   /**
    * Format validation error response
    */
   static formatValidationError(error: Error, context?: ErrorContext): ErrorResponse {
-    const errorResponse: ErrorResponse = {
-      error: {
-        type: 'VALIDATION_ERROR',
-        message: process.env.NODE_ENV === 'production' ? 'Invalid input provided' : error.message,
-        timestamp: new Date().toISOString(),
-        requestId: context?.requestId,
-      },
-    };
-
-    return errorResponse;
+    const message =
+      process.env.NODE_ENV === 'production' ? 'Invalid input provided' : error.message;
+    return ErrorResponseFormatter.createBaseErrorResponse('VALIDATION_ERROR', message, context);
   }
 
   /**
    * Format authentication error response
    */
   static formatAuthError(error: Error, context?: ErrorContext): ErrorResponse {
-    const errorResponse: ErrorResponse = {
-      error: {
-        type: 'AUTH_ERROR',
-        message: 'Authentication required',
-        timestamp: new Date().toISOString(),
-        requestId: context?.requestId,
-      },
-    };
-
-    return errorResponse;
+    return ErrorResponseFormatter.createBaseErrorResponse(
+      'AUTH_ERROR',
+      'Authentication required',
+      context
+    );
   }
 
   /**
    * Format not found error response
    */
   static formatNotFoundError(resource: string, context?: ErrorContext): ErrorResponse {
-    const errorResponse: ErrorResponse = {
-      error: {
-        type: 'NOT_FOUND',
-        message: `${resource} not found`,
-        timestamp: new Date().toISOString(),
-        requestId: context?.requestId,
-      },
-    };
-
-    return errorResponse;
+    return ErrorResponseFormatter.createBaseErrorResponse(
+      'NOT_FOUND',
+      `${resource} not found`,
+      context
+    );
   }
 
   /**
    * Format conflict error response
    */
   static formatConflictError(message: string, context?: ErrorContext): ErrorResponse {
-    const errorResponse: ErrorResponse = {
-      error: {
-        type: 'CONFLICT',
-        message,
-        timestamp: new Date().toISOString(),
-        requestId: context?.requestId,
-      },
-    };
-
-    return errorResponse;
+    return ErrorResponseFormatter.createBaseErrorResponse('CONFLICT', message, context);
   }
 
   /**
@@ -111,28 +105,27 @@ export class ErrorResponseFormatter {
     operation: string,
     context?: ErrorContext
   ): ErrorResponse {
-    const errorResponse: ErrorResponse = {
-      error: {
-        type: 'INTERNAL_ERROR',
-        message:
-          process.env.NODE_ENV === 'production'
-            ? 'Internal server error'
-            : error instanceof Error
-              ? error.message
-              : 'Unknown error',
-        timestamp: new Date().toISOString(),
-        requestId: context?.requestId,
-        details:
-          process.env.NODE_ENV !== 'production'
-            ? {
-                operation,
-                originalError: error instanceof Error ? error.stack : String(error),
-              }
-            : undefined,
-      },
-    };
+    const message =
+      process.env.NODE_ENV === 'production'
+        ? 'Internal server error'
+        : error instanceof Error
+          ? error.message
+          : 'Unknown error';
 
-    return errorResponse;
+    const details =
+      process.env.NODE_ENV !== 'production'
+        ? {
+            operation,
+            originalError: error instanceof Error ? error.stack : String(error),
+          }
+        : undefined;
+
+    return ErrorResponseFormatter.createBaseErrorResponse(
+      'INTERNAL_ERROR',
+      message,
+      context,
+      details
+    );
   }
 
   /**

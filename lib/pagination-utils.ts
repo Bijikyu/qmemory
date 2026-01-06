@@ -27,6 +27,7 @@
  * - Maintains the same parameter validation approach used throughout the library
  */
 // Import existing HTTP utilities to maintain consistency with library patterns
+import { Request, Response } from 'express';
 import {
   sendInternalServerError,
   sendErrorResponse,
@@ -82,6 +83,7 @@ function validatePagination(req: Request, res: Response, options: any = {}) {
     throw new Error('Invalid Express request object provided');
   }
   logFunctionEntry('validatePagination', { query: req.query });
+  try {
     // Set default configuration values with reasonable limits
     // These defaults balance usability with performance considerations
     const {

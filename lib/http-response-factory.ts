@@ -13,7 +13,8 @@
  */
 
 import type { Response } from 'express';
-import { createModuleUtilities } from './common-patterns';
+import { createModuleUtilities, validateResponse } from './common-patterns';
+import { generateUniqueId } from './simple-wrapper';
 
 // Standard error response structure
 export interface ErrorResponse {
@@ -40,13 +41,15 @@ export const createResponseFactory = (module: string) => {
 
   // Generate unique request ID
   const generateRequestId = (): string => {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+    return generateUniqueId();
   };
 
-  // Validate Express response object
+  // Validate Express response object using common utility
   const validateResponse = (res: Response): void => {
-    if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
-      throw new Error('Invalid Express response object');
+    utils.validateResponse(res, 'validateResponse');
+    // Additional check for json method
+    if (typeof res.json !== 'function') {
+      throw new Error('Express response object missing json() method');
     }
   };
 

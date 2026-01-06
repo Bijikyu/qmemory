@@ -41,6 +41,8 @@
  * @version 1.0.0
  */
 
+import { validateObject } from '../common-patterns.js';
+
 /**
  * Parameter interface for validation
  *
@@ -91,9 +93,7 @@ type UnknownRecord = Record<PropertyKey, unknown>;
  * validateParameter({ name: '', type: 'string', required: true }); // Throws: Parameter name must be a non-empty string
  */
 function validateParameter(param: unknown): asserts param is Parameter {
-  if (!param || typeof param !== 'object') {
-    throw new Error('Parameter must be an object'); // Enforce object shape to avoid runtime key access errors
-  }
+  validateObject(param, 'Parameter'); // Enforce object shape to avoid runtime key access errors
   const candidate = param as UnknownRecord;
 
   // Validate parameter name - required for schema field generation
@@ -163,9 +163,7 @@ function validateParameters(params: unknown): asserts params is Parameter[] {
  * validateFunctionMetadata({ name: '', parameters: [] }); // Throws: Function name must be a non-empty string
  */
 function validateFunctionMetadata(func: unknown): asserts func is FunctionMetadata {
-  if (!func || typeof func !== 'object') {
-    throw new Error('Function metadata must be an object'); // Prevent null and primitive metadata from propagating
-  }
+  validateObject(func, 'Function metadata'); // Prevent null and primitive metadata from propagating
   const candidate = func as UnknownRecord;
 
   // Validate function name - required for schema generation

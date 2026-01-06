@@ -1,36 +1,36 @@
 /**
  * Error Logging Utilities
- * Centralized logging functionality for error tracking and debugging
+ * Reimplemented to use centralized logger - maintains backward compatibility
  */
 
-import { UnifiedLogger } from './logger.js';
+import { createLogger, type LogContext } from './centralized-logger.js';
 import type { ErrorContext } from './error-handler-types.js';
 
 export class ErrorLogger {
-  private static logger = UnifiedLogger.getInstance();
+  private static logger = createLogger('error-logger');
 
   /**
    * Log error with context information
    */
   static logError(message: string, error: Error, context?: ErrorContext): void {
-    const logContext = {
+    const logContext: LogContext = {
       operation: context?.operation || 'unknown',
       errorType: error.constructor.name,
       ...context,
     };
 
-    ErrorLogger.logger.logError(message, error, logContext);
+    this.logger.error(message, logContext);
   }
 
   /**
    * Log warning with context information
    */
   static logWarning(message: string, context?: ErrorContext): void {
-    const logContext = {
+    const logContext: LogContext = {
       operation: context?.operation || 'unknown',
       ...context,
     };
 
-    ErrorLogger.logger.logWarn(message, logContext);
+    this.logger.warn(message, logContext);
   }
 }
