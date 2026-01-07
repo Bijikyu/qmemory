@@ -250,6 +250,7 @@ app.get('/', (req: Request, res: Response) => {
       'POST /utils/math': 'Math operations utility',
       'GET /utils/even/:num': 'Even/odd check utility',
       'POST /utils/dedupe': 'Array deduplication utility',
+      'GET /metrics': 'Application performance metrics',
     },
   });
 });
@@ -697,6 +698,30 @@ app.post('/utils/dedupe', async (req: Request, res: Response) => {
     });
     logError('Failed to dedupe array', String(error));
     sendInternalServerError(res, 'Failed to dedupe array');
+  }
+});
+
+// Metrics endpoint - USED BY FRONTEND
+app.get('/metrics', (req: Request, res: Response) => {
+  try {
+    const metrics = {
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      cpu: process.cpuUsage(),
+      timestamp: new Date().toISOString(),
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+    };
+    sendSuccess(res, 'Metrics retrieved', metrics);
+  } catch (error) {
+    qerrors.qerrors(error as Error, 'demo-app.getMetrics', {
+      endpoint: '/metrics',
+      method: 'GET',
+      userAgent: req.get('User-Agent'),
+    });
+    logError('Failed to get metrics', String(error));
+    sendInternalServerError(res, 'Failed to get metrics');
   }
 });
 

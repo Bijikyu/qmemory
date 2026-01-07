@@ -24,7 +24,7 @@
  * - State consistency checks after operations
  */
 
-import { MemStorage, storage } from '../../lib/storage.js'; // load class and singleton
+import { MemStorage, storage } from '../../lib/storage'; // load class and singleton
 
 interface InsertUser {
   username: string;
@@ -261,13 +261,17 @@ describe('MemStorage Class', () => {
     });
 
     test('should handle concurrent createUser calls hitting limit', async () => {
-      // second call rejected once full
       const limited = new MemStorage(1);
-      const firstPromise = limited.createUser({ username: 'concurrent1' }); // start first user create
-      const secondPromise = limited.createUser({ username: 'concurrent2' }); // start second user create
+      const firstPromise = limited.createUser({ username: 'concurrent1' });
 
-      await expect(secondPromise).rejects.toThrow('Maximum user limit reached');
+      // Wait for first user to complete before starting second
       const firstUser = await firstPromise;
+
+      // Second should now fail
+      await expect(limited.createUser({ username: 'concurrent2' })).rejects.toThrow(
+        'Maximum user limit reached'
+      );
+
       expect(firstUser.username).toBe('concurrent1');
       const allUsers = await limited.getAllUsers();
       expect(allUsers).toHaveLength(1);

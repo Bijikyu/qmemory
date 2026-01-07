@@ -22,9 +22,11 @@ export interface LogContext {
   [key: string]: any;
 }
 
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
 export interface LogConfig {
   enabled: boolean;
-  level: 'debug' | 'info' | 'warn' | 'error';
+  level: LogLevel;
   includeTimestamp: boolean;
   includeFunctionName: boolean;
   prefix?: string;
@@ -33,7 +35,7 @@ export interface LogConfig {
 // Default configuration - can be overridden per environment
 const defaultConfig: LogConfig = {
   enabled: process.env.NODE_ENV !== 'production',
-  level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
+  level: (process.env.NODE_ENV === 'production' ? 'warn' : 'debug') as LogLevel,
   includeTimestamp: true,
   includeFunctionName: true,
 };

@@ -1,8 +1,8 @@
 /**
  * Common Import Barrels
  *
- * Purpose: Reduce import statement duplication across the codebase.
- * Addresses the "Import Pattern Duplication" (100+ occurrences) identified in wet-code analysis.
+ * Purpose: Reduce import statement duplication across codebase.
+ * Addresses "Import Pattern Duplication" (100+ occurrences) identified in wet-code analysis.
  *
  * Design Principles:
  * - Centralized common imports
@@ -11,49 +11,260 @@
  */
 
 // MongoDB and Mongoose
-export {
-  mongoose,
-  Model,
-  HydratedDocument,
-  FilterQuery,
-  UpdateQuery,
-  Document,
-  Types,
-} from 'mongoose';
+export type { Model, HydratedDocument, FilterQuery, UpdateQuery, Document, Types } from 'mongoose';
 
 // Express.js types
 export type { Request, Response, NextFunction, RequestHandler } from 'express';
 
-// Internal utilities
+// Core utilities
+export { createLogger, type LogContext, LogLevel } from './core/centralized-logger';
+export { ErrorHandler } from './core/error-handler';
+export type { ErrorContext, ErrorResponse, StandardResponse } from './core/error-handler-types';
 
+// Internal utilities
+export {
+  sendNotFound,
+  sendConflict,
+  sendInternalServerError,
+  sendServiceUnavailable,
+  sendBadRequest,
+  getTimestamp as getHttpTimestamp,
+  sendValidationError,
+  sendAuthError,
+  generateUniqueId,
+} from './http-utils';
+export {
+  ensureMongoDB,
+  ensureUnique,
+  handleMongoError,
+  safeDbOperation,
+  retryDbOperation,
+  ensureIdempotency,
+  optimizeQuery,
+  createAggregationPipeline,
+} from './database-utils';
+export { MemStorage, storage } from './storage';
+export {
+  findDocumentById,
+  updateDocumentById,
+  deleteDocumentById,
+  cascadeDeleteDocument,
+  createDocument,
+  findDocuments,
+  findOneDocument,
+  bulkUpdateDocuments,
+} from './document-helpers';
+export {
+  performUserDocOp,
+  findUserDoc,
+  deleteUserDoc,
+  userDocActionOr404,
+  fetchUserDocOr404,
+  deleteUserDocOr404,
+  listUserDocsLean,
+  createUniqueDoc,
+  updateUserDoc,
+  validateDocumentUniqueness,
+  hasUniqueFieldChanges,
+} from './document-ops';
+
+// Core utilities
+// export { createHash } from './qgenutils-wrapper';
+
+// Utils
+export {
+  greet,
+  add,
+  isEven,
+  dedupeByFirst,
+  dedupeByLowercaseFirst,
+  dedupeByLast,
+  dedupe,
+} from './utils';
+
+// Email utilities
+export {
+  getEmails,
+  createEmailTarget,
+  isValidEmail,
+  normalizeEmail,
+  getEmailDomain,
+  filterValidEmails,
+} from './email-utils';
+
+// Circuit breaker
+export { createCircuitBreaker, STATES as CIRCUIT_BREAKER_STATES } from './circuit-breaker';
+export {
+  CircuitBreakerFactory,
+  getCircuitBreakerFactory,
+  getManagedCircuitBreaker,
+  getCircuitBreakerStats,
+  getCircuitBreakerFactoryStats,
+  clearAllCircuitBreakers,
+  shutdownCircuitBreakerFactory,
+} from './circuit-breaker-factory';
+
+// Health check
+export {
+  updateMetrics as updateHealthMetrics,
+  incrementActiveRequests,
+  decrementActiveRequests,
+  getRequestMetrics,
+  getMemoryUsage,
+  getCpuUsage,
+  getFilesystemUsage,
+  performHealthCheck,
+  createLivenessCheck,
+  createReadinessCheck,
+  setupHealthChecks,
+  createHealthEndpoint,
+  createLivenessEndpoint,
+  createReadinessEndpoint,
+} from './health-check';
+
+// Pagination utilities
+export {
+  validatePagination,
+  createPaginationMeta,
+  createPaginatedResponse,
+  validateCursorPagination,
+  createCursor,
+  createCursorPaginationMeta,
+  createCursorPaginatedResponse,
+  validateSorting,
+} from './pagination-utils';
+
+// CRUD service factory
+export {
+  createCrudService,
+  createPaginatedService,
+  createValidatedService,
+  findByFieldIgnoreCase,
+  createDuplicateError,
+  escapeRegex as escapeRegexCrud,
+  validateData,
+} from './crud-service-factory';
+
+// Unique validator
+export {
+  checkDuplicateByField,
+  validateUniqueField,
+  validateUniqueFields,
+  createUniqueValidator,
+  handleDuplicateKeyError,
+  withDuplicateKeyHandling,
+  createUniqueFieldMiddleware,
+  createUniqueFieldsMiddleware,
+  isDuplicateError,
+  createBatchUniqueChecker,
+} from './unique-validator';
+
+// Serialization utilities
+export { safeJsonStringify, safeJsonParse, SafeJSON } from './streaming-json';
+
+// Fast operations
+export {
+  FastMath,
+  FastString,
+  LockFreeQueue,
+  ObjectPool,
+  FastTimer,
+  FastMemory,
+  FastHash,
+  FastOps,
+  Cast,
+  Prop,
+} from './fast-operations';
+
+// Logging utilities
+export { logFunctionEntry, logFunctionExit, logFunctionError } from './logging-utils';
+
+// Bounded collections
+export { BoundedQueue, BoundedMap } from './bounded-collections';
+
+// Performance metrics
+export {
+  DatabaseMetrics,
+  RequestMetrics,
+  SystemMetrics,
+  PerformanceMonitor,
+  performanceMonitor,
+} from './performance-utils';
+
+// Cache utilities
+export { createRedisClient } from './cache-utils';
+
+// Field utilities
+export {
+  normalizeFieldName,
+  getCollectionName,
+  denormalizeFieldName,
+  normalizeObjectFields,
+  denormalizeObjectFields,
+} from './field-utils';
+
+// Type utilities
+export { getMongoType, getSupportedTypes } from './typeMap';
+
+// Mongoose mapper
+export {
+  mapParameterToMongoType,
+  mapParametersToSchema,
+  generateMongooseSchema,
+  generateMongoSchema,
+} from './mongoose-mapper';
+
+// Binary storage
+export {
+  MemoryBinaryStorage,
+  FileSystemBinaryStorage,
+  StorageFactory,
+  getDefaultStorage,
+} from './binary-storage';
+
+// Storage interfaces
+export type { IStorage } from './storage-interfaces';
+
+// Security middleware
+export { setupSecurity, getSecurityConfig, destroySecurity } from './security-middleware';
+
+// Privacy compliance
+export {
+  privacyMiddleware,
+  privacyHeadersMiddleware,
+  ccpaComplianceMiddleware,
+  handleDataDeletionRequest,
+  handleDataExportRequest,
+  setupDataRetention,
+} from './privacy-compliance';
+
+// Serialization utilities
+export {
+  serializeDocument,
+  serializeMongooseDocument,
+  mapAndSerialize,
+  saveAndSerialize,
+  mapAndSerializeObj,
+  serializeDocumentObj,
+  serializeMongooseDocumentObj,
+  saveAndSerializeObj,
+  safeSerializeDocument,
+  safeMapAndSerialize,
+  serializeFields,
+  serializeWithoutFields,
+} from './serialization-utils';
+
+// Database operation factory
 export { createDatabaseOperations, createMockModel } from './database-operation-factory';
-export type {
-  DatabaseOperations,
-  MockModel,
-  DbOperationResult,
-  UserOwnedDocument,
-} from './database-operation-factory';
 
+// HTTP response factory
 export { createResponseFactory } from './http-response-factory';
-export type { ResponseFactory, ErrorResponse, SuccessResponse } from './http-response-factory';
 
-// Error handling
-export { default as qerrors } from 'qerrors';
+// Database pool
+export {
+  DatabaseConnectionPool,
+  databaseConnectionPool as sharedDatabaseConnectionPool,
+} from './database/connection-pool-manager';
 
-// Logging
-export { createLogger, type LogContext } from './core/centralized-logger';
-
-// Internal utilities
-
-// Environment and configuration
-export const ENVIRONMENT = {
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: process.env.PORT || 3000,
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/test',
-  LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-};
-
-// Development helpers
-export const DEV = ENVIRONMENT.NODE_ENV === 'development';
-export const PROD = ENVIRONMENT.NODE_ENV === 'production';
-export const TEST = ENVIRONMENT.NODE_ENV === 'test';
+// Common patterns
+export { validateResponse, getTimestamp } from './common-patterns';

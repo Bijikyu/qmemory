@@ -19,7 +19,7 @@ const mockGetAllStats = jest.fn().mockReturnValue({
 const mockGetAllHealthStatus = jest.fn().mockReturnValue({
   'redis://example': {
     status: 'healthy',
-    stats: mockGetAllStats().['redis://example'],
+    stats: mockGetAllStats()['redis://example'],
     issues: [],
   },
 });
@@ -34,9 +34,7 @@ const mockGetGlobalStats = jest.fn().mockReturnValue({
 const mockExecuteQuery = jest.fn().mockResolvedValue('query-result');
 const mockAcquireConnection = jest.fn().mockResolvedValue({ id: 'conn' });
 const mockReleaseConnection = jest.fn().mockResolvedValue(undefined);
-const mockPerformGlobalHealthCheck = jest.fn().mockResolvedValue(
-  mockGetAllHealthStatus(),
-);
+const mockPerformGlobalHealthCheck = jest.fn().mockResolvedValue(mockGetAllHealthStatus());
 const mockShutdown = jest.fn().mockResolvedValue(undefined);
 const mockGetPoolCount = jest.fn().mockReturnValue(1);
 const mockHasPool = jest.fn().mockReturnValue(true);
@@ -106,19 +104,13 @@ describe('database-pool', () => {
   });
 
   test('executeDatabaseQuery proxies to pool manager and returns result', async () => {
-    const result = await executeDatabaseQuery(
-      'redis://localhost',
-      'ping',
-      [],
-      { maxConnections: 5 },
-    );
+    const result = await executeDatabaseQuery('redis://localhost', 'ping', [], {
+      maxConnections: 5,
+    });
 
-    expect(mockExecuteQuery).toHaveBeenCalledWith(
-      'redis://localhost',
-      'ping',
-      [],
-      { maxConnections: 5 },
-    );
+    expect(mockExecuteQuery).toHaveBeenCalledWith('redis://localhost', 'ping', [], {
+      maxConnections: 5,
+    });
     expect(result).toBe('query-result');
   });
 

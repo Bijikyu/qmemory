@@ -87,15 +87,16 @@ const isProduction = process.env.NODE_ENV === 'production';
 const databaseUrl = getEnvVar('MONGODB_URL') || 'mongodb://localhost:27017/qmemory';
 
 // Initialize database pool for production scalability
-const databasePool = new DatabaseConnectionPool(databaseUrl, {
+const databasePool = new DatabaseConnectionPool();
+databasePool.createPool(databaseUrl, {
   maxConnections: isProduction ? 20 : 5,
   minConnections: isProduction ? 2 : 1,
   acquireTimeout: 10000,
   idleTimeout: 30000,
-  healthCheckInterval: 30000,
   maxQueryTime: 5000,
   retryAttempts: 3,
   retryDelay: 1000,
+  healthCheckInterval: 30000,
 });
 
 // Enhanced request context with correlation tracing
@@ -236,21 +237,21 @@ app.get('/health', async (req: Request, res: Response) => {
 
     // Get database pool health
     const poolHealth = await databasePool.performGlobalHealthCheck();
+    const globalStats = databasePool.getGlobalStats();
 
     const health: HealthStatus = {
-      status: poolHealth.overallHealth === 'healthy' ? 'healthy' : 'degraded',
+      status: globalStats?.overallHealth === 'healthy' ? 'healthy' : 'degraded',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       userCount,
       timestamp: new Date().toISOString(),
       databasePool: {
-        status: poolHealth.overallHealth,
-        active: poolHealth.globalStats?.totalActiveConnections || 0,
-        idle: poolHealth.globalStats?.totalConnections
-          ? poolHealth.globalStats.totalConnections -
-            (poolHealth.globalStats.totalActiveConnections || 0)
+        status: globalStats?.overallHealth || 'unknown',
+        active: globalStats?.totalActiveConnections || 0,
+        idle: globalStats?.totalConnections
+          ? globalStats.totalConnections - (globalStats.totalActiveConnections || 0)
           : 0,
-        total: poolHealth.globalStats?.totalConnections || 0,
+        total: globalStats?.totalConnections || 0,
       },
     };
 
@@ -293,8 +294,6 @@ app.get('/', (req: Request, res: Response) => {
       'POST /users/clear': 'Clear all users (development only)',
       'GET /metrics': 'Application performance metrics',
     },
-    version: '2.0.0',
-    production: isProduction,
   });
 });
 
@@ -392,7 +391,7 @@ app.get('/metrics', async (req: Request, res: Response) => {
   const context = (req as any).context as RequestContext;
 
   try {
-    const poolStats = await databasePool.performGlobalHealthCheck();
+    const poolStats = databasePool.getGlobalStats();
     const memInfo = process.memoryUsage();
 
     const metrics = {
@@ -406,13 +405,13 @@ app.get('/metrics', async (req: Request, res: Response) => {
         external: memInfo.external,
       },
       database: {
-        pool: poolStats.globalStats,
+        pool: poolStats,
         health: poolStats.overallHealth,
       },
       requests: {
         rateLimitMapSize: rateLimitMap.size,
-        activeConnections: poolStats.globalStats?.totalActiveConnections || 0,
-        totalConnections: poolStats.globalStats?.totalConnections || 0,
+        activeConnections: poolStats.totalActiveConnections || 0,
+        totalConnections: poolStats.totalConnections || 0,
       },
     };
 
