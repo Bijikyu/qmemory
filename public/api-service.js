@@ -173,5 +173,7 @@ function staticEndpointCalls() {
   fetch('http://localhost:5000/utils/dedupe', { method: 'POST', body: '{"items": [1, 2, 2, 3]}' });
 }
 
-// Export singleton instance
+// Export class and singleton instance
+export { ApiService };
 const apiService = new ApiService();
+export default apiService;
