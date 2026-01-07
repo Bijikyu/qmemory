@@ -1,33 +1,16 @@
 /**
- * Express Server for QMemory Library
- * Implements all endpoints expected by frontend integration tests
+ * Simple Express Server for Frontend-Backend Integration
+ * Implements all endpoints expected by frontend analysis tool
  */
 
 const express = require('express');
-const { storage, User } = require('./lib/storage.ts');
-const { greet, add, isEven, dedupe } = require('./lib/utils.ts');
-const {
-  sendSuccess,
-  sendNotFound,
-  sendBadRequest,
-  sendInternalServerError,
-  getTimestamp,
-} = require('./lib/http-utils.ts');
-const {
-  performHealthCheck,
-  getRequestMetrics,
-  getMemoryUsage,
-  getCpuUsage,
-  getFilesystemUsage,
-} = require('./lib/health-check.ts');
-
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
 
-// In-memory user storage for demo
+// In-memory storage
 let users = [];
 let userIdCounter = 1;
 
@@ -68,70 +51,81 @@ function deleteUser(id) {
   return true;
 }
 
+// Response helpers
+function sendSuccess(res, message, data = null) {
+  const response = {
+    success: true,
+    message,
+    timestamp: new Date().toISOString(),
+    ...(data && { data }),
+  };
+  res.status(200).json(response);
+}
+
+function sendError(res, status, message) {
+  const response = {
+    success: false,
+    error: message,
+    timestamp: new Date().toISOString(),
+  };
+  res.status(status).json(response);
+}
+
 // === HEALTH & SYSTEM ENDPOINTS ===
 
-app.get('/health', async (req, res) => {
-  try {
-    const healthStatus = await performHealthCheck();
-    sendSuccess(res, 'Health check completed', healthStatus);
-  } catch (error) {
-    sendInternalServerError(res, 'Health check failed');
-  }
+app.get('/health', (req, res) => {
+  const healthStatus = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+  };
+  sendSuccess(res, 'Health check completed', healthStatus);
 });
 
-app.get('/metrics', async (req, res) => {
-  try {
-    const metrics = {
-      timestamp: getTimestamp(),
-      requests: getRequestMetrics(),
-      memory: getMemoryUsage(),
-      cpu: getCpuUsage(),
-      filesystem: getFilesystemUsage(),
-      users: {
-        total: users.length,
-        active: users.filter(u => !u.deleted).length,
-      },
-    };
-    sendSuccess(res, 'Metrics retrieved successfully', metrics);
-  } catch (error) {
-    sendInternalServerError(res, 'Failed to retrieve metrics');
-  }
+app.get('/metrics', (req, res) => {
+  const metrics = {
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    users: {
+      total: users.length,
+      active: users.filter(u => !u.deleted).length,
+    },
+  };
+  sendSuccess(res, 'Metrics retrieved successfully', metrics);
 });
 
 app.get('/validation/rules', (req, res) => {
-  try {
-    const rules = {
-      user: {
-        username: {
-          required: true,
-          minLength: 3,
-          maxLength: 50,
-          pattern: '^[a-zA-Z0-9_-]+$',
-        },
-        displayName: {
-          required: false,
-          minLength: 1,
-          maxLength: 100,
+  const rules = {
+    user: {
+      username: {
+        required: true,
+        minLength: 3,
+        maxLength: 50,
+        pattern: '^[a-zA-Z0-9_-]+$',
+      },
+      displayName: {
+        required: false,
+        minLength: 1,
+        maxLength: 100,
+      },
+    },
+    utils: {
+      math: {
+        operation: ['add', 'subtract', 'multiply', 'divide'],
+        required: ['a', 'b', 'operation'],
+      },
+      even: {
+        number: {
+          type: 'integer',
+          min: -Number.MAX_SAFE_INTEGER,
+          max: Number.MAX_SAFE_INTEGER,
         },
       },
-      utils: {
-        math: {
-          operation: ['add', 'subtract', 'multiply', 'divide'],
-          required: ['a', 'b', 'operation'],
-        },
-        even: {
-          number: {
-            type: 'integer',
-            min: -Number.MAX_SAFE_INTEGER,
-            max: Number.MAX_SAFE_INTEGER,
-          },
-        },
-      },
-    };
-    sendSuccess(res, 'Validation rules retrieved successfully', rules);
-  } catch (error) {
-    sendInternalServerError(res, 'Failed to retrieve validation rules');
-  }
+    },
+  };
+  sendSuccess(res, 'Validation rules retrieved successfully', rules);
 });
 
 app.get('/', (req, res) => {
@@ -153,7 +147,7 @@ app.get('/', (req, res) => {
         dedupe: 'POST /utils/dedupe',
       },
     },
-    timestamp: getTimestamp(),
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -180,7 +174,7 @@ app.get('/users', (req, res) => {
 
     sendSuccess(res, 'Users retrieved successfully', response);
   } catch (error) {
-    sendInternalServerError(res, 'Failed to retrieve users');
+    sendError(res, 500, 'Failed to retrieve users');
   }
 });
 
@@ -189,17 +183,17 @@ app.post('/users', (req, res) => {
     const { username, displayName } = req.body;
 
     if (!username) {
-      return sendBadRequest(res, 'Username is required');
+      return sendError(res, 400, 'Username is required');
     }
 
     if (findUserByUsername(username)) {
-      return sendBadRequest(res, 'Username already exists');
+      return sendError(res, 400, 'Username already exists');
     }
 
     const user = createUser({ username, displayName });
     sendSuccess(res, 'User created successfully', user);
   } catch (error) {
-    sendInternalServerError(res, 'Failed to create user');
+    sendError(res, 500, 'Failed to create user');
   }
 });
 
@@ -207,11 +201,11 @@ app.get('/users/:id', (req, res) => {
   try {
     const user = findUserById(req.params.id);
     if (!user) {
-      return sendNotFound(res, 'User not found');
+      return sendError(res, 404, 'User not found');
     }
     sendSuccess(res, 'User found successfully', user);
   } catch (error) {
-    sendInternalServerError(res, 'Failed to retrieve user');
+    sendError(res, 500, 'Failed to retrieve user');
   }
 });
 
@@ -219,11 +213,11 @@ app.put('/users/:id', (req, res) => {
   try {
     const user = updateUser(req.params.id, req.body);
     if (!user) {
-      return sendNotFound(res, 'User not found');
+      return sendError(res, 404, 'User not found');
     }
     sendSuccess(res, 'User updated successfully', user);
   } catch (error) {
-    sendInternalServerError(res, 'Failed to update user');
+    sendError(res, 500, 'Failed to update user');
   }
 });
 
@@ -231,11 +225,11 @@ app.delete('/users/:id', (req, res) => {
   try {
     const deleted = deleteUser(req.params.id);
     if (!deleted) {
-      return sendNotFound(res, 'User not found');
+      return sendError(res, 404, 'User not found');
     }
     sendSuccess(res, 'User deleted successfully');
   } catch (error) {
-    sendInternalServerError(res, 'Failed to delete user');
+    sendError(res, 500, 'Failed to delete user');
   }
 });
 
@@ -243,11 +237,11 @@ app.get('/users/by-username/:username', (req, res) => {
   try {
     const user = findUserByUsername(req.params.username);
     if (!user) {
-      return sendNotFound(res, 'User not found');
+      return sendError(res, 404, 'User not found');
     }
     sendSuccess(res, 'User found successfully', user);
   } catch (error) {
-    sendInternalServerError(res, 'Failed to retrieve user');
+    sendError(res, 500, 'Failed to retrieve user');
   }
 });
 
@@ -257,7 +251,7 @@ app.post('/users/clear', (req, res) => {
     userIdCounter = 1;
     sendSuccess(res, 'All users cleared successfully');
   } catch (error) {
-    sendInternalServerError(res, 'Failed to clear users');
+    sendError(res, 500, 'Failed to clear users');
   }
 });
 
@@ -266,10 +260,10 @@ app.post('/users/clear', (req, res) => {
 app.get('/utils/greet', (req, res) => {
   try {
     const name = req.query.name || 'World';
-    const greeting = greet(name);
+    const greeting = `Hello, ${name}!`;
     sendSuccess(res, 'Greeting generated successfully', { greeting, name });
   } catch (error) {
-    sendInternalServerError(res, 'Failed to generate greeting');
+    sendError(res, 500, 'Failed to generate greeting');
   }
 });
 
@@ -278,13 +272,14 @@ app.post('/utils/math', (req, res) => {
     const { a, b, operation } = req.body;
 
     if (a === undefined || b === undefined || !operation) {
-      return sendBadRequest(res, 'Parameters a, b, and operation are required');
+      return sendError(res, 400, 'Parameters a, b, and operation are required');
     }
 
     const validOperations = ['add', 'subtract', 'multiply', 'divide'];
     if (!validOperations.includes(operation)) {
-      return sendBadRequest(
+      return sendError(
         res,
+        400,
         `Invalid operation. Must be one of: ${validOperations.join(', ')}`
       );
     }
@@ -292,7 +287,7 @@ app.post('/utils/math', (req, res) => {
     let result;
     switch (operation) {
       case 'add':
-        result = add(a, b);
+        result = a + b;
         break;
       case 'subtract':
         result = a - b;
@@ -302,7 +297,7 @@ app.post('/utils/math', (req, res) => {
         break;
       case 'divide':
         if (b === 0) {
-          return sendBadRequest(res, 'Division by zero is not allowed');
+          return sendError(res, 400, 'Division by zero is not allowed');
         }
         result = a / b;
         break;
@@ -315,7 +310,7 @@ app.post('/utils/math', (req, res) => {
       result,
     });
   } catch (error) {
-    sendInternalServerError(res, 'Failed to perform math operation');
+    sendError(res, 500, 'Failed to perform math operation');
   }
 });
 
@@ -324,10 +319,10 @@ app.get('/utils/even/:number', (req, res) => {
     const number = parseInt(req.params.number);
 
     if (isNaN(number)) {
-      return sendBadRequest(res, 'Parameter must be a valid integer');
+      return sendError(res, 400, 'Parameter must be a valid integer');
     }
 
-    const evenCheck = isEven(number);
+    const evenCheck = number % 2 === 0;
     const message = `${number} is ${evenCheck ? 'even' : 'odd'}`;
 
     sendSuccess(res, 'Even check completed successfully', {
@@ -336,7 +331,7 @@ app.get('/utils/even/:number', (req, res) => {
       message,
     });
   } catch (error) {
-    sendInternalServerError(res, 'Failed to check even/odd');
+    sendError(res, 500, 'Failed to check even/odd');
   }
 });
 
@@ -345,10 +340,10 @@ app.post('/utils/dedupe', (req, res) => {
     const { items } = req.body;
 
     if (!Array.isArray(items)) {
-      return sendBadRequest(res, 'Items must be an array');
+      return sendError(res, 400, 'Items must be an array');
     }
 
-    const deduped = dedupe(items);
+    const deduped = [...new Set(items)];
 
     sendSuccess(res, 'Array deduplicated successfully', {
       original: items,
@@ -356,25 +351,25 @@ app.post('/utils/dedupe', (req, res) => {
       removed: items.length - deduped.length,
     });
   } catch (error) {
-    sendInternalServerError(res, 'Failed to deduplicate array');
+    sendError(res, 500, 'Failed to deduplicate array');
   }
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  sendInternalServerError(res, 'Internal server error');
+  sendError(res, 500, 'Internal server error');
 });
 
 // 404 handler
 app.use((req, res) => {
-  sendNotFound(res, 'Endpoint not found');
+  sendError(res, 404, 'Endpoint not found');
 });
 
 // Start server
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`QMemory API Server running on port ${PORT}`);
+    console.log(`Simple API Server running on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);
     console.log(`API documentation: http://localhost:${PORT}/`);
   });

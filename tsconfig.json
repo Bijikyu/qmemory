@@ -40,7 +40,9 @@
     "lib": ["ES2022"],
     "types": ["node", "jest"],
     "baseUrl": "./",
-    "allowImportingTsExtensions": false
+    "allowImportingTsExtensions": false,
+    "allowArbitraryExtensions": false,
+    "noEmit": false
   },
   "include": ["**/*.ts"],
   "exclude": [

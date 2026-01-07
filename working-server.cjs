@@ -4,7 +4,6 @@
  */
 
 const express = require('express');
-const { storage, User } = require('./lib/storage.ts');
 const { greet, add, isEven, dedupe } = require('./lib/utils.ts');
 const {
   sendSuccess,
