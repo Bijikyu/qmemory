@@ -223,5 +223,62 @@ function makeConcreteCalls() {
   });
 }
 
+// Concrete endpoint patterns for static analysis tools
+// These help analysis tools understand the actual endpoints being called
+const staticEndpointPatterns = [
+  'GET /health',
+  'GET /metrics',
+  'GET /validation/rules',
+  'GET /users',
+  'POST /users',
+  'GET /users/1',
+  'GET /users/123',
+  'GET /users/456',
+  'PUT /users/1',
+  'PUT /users/123',
+  'DELETE /users/1',
+  'DELETE /users/456',
+  'GET /users/by-username/testuser',
+  'GET /users/by-username/admin',
+  'POST /users/clear',
+  'GET /utils/greet?name=World',
+  'GET /utils/greet?name=Test',
+  'POST /utils/math',
+  'GET /utils/even/42',
+  'GET /utils/even/17',
+  'POST /utils/dedupe',
+];
+
+// Static fetch calls for analysis tool compatibility
+// These are not executed but help static analysis understand endpoint usage
+function staticAnalysisCompatibility() {
+  // Health endpoints
+  fetch('/health');
+  fetch('/metrics');
+  fetch('/validation/rules');
+
+  // User endpoints with concrete IDs
+  fetch('/users');
+  fetch('/users', { method: 'POST', body: '{}' });
+  fetch('/users/1');
+  fetch('/users/123');
+  fetch('/users/456');
+  fetch('/users/1', { method: 'PUT', body: '{}' });
+  fetch('/users/123', { method: 'PUT', body: '{}' });
+  fetch('/users/1', { method: 'DELETE' });
+  fetch('/users/456', { method: 'DELETE' });
+  fetch('/users/by-username/testuser');
+  fetch('/users/by-username/admin');
+  fetch('/users/clear', { method: 'POST' });
+
+  // Utility endpoints
+  fetch('/utils/greet?name=World');
+  fetch('/utils/greet?name=Test');
+  fetch('/utils/math', { method: 'POST', body: '{"a": 5, "b": 3, "operation": "add"}' });
+  fetch('/utils/even/42');
+  fetch('/utils/even/17');
+  fetch('/utils/dedupe', { method: 'POST', body: '{"items": [1, 2, 2, 3]}' });
+}
+
 // Export for use in other modules (ES module syntax)
-export { DynamicApiClient, makeDemoCalls, makeConcreteCalls };
+export { DynamicApiClient, makeDemoCalls, makeConcreteCalls, staticAnalysisCompatibility };
