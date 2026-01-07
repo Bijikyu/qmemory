@@ -31,7 +31,12 @@ function createUser(userData) {
 }
 
 function findUserById(id) {
-  return users.find(user => user.id === parseInt(id));
+  const parsedId = parseInt(id, 10);
+  // Strict validation to prevent numeric injection
+  if (!Number.isInteger(parsedId) || !/^\d+$/.test(id)) {
+    return null; // Return null for invalid IDs instead of crashing
+  }
+  return users.find(user => user.id === parsedId);
 }
 
 function findUserByUsername(username) {
@@ -39,7 +44,12 @@ function findUserByUsername(username) {
 }
 
 function updateUser(id, updateData) {
-  const userIndex = users.findIndex(user => user.id === parseInt(id));
+  const parsedId = parseInt(id, 10);
+  // Strict validation to prevent numeric injection
+  if (!Number.isInteger(parsedId) || !/^\d+$/.test(id)) {
+    return null; // Return null for invalid IDs
+  }
+  const userIndex = users.findIndex(user => user.id === parsedId);
   if (userIndex === -1) return null;
 
   users[userIndex] = { ...users[userIndex], ...updateData, updatedAt: new Date().toISOString() };
@@ -47,7 +57,12 @@ function updateUser(id, updateData) {
 }
 
 function deleteUser(id) {
-  const userIndex = users.findIndex(user => user.id === parseInt(id));
+  const parsedId = parseInt(id, 10);
+  // Strict validation to prevent numeric injection
+  if (!Number.isInteger(parsedId) || !/^\d+$/.test(id)) {
+    return false; // Return false for invalid IDs
+  }
+  const userIndex = users.findIndex(user => user.id === parsedId);
   if (userIndex === -1) return false;
 
   users.splice(userIndex, 1);
@@ -194,8 +209,16 @@ app.get('/', (req, res) => {
 
 app.get('/users', (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // Strict validation for pagination parameters
+    const pageStr = req.query.page || '1';
+    const limitStr = req.query.limit || '10';
+
+    if (!/^\d+$/.test(pageStr) || !/^\d+$/.test(limitStr)) {
+      return sendError(res, 400, 'Pagination parameters must be positive integers');
+    }
+
+    const page = parseInt(pageStr, 10);
+    const limit = parseInt(limitStr, 10);
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
 
@@ -238,6 +261,10 @@ app.post('/users', (req, res) => {
 
 app.get('/users/:id', (req, res) => {
   try {
+    // Validate ID parameter before passing to function
+    if (!/^\d+$/.test(req.params.id)) {
+      return sendError(res, 400, 'User ID must be a valid positive integer');
+    }
     const user = findUserById(req.params.id);
     if (!user) {
       return sendError(res, 404, 'User not found');
@@ -250,6 +277,10 @@ app.get('/users/:id', (req, res) => {
 
 app.put('/users/:id', (req, res) => {
   try {
+    // Validate ID parameter before passing to function
+    if (!/^\d+$/.test(req.params.id)) {
+      return sendError(res, 400, 'User ID must be a valid positive integer');
+    }
     const user = updateUser(req.params.id, req.body);
     if (!user) {
       return sendError(res, 404, 'User not found');
@@ -262,6 +293,10 @@ app.put('/users/:id', (req, res) => {
 
 app.delete('/users/:id', (req, res) => {
   try {
+    // Validate ID parameter before passing to function
+    if (!/^\d+$/.test(req.params.id)) {
+      return sendError(res, 400, 'User ID must be a valid positive integer');
+    }
     const deleted = deleteUser(req.params.id);
     if (!deleted) {
       return sendError(res, 404, 'User not found');
@@ -355,10 +390,11 @@ app.post('/utils/math', (req, res) => {
 
 app.get('/utils/even/:number', (req, res) => {
   try {
-    const number = parseInt(req.params.number);
+    const number = parseInt(req.params.number, 10);
 
-    if (isNaN(number)) {
-      return sendError(res, 400, 'Parameter must be a valid integer');
+    // Strict validation to prevent numeric injection
+    if (!Number.isInteger(number) || !/^\d+$/.test(req.params.number)) {
+      return sendError(res, 400, 'Parameter must be a valid positive integer');
     }
 
     const isEven = number % 2 === 0;

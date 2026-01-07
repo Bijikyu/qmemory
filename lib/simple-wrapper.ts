@@ -58,55 +58,30 @@
  * - Console methods respect environment-specific log levels
  * - Metadata is optional to prevent accidental data exposure
  */
+/**
+ * Logger interface providing basic logging capabilities
+ *
+ * This logger implementation uses console methods to provide consistent logging
+ * across different environments (Node.js, browser, etc.) without external dependencies.
+ * It's designed as a fallback when the main qerrors logger is unavailable.
+ *
+ * Log Levels:
+ * - info: General application information
+ * - warn: Warning messages that don't stop execution
+ * - error: Error messages that may indicate problems
+ * - debug: Detailed debugging information for development
+ *
+ * Security Considerations:
+ * - No sensitive data is logged by default
+ * - Structured logging format enables proper log aggregation
+ * - Console methods respect environment-specific log levels
+ * - Metadata is optional to prevent accidental data exposure
+ */
 export const logger = {
-  /**
-   * Logs informational messages with optional metadata
-   * @param message - The message to log
-   * @param meta - Optional additional context or metadata
-   */
   info: (message: string, meta?: any) => console.log(`[INFO] ${message}`, meta || ''),
-
-  /**
-   * Logs warning messages with optional metadata
-   * @param message - The warning message to log
-   * @param meta - Optional additional context or metadata
-   */
   warn: (message: string, meta?: any) => console.warn(`[WARN] ${message}`, meta || ''),
-
-  /**
-   * Logs error messages with optional metadata
-   * @param message - The error message to log
-   * @param meta - Optional additional context or metadata
-   */
   error: (message: string, meta?: any) => console.error(`[ERROR] ${message}`, meta || ''),
-
-  /**
-   * Logs debug messages with optional metadata
-   * @param message - The debug message to log
-   * @param meta - Optional additional context or metadata
-   */
   debug: (message: string, meta?: any) => console.debug(`[DEBUG] ${message}`, meta || ''),
-
-  /**
-   * Alias for debug method to maintain API compatibility
-   * @param message - The debug message to log
-   * @param meta - Optional additional context or metadata
-   */
-  logDebug: (message: string, meta?: any) => console.debug(`[DEBUG] ${message}`, meta || ''),
-
-  /**
-   * Logs critical error messages that may cause application failure
-   * @param message - The fatal error message to log
-   * @param meta - Optional additional context or metadata
-   */
-  logFatal: (message: string, meta?: any) => console.error(`[FATAL] ${message}`, meta || ''),
-
-  /**
-   * Logs audit events for security and compliance tracking
-   * @param message - The audit message to log
-   * @param meta - Optional additional context or metadata
-   */
-  logAudit: (message: string, meta?: any) => console.log(`[AUDIT] ${message}`, meta || ''),
 };
 
 /**
@@ -355,24 +330,6 @@ export const ErrorTypes = {
  * with type information and optional context for better debugging.
  */
 
-/**
- * Error factory object with methods for creating typed errors
- *
- * This factory encapsulates error creation logic to ensure
- * consistent error structure throughout the application.
- *
- * Error Structure:
- * - message: Human-readable error description
- * - type: Error classification from ErrorTypes
- * - context: Optional additional context for debugging
- *
- * @example
- * const error = ErrorFactory.createTypedError(
- *   ErrorTypes.VALIDATION,
- *   'Invalid input',
- *   { field: 'email', value: 'invalid-email' }
- * );
- */
 export const ErrorFactory = {
   /**
    * Creates a typed error with optional context
@@ -387,6 +344,15 @@ export const ErrorFactory = {
     error.context = context;
     return error;
   },
+
+  /**
+   * Convenience export for creating typed errors
+   *
+   * This provides direct access to the most commonly used
+   * error creation method.
+   */
+  createTypedError: (type: string, message: string, context?: any): Error =>
+    ErrorFactory.createTypedError,
 };
 
 /**

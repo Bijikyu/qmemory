@@ -13,6 +13,32 @@ import { ErrorFactory } from './core/centralized-errors';
 type AnyUserDoc = AnyObject & { user: string };
 type DocumentId = Types.ObjectId | string;
 
+// Security utility functions to prevent MongoDB injection
+const sanitizeUsername = (username: string): string => {
+  // Remove MongoDB operators and special characters that could be used for injection
+  return username.replace(/[$\.\[\]]/g, '').trim();
+};
+
+const isValidUsername = (username: string): boolean => {
+  // Only allow alphanumeric characters, underscores, and hyphens
+  // Reasonable length limits to prevent abuse
+  return /^[a-zA-Z0-9_-]+$/.test(username) && username.length > 0 && username.length <= 50;
+};
+
+const validateAndSanitizeUsername = (username: string, functionName: string): string => {
+  if (!username || typeof username !== 'string') {
+    throw new Error(`Invalid username: must be a non-empty string in ${functionName}`);
+  }
+
+  if (!isValidUsername(username)) {
+    throw new Error(
+      `Invalid username format: only alphanumeric characters, underscores, and hyphens allowed (max 50 chars) in ${functionName}`
+    );
+  }
+
+  return sanitizeUsername(username);
+};
+
 // Create module-specific utilities
 const utils = createModuleUtilities('document-ops');
 
@@ -72,11 +98,12 @@ const findUserDoc = async <TSchema extends AnyUserDoc>(
   username: string
 ): Promise<HydratedDocument<TSchema> | null> => {
   const log = utils.getFunctionLogger('findUserDoc');
-  log.entry({ id, username });
+  const sanitizedUsername = validateAndSanitizeUsername(username, 'findUserDoc');
+  log.entry({ id, username: sanitizedUsername });
   const op = (m: Model<TSchema>, i: DocumentId, u: string) =>
     m.findOne({ _id: i, user: u } as FilterQuery<TSchema>).exec();
   utils.debugLog('findUserDoc', 'returning result from performUserDocOp');
-  const result = performUserDocOp(model, id, username, op);
+  const result = performUserDocOp(model, id, sanitizedUsername, op);
   log.return(result);
   return result;
 };
@@ -94,11 +121,12 @@ const deleteUserDoc = async <TSchema extends AnyUserDoc>(
   username: string
 ): Promise<HydratedDocument<TSchema> | null> => {
   const log = utils.getFunctionLogger('deleteUserDoc');
-  log.entry({ id, username });
+  const sanitizedUsername = validateAndSanitizeUsername(username, 'deleteUserDoc');
+  log.entry({ id, username: sanitizedUsername });
   const op = (m: Model<TSchema>, i: DocumentId, u: string) =>
     m.findOneAndDelete({ _id: i, user: u } as FilterQuery<TSchema>).exec();
   utils.debugLog('deleteUserDoc', 'returning result from performUserDocOp');
-  const result = performUserDocOp(model, id, username, op);
+  const result = performUserDocOp(model, id, sanitizedUsername, op);
   log.return(result);
   return result;
 };
@@ -157,9 +185,10 @@ const fetchUserDocOr404 = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
+      const sanitizedUser = validateAndSanitizeUsername(user, 'fetchUserDocOr404');
       const log = utils.getFunctionLogger('fetchUserDocOr404');
-      log.entry({ id, user });
-      const doc = await userDocActionOr404(model, id, user, res, findUserDoc, msg);
+      log.entry({ id, user: sanitizedUser });
+      const doc = await userDocActionOr404(model, id, sanitizedUser, res, findUserDoc, msg);
       if (!doc) {
         return logAndReturnUndefined(log, 'fetchUserDocOr404');
       }
@@ -182,9 +211,10 @@ const deleteUserDocOr404 = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
+      const sanitizedUser = validateAndSanitizeUsername(user, 'deleteUserDocOr404');
       const log = utils.getFunctionLogger('deleteUserDocOr404');
-      log.entry({ id, user });
-      const doc = await userDocActionOr404(model, id, user, res, deleteUserDoc, msg);
+      log.entry({ id, user: sanitizedUser });
+      const doc = await userDocActionOr404(model, id, sanitizedUser, res, deleteUserDoc, msg);
       if (!doc) {
         return logAndReturnUndefined(log, 'deleteUserDocOr404');
       }
@@ -206,15 +236,16 @@ const listUserDocsLean = async <TSchema extends AnyUserDoc>(
 ): Promise<Array<any>> => {
   return utils.safeAsync(
     async () => {
+      const sanitizedUsername = validateAndSanitizeUsername(username, 'listUserDocsLean');
       const log = utils.getFunctionLogger('listUserDocsLean');
       log.entry({
-        username,
+        username: sanitizedUsername,
         sort: JSON.stringify(options?.sort),
         limit: options?.limit,
         skip: options?.skip,
       });
 
-      const filter: FilterQuery<TSchema> = { user: username };
+      const filter: FilterQuery<TSchema> = { user: sanitizedUsername };
       const queryOptions: any = { lean: true };
 
       options?.select && (queryOptions.select = options.select);
@@ -320,14 +351,15 @@ const updateUserDoc = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | undefined> => {
   return utils.safeAsync(
     async () => {
+      const sanitizedUsername = validateAndSanitizeUsername(username, 'updateUserDoc');
       const log = utils.getFunctionLogger('updateUserDoc');
-      log.entry({ id, username });
+      log.entry({ id, username: sanitizedUsername });
       const updates: Partial<TSchema> = { ...fieldsToUpdate };
       if (Object.prototype.hasOwnProperty.call(updates, 'user')) {
         console.warn(`updateUserDoc ignored user change for doc: ${id}`);
         delete (updates as AnyUserDoc).user;
       }
-      const doc = await fetchUserDocOr404(model, id, username, res, 'Document not found');
+      const doc = await fetchUserDocOr404(model, id, sanitizedUsername, res, 'Document not found');
       if (!doc) {
         return logAndReturnUndefined(log, 'updateUserDoc');
       }

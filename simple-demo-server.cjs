@@ -41,8 +41,23 @@ app.get('/', (req, res) => {
 
 // User management endpoints
 app.get('/users', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+  // Strict validation for pagination parameters
+  const pageStr = req.query.page || '1';
+  const limitStr = req.query.limit || '10';
+  
+  if (!/^\d+$/.test(pageStr) || !/^\d+$/.test(limitStr)) {
+    return res.status(400).json({
+      error: {
+        type: 'VALIDATION_ERROR',
+        message: 'Pagination parameters must be positive integers',
+        timestamp: new Date().toISOString(),
+        requestId: 'req-' + Date.now(),
+      },
+    });
+  }
+  
+  const page = parseInt(pageStr, 10);
+  const limit = parseInt(limitStr, 10);
   const startIndex = (page - 1) * limit;
   const endIndex = startIndex + limit;
 
@@ -106,9 +121,10 @@ app.post('/users', (req, res) => {
 });
 
 app.get('/users/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id, 10);
 
-  if (isNaN(id) || id <= 0) {
+  // Strict validation to prevent numeric injection
+  if (!Number.isInteger(id) || id <= 0 || !/^\d+$/.test(req.params.id)) {
     return res.status(400).json({
       error: {
         type: 'VALIDATION_ERROR',
@@ -140,9 +156,10 @@ app.get('/users/:id', (req, res) => {
 });
 
 app.delete('/users/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id, 10);
 
-  if (isNaN(id) || id <= 0) {
+  // Strict validation to prevent numeric injection
+  if (!Number.isInteger(id) || id <= 0 || !/^\d+$/.test(req.params.id)) {
     return res.status(400).json({
       error: {
         type: 'VALIDATION_ERROR',

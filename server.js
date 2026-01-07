@@ -161,8 +161,16 @@ app.get('/', (req, res) => {
 
 app.get('/users', (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // Strict validation for pagination parameters
+    const pageStr = req.query.page || '1';
+    const limitStr = req.query.limit || '10';
+
+    if (!/^\d+$/.test(pageStr) || !/^\d+$/.test(limitStr)) {
+      return sendError(res, 400, 'Pagination parameters must be positive integers');
+    }
+
+    const page = parseInt(pageStr, 10);
+    const limit = parseInt(limitStr, 10);
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
 
@@ -321,10 +329,11 @@ app.post('/utils/math', (req, res) => {
 
 app.get('/utils/even/:number', (req, res) => {
   try {
-    const number = parseInt(req.params.number);
+    const number = parseInt(req.params.number, 10);
 
-    if (isNaN(number)) {
-      return sendBadRequest(res, 'Parameter must be a valid integer');
+    // Strict validation to prevent numeric injection
+    if (!Number.isInteger(number) || !/^\d+$/.test(req.params.number)) {
+      return sendBadRequest(res, 'Parameter must be a valid positive integer');
     }
 
     const evenCheck = isEven(number);

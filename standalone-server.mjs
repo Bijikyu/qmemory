@@ -194,8 +194,16 @@ app.get('/', (req, res) => {
 
 app.get('/users', (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // Strict validation for pagination parameters
+    const pageStr = req.query.page || '1';
+    const limitStr = req.query.limit || '10';
+
+    if (!/^\d+$/.test(pageStr) || !/^\d+$/.test(limitStr)) {
+      return sendError(res, 400, 'Pagination parameters must be positive integers');
+    }
+
+    const page = parseInt(pageStr, 10);
+    const limit = parseInt(limitStr, 10);
     const startIndex = (page - 1) * limit;
     const endIndex = Math.min(startIndex + limit, users.length);
 

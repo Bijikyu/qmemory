@@ -8,14 +8,10 @@ import mongoose, {
 } from 'mongoose';
 import type { Response } from 'express';
 import type { MongoServerError } from 'mongodb';
-import {
-  sendServiceUnavailable,
-  sendInternalServerError,
-  sendConflict,
-  sendValidationError,
-} from './http-utils.js';
-import { safeDelay, calculateBackoffDelay } from './core/secure-delay';
+import { sendInternalServerError, sendConflict, sendValidationError } from './http-utils.js';
 import { createModuleUtilities } from './common-patterns.js';
+import { ensureMongoDB } from './database/connection-utils.js';
+import { ensureMongoDB } from './database/connection-utils.js';
 
 const utils = createModuleUtilities('database-utils');
 
@@ -27,64 +23,29 @@ export interface IdempotencyRecord<TResult> extends AnyDocumentShape {
   createdAt: Date;
 }
 
-const isMongoServerError = (error: unknown): error is MongoServerError =>
-  typeof error === 'object' && error !== null && 'code' in error;
-const isValidationError = (
-  error: unknown
-): error is { name: 'ValidationError'; errors?: Record<string, { message: string }> } =>
-  typeof error === 'object' &&
-  error !== null &&
-  (error as { name?: string }).name === 'ValidationError';
-const isCastError = (error: unknown): error is { name: 'CastError' } =>
-  typeof error === 'object' && error !== null && (error as { name?: string }).name === 'CastError';
-
-export const ensureMongoDB = (res: Response): boolean => {
-  return (
-    utils.safeSync(
-      () => {
-        utils
-          .getFunctionLogger('ensureMongoDB')
-          .debug('is running', { readyState: mongoose.connection.readyState });
-        const isReady = mongoose.connection.readyState === 1;
-        if (!isReady) {
-          sendServiceUnavailable(res, 'Database functionality unavailable');
-          utils.debugLog('Database connection not ready when ensureMongoDB executed');
-          return false;
-        }
-        utils.debugLog('ensureMongoDB confirmed healthy database connection');
-        return true;
-      },
-      'ensureMongoDB',
-      { readyState: mongoose.connection.readyState }
-    ) || false
-  );
+// Simple database error handling (refactored from validation-utils)
+const handleMongoDuplicateError = (
+  error: unknown,
+  res: Response | null,
+  customMessage?: string
+): boolean => {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as any).code === 11000
+  ) {
+    if (res) {
+      const field = Object.keys((error as any).keyPattern ?? {})[0];
+      const message = customMessage || `Duplicate value for field: ${field ?? 'unknown'}`;
+      sendConflict(res, message);
+    }
+    return true;
+  }
+  return false;
 };
 
-export const ensureUnique = async <TSchema extends AnyDocumentShape>(
-  model: Model<TSchema>,
-  query: FilterQuery<TSchema>,
-  res: Response,
-  duplicateMsg?: string
-): Promise<boolean> => {
-  return (
-    utils.safeAsync(
-      async () => {
-        utils.getFunctionLogger('ensureUnique').debug('is running', { query });
-        const existingDoc = await model.exists(query);
-        if (existingDoc) {
-          const duplicateId = String(existingDoc._id);
-          utils.debugLog('Duplicate document detected during ensureUnique', { query, duplicateId });
-          sendConflict(res, duplicateMsg ?? 'Resource already exists');
-          return false;
-        }
-        utils.debugLog('ensureUnique completed without detecting duplicates');
-        return true;
-      },
-      'ensureUnique',
-      { queryKeys: Object.keys(query) }
-    ) || false
-  );
-};
+export { ensureUnique } from './database/validation-utils.js';
 
 /**
  * Handle MongoDB duplicate key error (code 11000)
@@ -148,14 +109,23 @@ export const handleMongoError = (error: unknown, res: Response | null, operation
 
 export const safeDbOperation = async <TResult>(
   operation: () => Promise<TResult>,
-  res: Response | null,
-  operationName: string
+  operationName: string,
+  res: Response | null = null
 ): Promise<TResult | null> => {
   return utils
     .safeAsync(
       async () => {
         utils.getFunctionLogger('safeDbOperation').debug('executing', { operationName });
-        const result = await operation();
+
+        // Add timeout to prevent hanging operations (Scalability Fix #1)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`Database operation timeout: ${operationName}`)),
+            30000
+          );
+        });
+
+        const result = await Promise.race([operation(), timeoutPromise]);
         utils
           .getFunctionLogger('safeDbOperation')
           .debug('completed successfully', { operationName });
@@ -165,7 +135,11 @@ export const safeDbOperation = async <TResult>(
       { operationName, hasResponse: res !== null }
     )
     .catch(error => {
-      handleMongoError(error, res ?? null, operationName);
+      // Enhanced error logging for performance monitoring (Scalability Fix #2)
+      if (error.message.includes('timeout')) {
+        console.error(`DATABASE TIMEOUT: ${operationName} - possible connection pool exhaustion`);
+      }
+      handleMongoError(error, res, operationName);
       return null;
     });
 };
