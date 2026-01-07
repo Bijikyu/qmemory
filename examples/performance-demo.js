@@ -100,8 +100,8 @@ async function demo2_httpPerformance() {
     { method: 'GET', path: '/users', status: 200, duration: 38 },
     { method: 'GET', path: '/users', status: 404, duration: 25 },
     { method: 'POST', path: '/users', status: 201, duration: 95 },
-    { method: 'PUT', path: '/users/123', status: 200, duration: 75 },
-    { method: 'DELETE', path: '/users/456', status: 204, duration: 55 },
+    { method: 'PUT', path: '/users/123', status: 200, duration: 75 }, // Example ID - in real usage this would be dynamic
+    { method: 'DELETE', path: '/users/456', status: 204, duration: 55 }, // Example ID - in real usage this would be dynamic
     { method: 'GET', path: '/posts', status: 500, duration: 150 },
   ];
 
