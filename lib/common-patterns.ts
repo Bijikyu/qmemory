@@ -16,7 +16,11 @@
  */
 
 import qerrors from 'qerrors';
-import { createLogger, type LogContext } from './core/centralized-logger';
+import {
+  createLogger,
+  getTimestamp as getTimestampFromLogger,
+  type LogContext,
+} from './core/centralized-logger.js';
 
 // Module-specific error logger factory
 export const createErrorLogger =
@@ -246,7 +250,11 @@ export const createPerformanceTimer = (
   const start = Date.now();
   return (success = true) => {
     const duration = Date.now() - start;
-    debugLog(`Performance: ${label} took ${duration}ms`, JSON.stringify({ success, duration }));
+    debugLog(
+      module,
+      `Performance: ${label} took ${duration}ms`,
+      JSON.stringify({ success, duration })
+    );
   };
 };
 
@@ -259,11 +267,16 @@ export const measureFunctionPerformance = <T>(
   try {
     const result = operation();
     const duration = timer();
-    debugLog(`Function ${label} completed in ${duration}ms`, JSON.stringify({ module, duration }));
+    debugLog(
+      module,
+      `Function ${label} completed in ${duration}ms`,
+      JSON.stringify({ module, duration })
+    );
     return result;
   } catch (error) {
     const duration = timer();
     debugLog(
+      module,
       `Function ${label} failed in ${duration}ms`,
       JSON.stringify({ module, duration, error })
     );
@@ -307,9 +320,6 @@ export const arrayReduce = <T, U>(
 ): U => {
   return array.reduce(reducer, initialValue);
 };
-
-// Timestamp utility to eliminate new Date().toISOString() duplication
-export const getTimestamp = (): string => new Date().toISOString();
 
 // Object validation utility to eliminate typeof object checks duplication
 export const isValidPlainObject = (value: any): boolean =>
@@ -371,6 +381,9 @@ export const sendStandardErrorResponse = (
       );
   }
 };
+
+// Re-export getTimestamp for backward compatibility
+export const getTimestamp = getTimestampFromLogger;
 
 // Export types for external usage
 export type ModuleUtilities = ReturnType<typeof createModuleUtilities>;

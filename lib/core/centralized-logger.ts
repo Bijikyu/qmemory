@@ -1,5 +1,3 @@
-import { getTimestamp } from '../common-patterns';
-
 /**
  * Centralized Logging Utility
  *
@@ -31,6 +29,9 @@ export interface LogConfig {
   includeFunctionName: boolean;
   prefix?: string;
 }
+
+// Timestamp utility to eliminate new Date().toISOString() duplication
+const getTimestamp = (): string => new Date().toISOString();
 
 // Default configuration - can be overridden per environment
 const defaultConfig: LogConfig = {
@@ -180,6 +181,9 @@ export const createLogger = (
 
 // Default logger for general use
 export const logger = createLogger('App');
+
+// Export timestamp utility for other modules
+export { getTimestamp };
 
 // Export the class for advanced usage
 export { CentralizedLogger };
