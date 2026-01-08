@@ -1,63 +1,165 @@
 {
   "compilerOptions": {
+    /**
+     * Target ECMAScript version for output code
+     * ES2022 provides modern JavaScript features while maintaining broad browser support
+     * This target is appropriate for Node.js 18+ and modern browsers
+     */
     "target": "ES2022",
+
+    /**
+     * Module system for generated JavaScript code
+     * ESNext allows using the latest module features and bundler optimizations
+     * This is optimal for modern bundlers like Webpack, Rollup, and esbuild
+     */
     "module": "ESNext",
+
+    /**
+     * Module resolution strategy
+     * Bundler resolution allows bundlers to handle module resolution
+     * This is optimal for modern development workflows with bundler optimization
+     */
     "moduleResolution": "bundler",
+
+    /**
+     * Skip type checking of declaration files in libraries
+     * This improves compilation speed when using external type definitions
+     * Safe to skip as we trust external library type definitions
+     */
     "skipLibCheck": true,
+
+    /**
+     * Allow synthetic default imports for better compatibility
+     * This enables more flexible import patterns for CommonJS/ESM interop
+     */
     "allowSyntheticDefaultImports": true,
 
+    /**
+     * Enable CommonJS/ESModule interop for better compatibility
+     * This allows importing CommonJS modules with default import syntax
+     * Essential for compatibility with npm packages using CommonJS
+     */
     "esModuleInterop": true,
+
+    /**
+     * Allow JavaScript files to be imported alongside TypeScript
+     * This enables mixed TypeScript/JavaScript projects for gradual migration
+     */
     "allowJs": true,
+
+    /**
+     * Output directory for compiled JavaScript files
+     * All compiled files will be placed in the dist directory for deployment
+     */
     "outDir": "./dist",
+
+    /**
+     * Root directory for TypeScript source files
+     * Explicitly setting root directory for reliable module resolution
+     */
     "rootDir": "./",
+
+    /**
+     * Type checking strictness level - currently disabled for migration
+     * Note: Consider enabling strict mode gradually for better type safety
+     * These options provide flexibility during development while maintaining some safety
+     */
     "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-    "strictFunctionTypes": false,
-    "noImplicitReturns": false,
-    "noFallthroughCasesInSwitch": false,
-    "noUncheckedIndexedAccess": false,
-    "noImplicitOverride": false,
-    "exactOptionalPropertyTypes": false,
-    "noImplicitThis": false,
-    "noImplicitReturns": false,
-    "noFallthroughCasesInSwitch": false,
-    "noUncheckedIndexedAccess": false,
-    "noImplicitOverride": false,
-    "exactOptionalPropertyTypes": false,
-    "noImplicitThis": false,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "inlineSourceMap": false,
-    "removeComments": false,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": false,
-    "incremental": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    /**
+     * Type checking strictness level - currently disabled for migration
+     * Note: Consider enabling strict mode gradually for better type safety
+     * These options provide flexibility during development while maintaining some safety
+     */
+    "strict": false,
+    "noImplicitAny": false, // Allow implicit any for flexibility
+    "strictNullChecks": false, // Allow null without explicit checks
+    "strictFunctionTypes": false, // Allow implicit function return types
+    "noImplicitReturns": false, // Allow functions without explicit returns
+    "noFallthroughCasesInSwitch": false, // Allow switch fallthrough for now
+    "noUncheckedIndexedAccess": false, // Allow unchecked object property access
+
+    /**
+     * Override and implicit behavior settings
+     * These options provide flexibility during development
+     * Consider enabling gradually for better type safety
+     */
+    "noImplicitOverride": false, // Allow implicit property overrides
+    "exactOptionalPropertyTypes": false, // Allow flexible optional property types
+    "noImplicitThis": false, // Allow implicit this in functions
+
+    /**
+     * Declaration and source map generation for debugging
+     * These settings enable better development experience and debugging
+     */
+    "declaration": true, // Generate .d.ts files for library consumers
+    "declarationMap": true, // Generate source maps for declarations
+    "sourceMap": true, // Generate source maps for debugging
+    "inlineSourceMap": false, // External source maps for better performance
+
+    /**
+     * Build optimization and incrementality settings
+     * These settings improve compilation speed and enable incremental builds
+     */
+    "skipLibCheck": true, // Skip library type checking for performance
+    "forceConsistentCasingInFileNames": true, // Enforce consistent file naming
+    "resolveJsonModule": true, // Allow importing JSON files as modules
+    "isolatedModules": false, // Allow cross-file type checking
+    "incremental": true, // Enable incremental compilation
+    "tsBuildInfoFile": "./dist/.tsbuildinfo", // Store build state for faster rebuilds
+
+    /**
+     * Library and type definition settings
+     * ES2022 provides modern JavaScript features and standard library types
+     */
     "lib": ["ES2022"],
-    "types": ["node", "jest"],
-    "baseUrl": "./",
-    "allowImportingTsExtensions": false,
-    "allowArbitraryExtensions": false,
+    "types": ["node", "jest"], // Include Node.js and Jest type definitions
+
+    /**
+     * Module resolution settings
+     * These settings control how TypeScript resolves module paths
+     */
+    "baseUrl": "./", // Base path for module resolution
+    "allowImportingTsExtensions": false, // Prevent importing .ts files directly
+    "allowArbitraryExtensions": false, // Restrict to known file extensions
+
+    /**
+     * Build output control - no emit for testing only
+     * This configuration is used for type checking only, not code generation
+     * Change to "noEmit": false for development with separate build step
+     */
     "noEmit": false
   },
+
+  /**
+   * Include pattern for TypeScript source files
+   * All .ts files in the project directory and subdirectories
+   */
   "include": ["**/*.ts"],
+
+  /**
+   * Exclude patterns for compilation
+   * These patterns exclude non-source files and test files from compilation
+   * This keeps the build clean and focused on production code
+   */
   "exclude": [
-    "node_modules",
-    "dist",
-    "coverage",
-    "examples",
-    "temp",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "lib/**/*.js",
-    "lib/test-memory/**"
+    "node_modules", // External dependencies
+    "dist", // Build output directory
+    "coverage", // Coverage reports
+    "examples", // Example applications
+    "temp", // Temporary files
+    "**/*.test.ts", // TypeScript test files (handled separately)
+    "**/*.spec.ts", // TypeScript spec files (handled separately)
+    "lib/**/*.js", // JavaScript files in lib directory
+    "lib/test-memory/**" // Test memory utilities (not for production)
   ],
+
+  /**
+   * ts-node specific configuration
+   * These settings control TypeScript execution behavior when using ts-node
+   * ESM mode is enabled for modern module support
+   */
   "ts-node": {
-    "esm": true,
-    "experimentalSpecifierResolution": "node"
+    "esm": true, // Enable ES module support
+    "experimentalSpecifierResolution": "node" // Experimental Node.js specifier resolution
   }
 }

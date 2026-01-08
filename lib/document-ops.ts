@@ -1,8 +1,27 @@
 /**
- * Document Operation Functions
- * High-level document manipulation utilities for user-owned documents
+ * Document Operations Module - User-Owned Document Management
+ *
+ * This module provides comprehensive utilities for managing user-owned documents
+ * with strict security enforcement. It serves as the security layer that ensures
+ * users can only access their own documents, preventing cross-user data access
+ * and maintaining data isolation in multi-tenant applications.
+ *
+ * Key Security Features:
+ * - Mandatory user ownership enforcement on all operations
+ * - Input sanitization to prevent MongoDB injection attacks
+ * - Username validation with strict format requirements
+ * - Comprehensive error handling and logging
+ * - Type-safe document operations with TypeScript
+ *
+ * Security Architecture:
+ * - All database queries automatically include user filtering
+ * - Username sanitization removes dangerous MongoDB operators
+ * - Input validation prevents malformed queries and injection attempts
+ * - Operation logging provides audit trails for security monitoring
+ *
+ * 🚩AI: ENTRY_POINT_FOR_USER_DOCUMENT_OPERATIONS - All user document operations flow through this module
  */
-// 🚩AI: ENTRY_POINT_FOR_USER_DOCUMENT_OPERATIONS
+
 import mongoose, { Model, HydratedDocument, FilterQuery, AnyObject, Types } from 'mongoose';
 import type { Response } from 'express';
 import { sendNotFound } from './http-utils.js';
@@ -10,59 +29,175 @@ import { ensureUnique } from './database-utils.js';
 import { createModuleUtilities } from './common-patterns.js';
 import { ErrorFactory } from './core/centralized-errors';
 
+/**
+ * Type representing any user-owned document
+ *
+ * This type extends the base MongoDB object type to include the required
+ * 'user' field that associates documents with their owners. All documents
+ * managed by this module must conform to this structure.
+ */
 type AnyUserDoc = AnyObject & { user: string };
+
+/**
+ * Union type for document identifiers
+ *
+ * This type accepts both MongoDB ObjectId instances and string representations,
+ * providing flexibility for different input formats while maintaining type safety.
+ */
 type DocumentId = Types.ObjectId | string;
 
-// Security utility functions to prevent MongoDB injection
+/**
+ * Security utility functions to prevent MongoDB injection attacks
+ *
+ * These functions provide comprehensive input validation and sanitization
+ * for username parameters to prevent NoSQL injection attacks and ensure
+ * data integrity in user-owned document operations.
+ */
+
+/**
+ * Sanitizes username to prevent MongoDB injection attacks
+ *
+ * This function removes dangerous MongoDB operators and special characters
+ * that could be used for injection attacks. It's a critical security function
+ * that protects the database from malicious input.
+ *
+ * Security Threats Prevented:
+ * - MongoDB operator injection ($, ., [])
+ * - Field traversal attacks
+ * - Query manipulation through special characters
+ *
+ * @param username - Raw username input to sanitize
+ * @returns {string} Sanitized username safe for database queries
+ */
 const sanitizeUsername = (username: string): string => {
   // Remove MongoDB operators and special characters that could be used for injection
   return username.replace(/[$\.\[\]]/g, '').trim();
 };
 
+/**
+ * Validates username format against security requirements
+ *
+ * This function enforces strict username format rules to prevent abuse
+ * and ensure consistent user identification. Only allows safe characters
+ * and enforces reasonable length limits.
+ *
+ * Validation Rules:
+ * - Only alphanumeric characters, underscores, and hyphens allowed
+ * - Minimum 1 character (prevents empty usernames)
+ * - Maximum 50 characters (prevents abuse and storage issues)
+ * - No whitespace or special characters
+ *
+ * @param username - Username to validate
+ * @returns {boolean} True if username meets security requirements
+ */
 const isValidUsername = (username: string): boolean => {
   // Only allow alphanumeric characters, underscores, and hyphens
   // Reasonable length limits to prevent abuse
   return /^[a-zA-Z0-9_-]+$/.test(username) && username.length > 0 && username.length <= 50;
 };
 
+/**
+ * Comprehensive username validation and sanitization
+ *
+ * This function combines validation and sanitization to provide complete
+ * username security processing. It validates the input format and then
+ * sanitizes it for safe database usage. Includes detailed error messages
+ * for debugging and user feedback.
+ *
+ * @param username - Raw username input to validate and sanitize
+ * @param functionName - Name of calling function for error context
+ * @returns {string} Validated and sanitized username
+ * @throws {Error} When username format is invalid or input is malformed
+ */
 const validateAndSanitizeUsername = (username: string, functionName: string): string => {
+  // Validate input type and presence
   if (!username || typeof username !== 'string') {
     throw new Error(`Invalid username: must be a non-empty string in ${functionName}`);
   }
 
+  // Validate format against security requirements
   if (!isValidUsername(username)) {
     throw new Error(
       `Invalid username format: only alphanumeric characters, underscores, and hyphens allowed (max 50 chars) in ${functionName}`
     );
   }
 
+  // Sanitize for safe database usage
   return sanitizeUsername(username);
 };
 
-// Create module-specific utilities
+// Create module-specific utilities for logging and error handling
 const utils = createModuleUtilities('document-ops');
 
-// Helper functions to eliminate duplicate logging patterns
+/**
+ * Helper functions to eliminate duplicate logging patterns
+ *
+ * These functions provide consistent logging patterns for common return
+ * scenarios, reducing code duplication and ensuring uniform logging
+ * across all document operations.
+ */
+
+/**
+ * Logs and returns undefined for consistent error handling
+ *
+ * This helper function standardizes the logging pattern for operations
+ * that return undefined (not found scenarios). It ensures consistent
+ * debug logging and return value handling.
+ *
+ * @param log - Logger instance from the calling function
+ * @param functionName - Name of the calling function for context
+ * @returns {undefined} Always returns undefined
+ */
 const logAndReturnUndefined = (log: any, functionName: string): undefined => {
   log.return('undefined');
   utils.debugLog(functionName, 'returning undefined');
   return undefined;
 };
 
+/**
+ * Logs and returns document for consistent success handling
+ *
+ * This helper function standardizes the logging pattern for operations
+ * that successfully return documents. It ensures consistent debug
+ * logging and return value handling for successful operations.
+ *
+ * @param log - Logger instance from the calling function
+ * @param functionName - Name of the calling function for context
+ * @param doc - Document being returned
+ * @returns {any} The document passed in for return
+ */
 const logAndReturnDoc = (log: any, functionName: string, doc: any): any => {
   log.return(doc);
   utils.debugLog(functionName, 'returning document');
   return doc;
 };
 
-// 🚩AI: CORE_USER_OWNERSHIP_ENFORCEMENT
+// 🚩AI: CORE_USER_OWNERSHIP_ENFORCEMENT - This is the central security enforcement point
+
 /**
- * Executes a user-scoped document operation while centralizing ownership enforcement.
- * @param model Model storing the user-owned documents.
- * @param id Target document identifier.
- * @param username User name that owns the record.
- * @param opCallback Operation to execute when ownership is confirmed.
- * @returns Hydrated document or null when not found.
+ * Core user ownership enforcement function
+ *
+ * This function is the heart of the security system for user-owned documents.
+ * It executes user-scoped document operations while centralizing ownership
+ * enforcement, validation, and error handling. All user document operations
+ * must flow through this function to maintain security guarantees.
+ *
+ * Security Enforcement:
+ * - Validates and sanitizes username before operation
+ * - Ensures all operations include user ownership context
+ * - Provides comprehensive error handling and logging
+ * - Maintains audit trail for security monitoring
+ *
+ * @template TSchema - Type of the document schema (must extend AnyUserDoc)
+ * @param model - Mongoose model storing the user-owned documents
+ * @param id - Target document identifier (ObjectId or string)
+ * @param username - Username that owns the record (will be validated and sanitized)
+ * @param opCallback - Operation to execute when ownership is confirmed
+ * @param opCallback.scopedModel - Model with user ownership context
+ * @param opCallback.scopedId - Validated document identifier
+ * @param opCallback.scopedUsername - Sanitized username for database queries
+ * @returns {Promise<HydratedDocument<TSchema> | null>} Hydrated document or null when not found
+ * @throws {Error} When username validation fails or operation encounters errors
  */
 const performUserDocOp = async <TSchema extends AnyUserDoc>(
   model: Model<TSchema>,
@@ -76,6 +211,7 @@ const performUserDocOp = async <TSchema extends AnyUserDoc>(
 ): Promise<HydratedDocument<TSchema> | null> => {
   return utils.safeAsync(
     async () => {
+      // Execute the operation with validated parameters
       const doc = await opCallback(model, id, username);
       utils.debugLog('performUserDocOp', `operation completed: ${doc ?? 'null'}`);
       return doc;
@@ -86,11 +222,27 @@ const performUserDocOp = async <TSchema extends AnyUserDoc>(
 };
 
 /**
- * Looks up a user document ensuring the caller only sees their own record.
- * @param model User-owned model.
- * @param id Document identifier.
- * @param username User that must own the record.
- * @returns Hydrated document or null when not found.
+ * Retrieves a user-owned document with strict ownership enforcement
+ *
+ * This function provides secure document retrieval that ensures users can
+ * only access their own documents. It combines ownership validation with
+ * database querying to prevent cross-user data access. This is a fundamental
+ * security function that maintains data isolation between users.
+ *
+ * Security Features:
+ * - Username validation and sanitization
+ * - User ownership enforcement in database query
+ * - Comprehensive error handling and logging
+ * - Type-safe document retrieval
+ *
+ * Query Pattern: { _id: id, user: username } - Ensures both ID match AND user ownership
+ *
+ * @template TSchema - Type of the document schema (must extend AnyUserDoc)
+ * @param model - Mongoose model for user-owned documents
+ * @param id - Document identifier to retrieve
+ * @param username - Username that must own the document
+ * @returns {Promise<HydratedDocument<TSchema> | null>} User document or null if not found
+ * @throws {Error} When username validation fails or database errors occur
  */
 const findUserDoc = async <TSchema extends AnyUserDoc>(
   model: Model<TSchema>,

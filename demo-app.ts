@@ -1,13 +1,47 @@
 import { setImmediate } from 'timers';
+
 /**
- * QMemory Library Demo Application - Frontend-Backend Integration Fixed
- * Demonstrates core functionality with a simple Express.js API
+ * QMemory Library Demo Application - Complete API Implementation
  *
- * Fixes applied:
- * - All frontend-called endpoints are properly implemented
- * - Unused test endpoints removed for cleaner API surface
- * - Better error handling and response consistency
- * - Frontend-backend integration validation
+ * This is a comprehensive demonstration of the QMemory library's capabilities,
+ * showcasing user management, HTTP utilities, storage operations, and security
+ * middleware integration. It serves as both a learning tool and a reference
+ * implementation for developers using the library.
+ *
+ * Key Features Demonstrated:
+ * - User CRUD operations with validation and error handling
+ * - HTTP utility usage for consistent API responses
+ * - Security middleware integration for production-ready applications
+ * - Pagination support for large datasets
+ * - Frontend-backend integration patterns
+ * - Comprehensive logging and monitoring
+ * - Environment configuration management
+ *
+ * API Endpoints:
+ * - GET / - API information and documentation
+ * - GET /health - Service health check
+ * - GET /users - Paginated user listing
+ * - POST /users - User creation with validation
+ * - GET /users/:id - User retrieval by ID
+ * - GET /users/by-username/:username - User retrieval by username
+ * - PUT /users/:id - User update with validation
+ * - DELETE /users/:id - User deletion
+ * - GET /validation/rules - Validation rules for frontend
+ *
+ * Security Features:
+ * - Input sanitization and validation
+ * - Rate limiting and request throttling
+ * - CORS configuration for web applications
+ * - Privacy compliance headers
+ * - Comprehensive error handling
+ * - Request logging and monitoring
+ *
+ * Performance Optimizations:
+ * - Response caching where appropriate
+ * - Efficient database queries
+ * - Pagination for large datasets
+ * - Memory usage monitoring
+ * - Graceful shutdown handling
  */
 
 import express, { Request, Response, NextFunction, Application } from 'express';
@@ -32,45 +66,94 @@ import {
 import type { Server } from 'http';
 import qerrors from 'qerrors';
 
-// Define interfaces for complex objects
+/**
+ * Type definitions for the demo application
+ *
+ * These interfaces define the structure of request/response objects
+ * used throughout the demo API. They provide type safety and
+ * serve as documentation for the API contract.
+ */
+
+/**
+ * Extended request interface for user creation endpoints
+ *
+ * This interface extends the base Express Request type to include
+ * typed body property for user creation requests, ensuring
+ * type safety and better IntelliSense support.
+ */
 interface CreateUserRequest extends Request {
-  body: InsertUser;
+  body: InsertUser; // Typed body containing user creation data
 }
 
+/**
+ * Standard API response structure
+ *
+ * This interface defines the consistent response format used
+ * across all API endpoints, providing uniform structure for
+ * frontend applications to consume.
+ */
 interface ApiResponse {
-  message: string;
-  timestamp: string;
-  data?: unknown;
+  message: string; // Human-readable response message
+  timestamp: string; // ISO timestamp for request correlation
+  data?: unknown; // Optional payload data for successful responses
 }
 
+/**
+ * Health check response structure
+ *
+ * This interface defines the comprehensive health information
+ * returned by the health check endpoint, including system
+ * metrics and service status for monitoring purposes.
+ */
 interface HealthStatus {
-  status: string;
-  uptime: number;
+  status: string; // Service health status ('healthy', 'degraded', 'unhealthy')
+  uptime: number; // Server uptime in seconds
   memory: {
-    rss: number;
-    heapTotal: number;
-    heapUsed: number;
-    external: number;
-    arrayBuffers: number;
+    // Memory usage statistics
+    rss: number; // Resident Set Size memory usage
+    heapTotal: number; // Total heap size allocated
+    heapUsed: number; // Actual heap memory usage
+    external: number; // External memory usage
+    arrayBuffers: number; // Array buffer memory usage
   };
-  userCount: number;
-  timestamp: string;
+  userCount: number; // Current number of users in storage
+  timestamp: string; // ISO timestamp of health check
 }
 
+/**
+ * Pagination parameters structure
+ *
+ * This interface defines the pagination parameters used
+ * throughout the API for consistent paginated responses.
+ */
 interface PaginationInfo {
-  page: number;
-  limit: number;
-  skip: number;
+  page: number; // Current page number (1-based)
+  limit: number; // Items per page
+  skip: number; // Number of items to skip (calculated)
 }
 
+// Initialize Express application instance
 const app: Application = express();
+
+// Configure server port with environment variable support
 const port: number = Number(process.env.PORT) || 5000;
 
-// Optional: enforce required env vars in production
+/**
+ * Production environment validation
+ *
+ * In production mode, we enforce that all required environment
+ * variables are properly configured. This prevents runtime failures
+ * due to missing configuration and ensures production deployments
+ * are properly set up.
+ *
+ * Required Variables:
+ * - PORT: Server listening port
+ */
 if (process.env.NODE_ENV === 'production') {
   try {
-    requireEnvVars(['PORT']);
+    requireEnvVars(['PORT']); // Validate required environment variables
   } catch (err: unknown) {
+    // Log environment validation failures appropriately
     if (logger?.error) {
       logger.error('Environment validation failed', {
         error: err instanceof Error ? err.message : String(err),
@@ -78,58 +161,123 @@ if (process.env.NODE_ENV === 'production') {
     } else {
       console.error('Environment validation failed', err);
     }
+    // Exit with error code to signal configuration failure
     process.exit(1);
   }
 }
 
-// Local helper wrappers
+/**
+ * Local helper wrapper functions
+ *
+ * These functions provide safe logging and input sanitization
+ * with error handling to prevent application crashes due to
+ * logging failures or sanitization errors.
+ */
+
+/**
+ * Safe information logging wrapper
+ *
+ * This function provides error-handled logging to prevent application
+ * crashes when the logging system encounters errors. It ensures the
+ * application continues running even if logging infrastructure fails.
+ *
+ * @param args - Arguments to log (will be joined with spaces)
+ */
 function logInfo(...args: string[]): void {
   try {
     logger?.info?.(args.join(' '));
   } catch {
-    // Intentionally empty
+    // Intentionally empty - prevent logging failures from crashing application
   }
 }
 
+/**
+ * Safe error logging wrapper
+ *
+ * This function provides error-handled error logging to prevent
+ * application crashes when the error logging system encounters errors.
+ * It ensures that even logging failures don't prevent error reporting.
+ *
+ * @param args - Arguments to log (will be joined with spaces)
+ */
 function logError(...args: string[]): void {
   try {
     logger?.error?.(args.join(' '));
   } catch {
-    // Intentionally empty
+    // Intentionally empty - prevent logging failures from crashing application
   }
 }
 
+/**
+ * Safe input sanitization wrapper
+ *
+ * This function provides error-handled input sanitization to prevent
+ * application crashes when the sanitization system encounters errors.
+ * It returns an empty string as a safe fallback when sanitization fails.
+ *
+ * @param str - Input string to sanitize
+ * @returns {string} Sanitized string or empty string on error
+ */
 function sanitizeInput(str: string): string {
   try {
     return sanitizeString(str);
   } catch (error) {
     logError('sanitizeInput failed', String(error));
-    return '';
+    return ''; // Return safe empty string fallback
   }
 }
 
-// Middleware
+/**
+ * Express.js middleware configuration
+ *
+ * This section configures all necessary middleware for the demo application.
+ * Middleware order is critical for proper functionality - each middleware
+ * builds on the previous one's output.
+ */
+
+// Parse JSON request bodies - must come before other middleware
 app.use(express.json());
+
+// Serve static files from public directory
 app.use(express.static('public'));
 
-// Security middleware (must come after body parser)
+/**
+ * Security and privacy middleware configuration
+ *
+ * Security middleware must be applied after body parsing to ensure
+ * request bodies are available for security analysis. Privacy middleware
+ * ensures compliance with data protection regulations.
+ *
+ * Order: Security → Privacy (privacy may need to process after security)
+ */
 import { setupSecurity } from './lib/security-middleware.js';
 import { privacyMiddleware, privacyHeadersMiddleware } from './lib/privacy-compliance.js';
-setupSecurity(app);
-app.use(privacyMiddleware);
-app.use(privacyHeadersMiddleware);
 
-// Initialize storage
+setupSecurity(app); // Apply security headers and protections
+app.use(privacyMiddleware); // Apply privacy compliance checks
+app.use(privacyHeadersMiddleware); // Add privacy-related headers
+
+// Initialize in-memory storage for user management
 const storage: MemStorage = new MemStorage();
 
-// Logging middleware
+/**
+ * Request logging middleware
+ *
+ * This middleware logs all incoming requests with timing information
+ * to provide basic request monitoring and debugging capabilities.
+ * It measures request duration and logs HTTP method, URL, status code,
+ * and processing time in milliseconds.
+ */
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
+  const start = Date.now(); // Record request start time
+
+  // Log when response is finished (sent to client)
   res.on('finish', () => {
-    const duration = Date.now() - start;
+    const duration = Date.now() - start; // Calculate total processing time
     logInfo(`${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
   });
-  next();
+
+  next(); // Continue to next middleware in chain
 });
 
 // CORE ENDPOINTS USED BY FRONTEND
