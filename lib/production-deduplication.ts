@@ -1,12 +1,12 @@
 /**
  * Production-Ready Deduplication Execution
- * 
+ *
  * Executes production deduplication strategy to ensure code quality for production deployment.
  * Follows security best practices for production deployment.
  */
 
-import { SimpleDeduplicator } from './code-deduplication.js';
-import { ProductionDeduplicator } from './code-deduplication.js';
+import { CodeDeduplicator } from './core/code-deduplication.js';
+import { ProductionDeduplicator, type ProductionDeduplicationOptions, type ProductionDeduplicationResult } from './core/production-deduplication.js';
 
 export class ProductionReadyDeduplicator {
   /**
@@ -14,44 +14,48 @@ export class ProductionReadyDeduplicator {
    * Generates comprehensive report and ensures all code quality standards are met
    */
   static async executeProductionDeduplication(config: {
-    const {
-      dryRun = false;
-      
-      // Force production deduplication in dry run
-      return ProductionDeduplicator.deduplicateCode({
-        ...config,
-        dryRun
-      });
+    sourceDir: string;
+    outputDir: string;
+    dryRun?: boolean;
+    production: ProductionDeduplicationOptions;
+  }): Promise<{
+    deduplication: Awaited<ReturnType<typeof CodeDeduplicator.deduplicateCode>>;
+    production: ProductionDeduplicationResult;
+  }> {
+    if (!config || typeof config !== 'object') {
+      throw new TypeError('executeProductionDeduplication(config) requires a config object');
+    }
+
+    const deduplication = await CodeDeduplicator.deduplicateCode({
+      sourceDir: config.sourceDir,
+      outputDir: config.outputDir,
+      dryRun: Boolean(config.dryRun)
+    });
+
+    const production = ProductionDeduplicator.analyzeForProduction({
+      ...config.production,
+      // Inline rationale: production readiness reporting is actionable when persisted to disk.
+      writeReport: config.production.writeReport ?? true
+    });
+
+    return { deduplication, production };
   }
 
   /**
    * Checks if code is ready for production
    */
-  static async checkProductionReadiness(): Promise<boolean> {
-    // In production mode, only allow production deduplication
-    return ProductionDeduplicator.checkProductionReadiness();
+  static checkProductionReadiness(result: ProductionDeduplicationResult): boolean {
+    if (!result || typeof result !== 'object') {
+      throw new TypeError('checkProductionReadiness(result) requires a ProductionDeduplicationResult');
+    }
+
+    return result.productionReady;
   }
 
   /**
    * Generates production-readiness report
    */
-  static async productionReadinessReport(): Promise<{
-      // Real-time production metrics
-      metricData: any;
-    qualityMetrics: any;
-      securityIssues: any;
-      codeQuality: {
-        codeQualityScore: number;
-        dupplicationScore: number;
-        srbViolations: number;
-      fileCount: number;
-        styleGuide: number;
-        scalabilityIssues: number;
-      memoryIssues: number;
-        patternIssues: number;
-      recommendations: Array<string>;
-      productionReadiness: number;
-    }>,
-    productionReady: boolean;
-    }>;
+  static productionReadinessReport(options: ProductionDeduplicationOptions): ProductionDeduplicationResult {
+    return ProductionDeduplicator.analyzeForProduction({ ...options, writeReport: options.writeReport ?? true });
   }
+}

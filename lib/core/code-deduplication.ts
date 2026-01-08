@@ -131,6 +131,13 @@ export abstract class ${this.suggestBaseClassName()} {
     `;
   }
 
+  private static extractCommonFunctionName(pattern: string): string {
+    const functionNames = this.extractFunctionNames(pattern.split('\n'));
+
+    // Inline rationale: for suggestion text, a deterministic fallback is preferable to empty output.
+    return functionNames[0] ?? 'Operation';
+  }
+
   /**
    * Creates function merge suggestion
    */
@@ -168,11 +175,14 @@ export const ${this.suggestUtilityName(functionNames)} = (param1: any, param2: a
    * Helper methods for pattern analysis
    */
   private static extractFunctionNames(lines: string[]): string[] {
-    return lines
+    const matches = lines
       .map(line => line.match(/function\s+(\w+)/))
-      .filter(Boolean)
-      .map(match => match ? match[1] : '');
-      .filter((name, index, arr) => arr.indexOf(name) === index); // Remove duplicates
+      .filter((match): match is RegExpMatchArray => Boolean(match));
+
+    const functionNames = matches.map(match => match[1]);
+
+    // Inline rationale: preserve stable ordering while de-duplicating names.
+    return functionNames.filter((name, index) => functionNames.indexOf(name) === index);
   }
 
   private static extractCommonLogic(lines: string[]): string[] {
@@ -257,7 +267,7 @@ export class CodeDeduplicator {
     sourceDir: string;
     outputDir: string;
     dryRun?: boolean;
-  } = {}): Promise<{
+  }): Promise<{
     sharedUtilities: string[];
     baseClasses: string[];
     functionMerges: string[];
@@ -268,6 +278,18 @@ export class CodeDeduplicator {
       linesEliminated: number;
     };
   }> {
+    if (!config || typeof config !== 'object') {
+      throw new TypeError('deduplicateCode(config) requires a config object');
+    }
+
+    if (typeof config.sourceDir !== 'string' || config.sourceDir.trim().length === 0) {
+      throw new TypeError('deduplicateCode(config) requires a non-empty `sourceDir` string');
+    }
+
+    if (typeof config.outputDir !== 'string' || config.outputDir.trim().length === 0) {
+      throw new TypeError('deduplicateCode(config) requires a non-empty `outputDir` string');
+    }
+
     const { sourceDir, outputDir, dryRun = false } = config;
 
     // Create deduplication report
@@ -282,7 +304,7 @@ export class CodeDeduplicator {
 
     if (!dryRun) {
       // Write report
-      await fs.writeFile(path.join(outputDir, 'deduplication-report.md'), report);
+      await fs.promises.writeFile(path.join(outputDir, 'deduplication-report.md'), report, 'utf8');
     }
 
     return {
@@ -351,104 +373,3 @@ export class CodeDeduplicator {
     `;
   }
 }
-
-export {
-  CodeDeduplicator
-};
-  }> {
-    const { sourceDir, outputDir, dryRun = false } = config;
-
-    // In a real implementation, this would:
-    // 1. Analyze the codebase for duplicates
-    // 2. Apply the deduplication strategy
-    // 3. Generate new shared utilities
-    // 4. Create base classes
-    // 5. Merge similar functions
-    // 6. Remove redundant code
-    // 7. Update imports
-
-    const summary = {
-      filesProcessed: 173,
-      duplicatesFound: 2672,
-      linesEliminated: 19770 // Estimated from analysis
-    };
-
-    // Create deduplication report
-    const report = this.generateDeduplicationReport(summary);
-
-    if (!dryRun) {
-      // Write report
-      await fs.writeFile(path.join(outputDir, 'deduplication-report.md'), report);
-    }
-
-    return {
-      sharedUtilities: [], // Generated from analysis
-      baseClasses: [], // Generated from analysis
-      functionMerges: [], // Generated from analysis
-      removals: [], // Generated from analysis
-      summary
-    };
-  }
-
-  /**
-   * Generates a comprehensive deduplication report
-   */
-  private static generateDeduplicationReport(summary: any): string {
-    return `
-# Code Deduplication Report
-
-## Executive Summary
-- Files Analyzed: ${summary.filesProcessed}
-- Duplicate Blocks Found: ${summary.duplicatesFound}
-- Lines Eliminated: ${summary.linesEliminated}
-- Code Reduction: ${((summary.linesEliminated / (summary.filesProcessed * 1000)) * 100).toFixed(2)}%
-
-## Deduplication Strategy Applied
-
-### 1. High-Impact Duplicates (${summary.duplicatesFound * 0.1} files)
-- Extract shared utilities for common patterns
-- Create base classes for similar functionality
-- Consolidate error handling and validation logic
-
-### 2. Medium-Impact Duplicates (${summary.duplicatesFound * 0.3} files)
-- Merge similar functions with parameter variations
-- Create reusable helper functions
-- Refactor to use composition over inheritance
-
-### 3. Low-Impact Duplicates (${summary.duplicatesFound * 0.6} files)
-- Remove duplicate implementations
-- Keep the most robust version
-- Update imports to use shared code
-
-## Impact Metrics
-
-### Code Quality Improvements
-- Maintainability: Reduced by 60%
-- Test Coverage: Improved by 40%
-- Bug Risk: Reduced by 70%
-- Development Speed: Improved by 50%
-
-### Technical Debt Reduction
-- Eliminated: ${summary.linesEliminated} lines of duplicate code
-- Reduced complexity in 180 files
-- Improved code organization and structure
-- Enhanced reusability across the codebase
-
-## Next Steps
-1. Review and approve generated shared utilities
-2. Update existing code to use new abstractions
-3. Remove duplicate implementations
-4. Add comprehensive tests for new utilities
-5. Update documentation and integration guides
-
----
-*Generated: ${new Date().toISOString()}*
-*Deduplication impact: HIGH - Significant code quality improvement*
-    `;
-  }
-}
-
-export {
-  DeduplicationStrategy,
-  CodeDeduplicator
-};

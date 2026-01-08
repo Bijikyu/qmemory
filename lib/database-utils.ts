@@ -10,40 +10,30 @@ import type { Response } from 'express';
 import type { MongoServerError } from 'mongodb';
 import { sendInternalServerError, sendConflict, sendValidationError } from './http-utils.js';
 import { createModuleUtilities } from './common-patterns.js';
-import { ensureMongoDB } from './database/connection-utils.js';
-import { ensureMongoDB } from './database/connection-utils.js';
+import { calculateBackoffDelay, safeDelay } from './core/secure-delay.js';
+
+export { ensureMongoDB } from './database/connection-utils.js';
 
 const utils = createModuleUtilities('database-utils');
 
 type AnyDocumentShape = Record<string, unknown>;
+
+const isMongoServerError = (error: unknown): error is MongoServerError =>
+  typeof error === 'object' && error !== null && 'code' in error;
+const isValidationError = (
+  error: unknown
+): error is { name: 'ValidationError'; errors?: Record<string, { message: string }>; message?: string } =>
+  typeof error === 'object' &&
+  error !== null &&
+  (error as { name?: string }).name === 'ValidationError';
+const isCastError = (error: unknown): error is { name: 'CastError' } =>
+  typeof error === 'object' && error !== null && (error as { name?: string }).name === 'CastError';
 
 export interface IdempotencyRecord<TResult> extends AnyDocumentShape {
   idempotencyKey: string;
   result: TResult;
   createdAt: Date;
 }
-
-// Simple database error handling (refactored from validation-utils)
-const handleMongoDuplicateError = (
-  error: unknown,
-  res: Response | null,
-  customMessage?: string
-): boolean => {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as any).code === 11000
-  ) {
-    if (res) {
-      const field = Object.keys((error as any).keyPattern ?? {})[0];
-      const message = customMessage || `Duplicate value for field: ${field ?? 'unknown'}`;
-      sendConflict(res, message);
-    }
-    return true;
-  }
-  return false;
-};
 
 export { ensureUnique } from './database/validation-utils.js';
 

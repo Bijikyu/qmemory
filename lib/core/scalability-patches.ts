@@ -10,7 +10,7 @@
 
 import type { Response } from 'express';
 import type { MongoServerError } from 'mongodb';
-import { sendInternalServerError, sendServiceUnavailable } from './http-utils.js';
+import { sendInternalServerError, sendServiceUnavailable } from '../http-utils.js';
 
 /**
  * Enhanced database operation with timeout and performance monitoring
@@ -100,8 +100,10 @@ export class BatchProcessor<T> {
         try {
           const result = await operation();
           resolve(result);
+          return result;
         } catch (error) {
           reject(error);
+          throw error;
         }
       });
 
@@ -189,15 +191,16 @@ export class SimpleConnectionPool {
 
     // Wait for available connection
     return new Promise((resolve, reject) => {
+      const requestTimestamp = Date.now();
       this.waiting.push({
         resolve,
         reject,
-        timestamp: Date.now(),
+        timestamp: requestTimestamp,
       });
 
       // Timeout after 30 seconds
       setTimeout(() => {
-        const waitingIndex = this.waiting.findIndex(w => w.timestamp === Date.now());
+        const waitingIndex = this.waiting.findIndex(w => w.timestamp === requestTimestamp);
         if (waitingIndex >= 0) {
           this.waiting.splice(waitingIndex, 1);
           reject(new Error('Connection timeout - no available connections'));
@@ -235,5 +238,3 @@ export class SimpleConnectionPool {
     };
   }
 }
-
-export { scalableDbOperation, BatchProcessor, SimpleConnectionPool };

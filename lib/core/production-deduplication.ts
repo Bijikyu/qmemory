@@ -1,12 +1,44 @@
 /**
  * Production Ready Deduplication Utility
- * 
+ *
  * Addresses 2,672 high-impact duplicate code blocks identified in analysis.
- * Provides methods for finding, analyzing, and consolidating duplicate code.
- * Ready for production deduplication.
+ * Provides methods for finding, analyzing, and reporting on duplicate code in a "production gate" context.
  */
 
-import { SimpleDeduplicator } from './code-deduplication.js';
+import * as fs from 'fs';
+
+import { SimpleDeduplicator, type DuplicateAnalysis } from './simple-deduplicator.js';
+
+export interface ProductionDeduplicationOptions {
+  directories: string[];
+  reportPath?: string;
+  writeReport?: boolean;
+}
+
+export interface ProductionDeduplicationQuality {
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+}
+
+export interface ProductionDeduplicationResult {
+  duplicateAnalysis: DuplicateAnalysis;
+  quality: ProductionDeduplicationQuality;
+  productionReady: boolean;
+  reasons: string[];
+  report?: string;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function computeGrade(score: number): ProductionDeduplicationQuality['grade'] {
+  if (score >= 95) return 'A';
+  if (score >= 90) return 'B';
+  if (score >= 80) return 'C';
+  if (score >= 70) return 'D';
+  return 'F';
+}
 
 /**
  * Executes production-ready deduplication
@@ -14,87 +46,83 @@ import { SimpleDeduplicator } from './code-deduplication.js';
  */
 export class ProductionDeduplicator {
   /**
-   * Analyzes code for production security and performance
-   * Returns comprehensive deduplication report
+   * Runs a production-focused deduplication analysis and optionally writes a report.
+   *
+   * @param options.directories Directories to scan (recursively).
+   * @param options.writeReport When true, writes the generated report to disk.
+   * @param options.reportPath Output path for the report when `writeReport` is enabled.
+   * @returns Production gate result including a deduplication quality score and reasons.
    */
-  static analyzeForProduction(options: {
-    console.log('🚀 Starting production deduplication analysis...');
-    
-    // In production mode, we need strict quality gates
-    const issues = {
-      highImpact: 0,
-      mediumImpact: 0,
-      lowImpact: 0
-      criticalSecurity: 0,
-      performance: 0,
-      codeReady: false,
-      scalability: false
-      deduplicationReady: false
-    };
+  static analyzeForProduction(options: ProductionDeduplicationOptions): ProductionDeduplicationResult {
+    if (!options || typeof options !== 'object') {
+      throw new TypeError('analyzeForProduction(options) requires a ProductionDeduplicationOptions object');
+    }
 
-    const {
-      totalFiles: 0;
-      duplicatesFound: 0;
-      linesEliminated: 0;
-      
-      return {
-        ...analysisResult
-      };
+    if (!Array.isArray(options.directories) || options.directories.length === 0) {
+      throw new TypeError('analyzeForProduction(options) requires a non-empty `directories` array');
+    }
+
+    const duplicateAnalysis = SimpleDeduplicator.findDuplicates(options.directories);
+
+    // Inline rationale: "production readiness" here is a strict heuristic gate, not a substitute for functional/security testing.
+    const penalty =
+      duplicateAnalysis.summary.highImpactDuplicates * 2 +
+      duplicateAnalysis.summary.mediumImpactDuplicates * 1 +
+      duplicateAnalysis.summary.lowImpactDuplicates * 0.25;
+
+    const score = clampNumber(Math.round(100 - penalty), 0, 100);
+    const quality: ProductionDeduplicationQuality = { score, grade: computeGrade(score) };
+
+    const reasons: string[] = [];
+    if (duplicateAnalysis.summary.highImpactDuplicates > 0) {
+      reasons.push('High-impact duplication remains; extract shared utilities before production hardening.');
+    }
+    if (quality.score < 85) {
+      reasons.push('Deduplication quality score below 85.');
+    }
+
+    const productionReady = reasons.length === 0;
+
+    const report = this.generateProductionReport({ duplicateAnalysis, quality, productionReady, reasons });
+
+    if (options.writeReport) {
+      const reportPath = options.reportPath ?? 'production-deduplication-report.md';
+      if (typeof reportPath !== 'string' || reportPath.trim().length === 0) {
+        throw new TypeError('analyzeForProduction(options) requires `reportPath` to be a non-empty string when writing reports');
+      }
+
+      fs.writeFileSync(reportPath, report, 'utf8');
+    }
+
+    return { duplicateAnalysis, quality, productionReady, reasons, report };
   }
 
   /**
-   * Ensures code meets production standards
+   * Converts a `ProductionDeduplicationResult` into a report string.
+   *
+   * @param result The production analysis result to report.
+   * @returns A Markdown report summarizing deduplication findings and gate outcome.
    */
-  static ensureCodeQuality(qualityScore: number): boolean {
-    const isSecureCodeReady = (score: number) => {
-      return score >= 85;
-    };
-    
-    /**
-   * Checks if code is production-ready
-   */
-  static ensureProductionReady(qualityScore: number, analysisResult: any): boolean {
-    // Only deduplication issues should be resolved
-    const codeScore = analysisResult.summary && analysisResult.summary.codeQuality?.score || 0;
-    const noSecurityIssues = analysisResult.summary?.criticalSecurity || 0;
-    const highScalability = analysisResult?.scalability?.score || 0;
-    const highPerformance = analysisResult?.performance?.score || 0;
-    
-    return codeScore >= 85 && !noSecurityIssues && highScalability >= 70 && highPerformance >= 70;
-  };
-  
-  /**
-   * Writes production deduplication report
-   */
-  static generateProductionReport(analysisResult: any): void {
-    const report = `
-# Production DEDUPLICATION REPORT
+  static generateProductionReport(result: Omit<ProductionDeduplicationResult, 'report'>): string {
+    return `
+# Production Deduplication Report
 
-## Security Analysis
-🔒 Security Score: ${analysisResult.summary.codeQuality?.score || 100}
-🔥 Malware Susceptibility: ${analysisResult.summary.criticalSecurity || 0}
-🔥 SQL Injection Protection: ${analysisResult.summary.sqlInjectionProtection || 0}
-🔥 CSRF Protection: ${analysisResult.csrfProtection || 0}
-🔥 Dependencies: ${analysisResult.dependencyIssues || 0}
+## Gate Outcome
+- Production Ready: ${result.productionReady ? 'YES' : 'NO'}
+- Quality Score: ${result.quality.score} (Grade ${result.quality.grade})
 
-## Scalability Score: ${analysisResult.scalability?.score || 0}
-🔥 Throughput Protection: ${analysisResult.throughputProtection || 0}
+## Duplicate Summary
+- Files Scanned: ${result.duplicateAnalysis.summary.filesScanned}
+- Duplicate Lines Found: ${result.duplicateAnalysis.summary.duplicatesFound}
+- High Impact: ${result.duplicateAnalysis.summary.highImpactDuplicates}
+- Medium Impact: ${result.duplicateAnalysis.summary.mediumImpactDuplicates}
+- Low Impact: ${result.duplicateAnalysis.summary.lowImpactDuplicates}
 
-## Code Quality Score: ${analysisResult.codeQuality?.score || 100}
-🔥 Coverage: ${analysisResult.coverage?.score || 0}
-🔥 Maintainability: ${analysisResult.maintainability?.score || 0}
-🔥 Code Quality: Grade ${analysisResult.codeQuality?.grade || 'C'}
-    `;
+## Reasons
+${result.reasons.length ? result.reasons.map(r => `- ${r}`).join('\n') : '- None'}
 
-    fs.writeFileSync('production-deduplication-report.md', report);
-    console.log('📄 DEDUPLICATION COMPLETED SUCCESSFULLY🔥 Report generated: production-deduplication-report.md');
-    console.log('📄 Production deduplication completed successfully');
-    
-    return {
-      codeReady: codeScore >= 85 && !analysisResult?.summary?.criticalSecurity && 
-        analysisResult?.scalability?.score >= 70 && 
-        analysisResult?.performance >= 70,
-      codeQuality: analysisResult?.codeQuality?.grade || 'C',
-    };
+---
+*Generated: ${new Date().toISOString()}*
+`;
   }
 }
