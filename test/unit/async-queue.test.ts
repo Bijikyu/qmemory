@@ -3,113 +3,116 @@ import { EventEmitter } from 'events';
 import {
   AsyncQueueWrapper,
   createQueue,
-  type JobData,
 } from '../../lib/async-queue.js';
 
-type ProcessHandler = (job: FakeJob) => Promise<unknown>;
+type ProcessHandler = (job: any) => Promise<unknown>;
 
-class FakeJob extends EventEmitter {
-  public id: string;
-  public progress = 0;
-  public status: string;
-  public options: Record<string, unknown> = {};
-  public readonly data: JobData;
-  public queue!: FakeBeeQueue;
+jest.mock('bee-queue', () => {
+  let jobSequence = 0;
 
-  constructor(data: JobData) {
-    super();
-    this.data = data;
-    this.status = data.status ?? 'waiting';
-    this.id = `job-${FakeJob.sequence++}`;
-  }
+  class MockJob extends EventEmitter {
+    public id: string;
+    public progress = 0;
+    public status: string;
+    public options: Record<string, unknown> = {};
+    public readonly data: any;
+    public queue!: MockBeeQueue;
 
-  setId(id: string): this {
-    this.id = String(id);
-    return this;
-  }
+    constructor(data: any) {
+      super();
+      this.data = data;
+      this.status = data?.status ?? 'waiting';
+      this.id = `job-${jobSequence++}`;
+    }
 
-  retries(count: number): this {
-    this.options.retries = count;
-    return this;
-  }
+    setId(id: string): this {
+      this.id = String(id);
+      return this;
+    }
 
-  backoff(strategy: string, delayFactor?: number): this {
-    this.options.backoff = { strategy, delayFactor };
-    return this;
-  }
+    retries(count: number): this {
+      this.options.retries = count;
+      return this;
+    }
 
-  delayUntil(timestamp: number | Date): this {
-    this.options.delayUntil = timestamp;
-    return this;
-  }
+    backoff(strategy: string, delayFactor?: number): this {
+      this.options.backoff = { strategy, delayFactor };
+      return this;
+    }
 
-  timeout(milliseconds: number): this {
-    this.options.timeout = milliseconds;
-    return this;
-  }
+    delayUntil(timestamp: number | Date): this {
+      this.options.delayUntil = timestamp;
+      return this;
+    }
 
-  async save(): Promise<this> {
-    this.queue.jobs.push(this);
-    return this;
-  }
+    timeout(milliseconds: number): this {
+      this.options.timeout = milliseconds;
+      return this;
+    }
 
-  static sequence = 0;
-}
-
-class FakeBeeQueue extends EventEmitter {
-  public static instances: FakeBeeQueue[] = [];
-  public readonly jobs: FakeJob[] = [];
-  public handler?: ProcessHandler;
-  public readonly name: string;
-
-  constructor(name: string) {
-    super();
-    this.name = name;
-    FakeBeeQueue.instances.push(this);
-  }
-
-  process(concurrencyOrHandler: number | ProcessHandler, handler?: ProcessHandler): void {
-    if (typeof concurrencyOrHandler === 'function') {
-      this.handler = concurrencyOrHandler;
-    } else if (handler) {
-      this.handler = handler;
+    async save(): Promise<this> {
+      this.queue.jobs.push(this);
+      return this;
     }
   }
 
-  createJob(data: JobData): FakeJob {
-    const job = new FakeJob(data);
-    job.queue = this;
-    return job;
-  }
+  class MockBeeQueue extends EventEmitter {
+    public static instances: MockBeeQueue[] = [];
+    public readonly jobs: MockJob[] = [];
+    public handler?: ProcessHandler;
+    public readonly name: string;
 
-  async getJobs(start?: number, end?: number): Promise<FakeJob[]> {
-    if (start === undefined) {
-      return [...this.jobs];
+    static resetMockState(): void {
+      MockBeeQueue.instances.length = 0;
+      jobSequence = 0;
     }
-    if (end === undefined) {
-      return this.jobs.slice(start);
+
+    constructor(name: string) {
+      super();
+      this.name = name;
+      MockBeeQueue.instances.push(this);
     }
-    return this.jobs.slice(start, end + 1);
+
+    process(concurrencyOrHandler: number | ProcessHandler, handler?: ProcessHandler): void {
+      if (typeof concurrencyOrHandler === 'function') {
+        this.handler = concurrencyOrHandler;
+      } else if (handler) {
+        this.handler = handler;
+      }
+    }
+
+    createJob(data: any): MockJob {
+      const job = new MockJob(data);
+      job.queue = this;
+      return job;
+    }
+
+    async getJobs(start?: number, end?: number): Promise<MockJob[]> {
+      if (start === undefined) {
+        return [...this.jobs];
+      }
+      if (end === undefined) {
+        return this.jobs.slice(start);
+      }
+      return this.jobs.slice(start, end + 1);
+    }
+
+    async getJob(jobId: string): Promise<MockJob | null> {
+      return this.jobs.find(job => job.id === jobId) ?? null;
+    }
+
+    async close(): Promise<void> {
+      this.jobs.length = 0;
+    }
   }
 
-  async getJob(jobId: string): Promise<FakeJob | null> {
-    return this.jobs.find((job) => job.id === jobId) ?? null;
-  }
-
-  async close(): Promise<void> {
-    this.jobs.length = 0;
-  }
-}
-
-jest.mock('bee-queue', () => ({
-  __esModule: true,
-  default: FakeBeeQueue,
-}));
+  return { __esModule: true, default: MockBeeQueue };
+});
 
 describe('async-queue wrapper', () => {
   afterEach(() => {
-    FakeBeeQueue.instances.length = 0;
-    FakeJob.sequence = 0;
+    const mockedBeeQueue = (require('bee-queue') as any).default;
+    mockedBeeQueue.resetMockState();
     jest.clearAllMocks();
   });
 
@@ -141,7 +144,8 @@ describe('async-queue wrapper', () => {
 
     const job = await queue.addJob({ type: 'default', status: 'waiting' });
     expect(job.save).toBeDefined();
-    expect(FakeBeeQueue.instances[0].jobs).toHaveLength(1);
+    const mockedBeeQueue = (require('bee-queue') as any).default;
+    expect(mockedBeeQueue.instances[0].jobs).toHaveLength(1);
 
     const stats = await queue.getStats();
     expect(stats.pending).toBeGreaterThanOrEqual(1);
@@ -153,7 +157,7 @@ describe('async-queue wrapper', () => {
     queue.processor('default', handler);
 
     const job = await queue.addJob({ type: 'default', status: 'active' });
-    const instance = FakeBeeQueue.instances[0];
+    const instance = (require('bee-queue') as any).default.instances[0];
 
     expect(instance.handler).toBeDefined();
     const result = await instance.handler?.(job);

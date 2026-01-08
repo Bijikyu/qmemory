@@ -551,6 +551,8 @@ export class AsyncQueueWrapper extends EventEmitter {
           this.activeJobs.delete(String(job.id));
           this.emit('jobError', { jobId: String(job.id), error: error as Error, state });
           throw error;
+        } finally {
+          this.activeJobs.delete(String(job.id));
         }
       });
 
@@ -581,6 +583,17 @@ export class AsyncQueueWrapper extends EventEmitter {
     }
 
     return job;
+  }
+
+  async addJob(data: JobData, options: JobOptions = {}): Promise<BeeQueueJob<JobData>> {
+    const job = await this.createJob(data, options);
+    await job.save();
+    return job;
+  }
+
+  async add(type: string, data: JobData, options: JobOptions = {}): Promise<BeeQueueJob<JobData>> {
+    const jobData = { ...data, type };
+    return this.addJob(jobData, options);
   }
 
   clear(): void {

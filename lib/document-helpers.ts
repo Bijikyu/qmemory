@@ -55,7 +55,6 @@ const findDocumentById = async <TSchema extends AnyDocumentShape>(
       validateModel(model);
       const result = await safeDbOperation(
         () => model.findById(id).exec(),
-        null,
         'findDocumentById'
       );
       utils
@@ -85,7 +84,6 @@ const updateDocumentById = async <TSchema extends AnyDocumentShape>(
       validateModel(model);
       const result = await safeDbOperation(
         () => model.findByIdAndUpdate(id, updates, { new: true }).exec(),
-        null,
         'updateDocumentById'
       );
       utils
@@ -119,7 +117,6 @@ const deleteDocumentById = async <TSchema extends AnyDocumentShape>(
           const deleted = await model.findByIdAndDelete(id).exec();
           return Boolean(deleted);
         },
-        null,
         'deleteDocumentById'
       );
       utils.getFunctionLogger('deleteDocumentById').debug('returning result', { result });
@@ -218,7 +215,7 @@ const createDocument = async <TSchema extends AnyDocumentShape>(
   return utils.safeAsync(
     async () => {
       validateModel(model);
-      const result = await safeDbOperation(() => model.create(data), null, 'createDocument');
+      const result = await safeDbOperation(() => model.create(data), 'createDocument');
       utils
         .getFunctionLogger('createDocument')
         .debug('returning result', { hasResult: Boolean(result) });
@@ -263,7 +260,6 @@ const findDocuments = async <TSchema extends AnyDocumentShape>(
           }
           return queryBuilder.lean().exec();
         },
-        null,
         'findDocuments'
       );
       utils.getFunctionLogger('findDocuments').debug('returning documents', {
@@ -290,7 +286,6 @@ const findOneDocument = async <TSchema extends AnyDocumentShape>(
     async () => {
       const result = await safeDbOperation(
         () => model.findOne(query).lean().exec(),
-        null,
         'findOneDocument'
       );
       utils

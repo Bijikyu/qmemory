@@ -108,14 +108,20 @@ export const safeDbOperation = async <TResult>(
         utils.getFunctionLogger('safeDbOperation').debug('executing', { operationName });
 
         // Add timeout to prevent hanging operations (Scalability Fix #1)
+        let timeoutId: NodeJS.Timeout | null = null;
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(
+          timeoutId = setTimeout(
             () => reject(new Error(`Database operation timeout: ${operationName}`)),
             30000
           );
         });
 
-        const result = await Promise.race([operation(), timeoutPromise]);
+        const result = await Promise.race([operation(), timeoutPromise]).finally(() => {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+        });
         utils
           .getFunctionLogger('safeDbOperation')
           .debug('completed successfully', { operationName });

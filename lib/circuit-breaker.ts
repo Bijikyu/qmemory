@@ -111,13 +111,17 @@ export class CircuitBreakerWrapper {
     this.resetTimeout = options.resetTimeout ?? 60000;
 
     try {
-      // Create a dummy breaker instance for state monitoring
-      // This breaker should never be used directly - always use execute() method
-      this.opossumBreaker = new CircuitBreakerBase(async () => {
-        throw new Error(
-          'Circuit breaker used incorrectly. Use execute() method instead of direct fire().'
-        );
-      }, opossumOptions);
+      // Create a generic breaker instance that can execute arbitrary async operations.
+      // We route the caller-provided operation through the breaker to keep state/events consistent.
+      this.opossumBreaker = new CircuitBreakerBase(
+        async (operation: (...args: any[]) => Promise<any>, ...args: any[]) => {
+          if (typeof operation !== 'function') {
+            throw new Error('Operation is required');
+          }
+          return operation(...args);
+        },
+        opossumOptions
+      );
     } catch (error) {
       // Log initialization failure with configuration context for debugging
       utils.logError(error as Error, 'constructor', {
@@ -159,34 +163,17 @@ export class CircuitBreakerWrapper {
   async execute(operation: (...args: any[]) => Promise<any>, ...args: any[]): Promise<any> {
     if (!operation) throw new Error('Operation is required');
 
-    // Create a dedicated circuit breaker instance for this operation to avoid race conditions
-    // This ensures that different operations don't interfere with each other's failure patterns
-    const operationOptions = {
-      timeout: 30000,
-      errorThresholdPercentage: 50,
-      resetTimeout: this.resetTimeout,
-      rollingCountTimeout: 10000,
-      rollingCountBuckets: 10,
-      minimumNumberOfCalls: 5,
-      volumeThreshold: 5,
-    };
-
-    const operationBreaker = new CircuitBreakerBase(operation, operationOptions);
-
     try {
-      // Execute the operation through the dedicated breaker instance
-      return await operationBreaker.fire(...args);
+      // Execute the operation through the breaker instance so events/state are observable.
+      return await this.opossumBreaker.fire(operation, ...args);
     } catch (error) {
       // Log detailed error context for debugging and monitoring
       utils.logError(error as Error, 'execute', {
         operationName: operation.name || 'anonymous',
-        isOpen: operationBreaker.opened,
-        isHalfOpen: operationBreaker.halfOpen,
+        isOpen: this.opossumBreaker.opened,
+        isHalfOpen: this.opossumBreaker.halfOpen,
         argCount: args.length,
       });
-
-      // If the circuit is open, provide a clear error message
-      if (operationBreaker.opened) throw new Error('Circuit breaker is OPEN');
 
       // Re-throw the original error if circuit breaker is not open
       // This preserves the original error context for the caller
@@ -203,6 +190,20 @@ export class CircuitBreakerWrapper {
     if (this.opossumBreaker.opened) return STATES.OPEN;
     if (this.opossumBreaker.halfOpen) return STATES.HALF_OPEN;
     return STATES.CLOSED;
+  }
+
+  get state(): string {
+    return this.getState();
+  }
+
+  on(event: any, listener: (...args: any[]) => void): this {
+    (this.opossumBreaker as any).on(event, listener);
+    return this;
+  }
+
+  off(event: any, listener: (...args: any[]) => void): this {
+    (this.opossumBreaker as any).off(event, listener);
+    return this;
   }
 
   /**

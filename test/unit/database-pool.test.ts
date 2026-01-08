@@ -1,19 +1,34 @@
 const mockCreatePool = jest.fn().mockResolvedValue(undefined);
 const mockGetPool = jest.fn().mockReturnValue(null);
-const mockGetOrCreatePool = jest.fn().mockResolvedValue({} as any);
+const mockPoolStats = {
+  active: 1,
+  idle: 2,
+  healthy: 2,
+  total: 3,
+  waiting: 0,
+  max: 5,
+  min: 1,
+  dbType: 'redis',
+};
+const mockPoolHealth = {
+  status: 'healthy',
+  stats: mockPoolStats,
+  issues: [],
+};
+const mockPoolInstance = {
+  getStats: jest.fn().mockReturnValue(mockPoolStats),
+  getHealthStatus: jest.fn().mockReturnValue(mockPoolHealth),
+  acquireConnection: jest.fn().mockResolvedValue({ id: 'conn' }),
+  releaseConnection: jest.fn().mockResolvedValue(undefined),
+  shutdown: jest.fn().mockResolvedValue(undefined),
+};
+const mockGetOrCreatePool = jest.fn().mockResolvedValue(mockPoolInstance as any);
 const mockRemovePool = jest.fn().mockResolvedValue(undefined);
 const mockGetPoolUrls = jest.fn().mockReturnValue(['redis://example']);
-const mockGetAllPools = jest.fn().mockReturnValue([{ dbType: 'redis' }]);
+const mockGetAllPools = jest.fn().mockReturnValue([mockPoolInstance as any]);
 const mockGetAllStats = jest.fn().mockReturnValue({
   'redis://example': {
-    active: 1,
-    idle: 2,
-    healthy: 2,
-    total: 3,
-    waiting: 0,
-    max: 5,
-    min: 1,
-    dbType: 'redis',
+    ...mockPoolStats,
   },
 });
 const mockGetAllHealthStatus = jest.fn().mockReturnValue({
@@ -38,7 +53,7 @@ const mockPerformGlobalHealthCheck = jest.fn().mockResolvedValue(mockGetAllHealt
 const mockShutdown = jest.fn().mockResolvedValue(undefined);
 const mockGetPoolCount = jest.fn().mockReturnValue(1);
 const mockHasPool = jest.fn().mockReturnValue(true);
-const mockGetPoolsByType = jest.fn().mockReturnValue([{ dbType: 'redis' }]);
+const mockGetPoolsByType = jest.fn().mockReturnValue([mockPoolInstance as any]);
 const mockGetPoolUrlsByType = jest.fn().mockReturnValue(['redis://example']);
 
 jest.mock('../../lib/database/connection-pool-manager.js', () => {
@@ -146,10 +161,12 @@ describe('database-pool', () => {
 
     expect(getDatabasePool('redis://example')).toBeNull();
     expect(getAllDatabasePoolUrls()).toEqual(['redis://example']);
-    expect(getAllDatabasePools()).toEqual([{ dbType: 'redis' }]);
+    expect(getAllDatabasePools()).toHaveLength(1);
+    expect(getAllDatabasePools()[0].getStats().dbType).toBe('redis');
     expect(getDatabasePoolCount()).toBe(1);
     expect(hasDatabasePool('redis://example')).toBe(true);
-    expect(getDatabasePoolsByType('redis')).toEqual([{ dbType: 'redis' }]);
+    expect(getDatabasePoolsByType('redis')).toHaveLength(1);
+    expect(getDatabasePoolsByType('redis')[0].getStats().dbType).toBe('redis');
     expect(getDatabasePoolUrlsByType('redis')).toEqual(['redis://example']);
   });
 
@@ -161,6 +178,6 @@ describe('database-pool', () => {
 
   test('local databaseConnectionPool instance exposes same API', async () => {
     await databaseConnectionPool.createPool('redis://secondary');
-    expect(mockCreatePool).toHaveBeenCalledWith('redis://secondary', undefined);
+    expect(mockCreatePool).toHaveBeenCalledWith('redis://secondary');
   });
 });

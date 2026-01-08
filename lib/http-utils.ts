@@ -116,8 +116,14 @@ const sendErrorResponse = (
       );
     }
 
-    const errorId = error ? generateUniqueId() : undefined;
-    const response = createErrorResponse(statusCode, message, requestId);
+    const rawMessage =
+      message instanceof Error ? message.message : typeof message === 'string' ? message : '';
+    const normalizedMessage = sanitizeString(rawMessage);
+    const response = createErrorResponse(
+      statusCode,
+      normalizedMessage || getDefaultMessage(statusCode),
+      requestId
+    );
 
     return res.status(statusCode).json(response);
   } catch (err) {

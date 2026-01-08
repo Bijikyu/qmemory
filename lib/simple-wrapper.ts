@@ -292,8 +292,13 @@ export const requireEnvVars = (names: string[]): void => {
  *
  * @returns Unique identifier string
  */
-// Re-export generateUniqueId from qgenutils-wrapper to use centralized implementation
-export { generateUniqueId } from './qgenutils-wrapper';
+export const generateUniqueId = (): string => {
+  const cryptoObj = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+    return cryptoObj.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
 /**
  * Error type definitions and utilities
@@ -344,15 +349,6 @@ export const ErrorFactory = {
     error.context = context;
     return error;
   },
-
-  /**
-   * Convenience export for creating typed errors
-   *
-   * This provides direct access to the most commonly used
-   * error creation method.
-   */
-  createTypedError: (type: string, message: string, context?: any): Error =>
-    ErrorFactory.createTypedError,
 };
 
 /**

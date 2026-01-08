@@ -47,6 +47,7 @@ export default {
   errorOnDeprecated: true,
   resolver: undefined,
   moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@/(.*)$': '<rootDir>/$1',
   },
 };

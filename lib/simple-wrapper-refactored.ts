@@ -62,9 +62,4 @@ export const ErrorFactory = {
     error.context = context;
     return error;
   },
-
-  /**
-   * Convenience export for creating typed errors
-   */
-  createTypedError: ErrorFactory.createTypedError,
 };

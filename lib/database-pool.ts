@@ -82,7 +82,7 @@ interface DatabaseConnectionPoolAPI {
   ): Promise<unknown>;
   acquireConnection(databaseUrl: string, config?: DatabasePoolConfig): Promise<unknown>;
   releaseConnection(databaseUrl: string, connection: unknown): Promise<void>;
-  performGlobalHealthCheck(): unknown;
+  performGlobalHealthCheck(): Promise<unknown> | unknown;
   shutdown(): Promise<void>;
   getPoolCount(): unknown;
   hasPool(databaseUrl: string): unknown;
@@ -417,11 +417,9 @@ function getGlobalDatabaseStatistics(): GlobalPoolStatistics {
 }
 
 // Trigger a health check across all pools and return the detailed map.
-function performGlobalDatabaseHealthCheck(): Record<string, PoolHealthStatus> {
-  return assertPoolHealthRecord(
-    connectionPoolManager.performGlobalHealthCheck(),
-    'global health check results'
-  );
+async function performGlobalDatabaseHealthCheck(): Promise<Record<string, PoolHealthStatus>> {
+  const rawHealth = await connectionPoolManager.performGlobalHealthCheck();
+  return assertPoolHealthRecord(rawHealth, 'global health check results');
 }
 
 // Enumerate database URLs for a specific pool type.

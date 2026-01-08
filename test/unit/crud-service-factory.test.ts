@@ -11,18 +11,20 @@ import {
 } from '../../lib/crud-service-factory.js';
 
 interface Entity {
+  [key: string]: unknown;
   _id: string;
   name: string;
   status?: string;
   category?: string;
-  save?: jest.Mock<Promise<Entity>, []>;
+  save?: () => Promise<Entity>;
 }
 
 type QueryResult<T> = {
-  sort: jest.Mock<QueryResult<T>, [unknown?]>;
-  skip: jest.Mock<QueryResult<T>, [number]>;
-  limit: jest.Mock<QueryResult<T>, [number]>;
-  lean: jest.Mock<Promise<T[]>, []>;
+  sort: (value?: unknown) => QueryResult<T>;
+  skip: (value: number) => QueryResult<T>;
+  limit: (value: number) => QueryResult<T>;
+  lean: () => QueryResult<T>;
+  exec: () => Promise<T[]>;
   then: Promise<T[]>['then'];
   catch: Promise<T[]>['catch'];
   finally: Promise<T[]>['finally'];
@@ -34,11 +36,12 @@ function clone<T>(value: T): T {
 
 function createQuery<T>(data: T[]): QueryResult<T> {
   const promise = Promise.resolve(clone(data));
-  const result: Partial<QueryResult<T>> = {};
+  const result: any = {};
   result.sort = jest.fn().mockReturnValue(result);
   result.skip = jest.fn().mockReturnValue(result);
   result.limit = jest.fn().mockReturnValue(result);
-  result.lean = jest.fn().mockReturnValue(promise);
+  result.lean = jest.fn().mockReturnValue(result);
+  result.exec = jest.fn().mockReturnValue(promise);
   result.then = promise.then.bind(promise);
   result.catch = promise.catch.bind(promise);
   result.finally = promise.finally.bind(promise);
@@ -56,7 +59,9 @@ function matchesQuery(doc: Record<string, unknown>, query: Record<string, unknow
 
   return Object.entries(query).every(([key, value]) => {
     if (value && typeof value === 'object' && '$regex' in value) {
-      const reg = value.$regex as RegExp;
+      const pattern = (value as any).$regex;
+      const options = typeof (value as any).$options === 'string' ? (value as any).$options : '';
+      const reg = pattern instanceof RegExp ? pattern : new RegExp(String(pattern), options);
       return reg.test(String(doc[key] ?? ''));
     }
     if (value && typeof value === 'object' && '$ne' in value) {
@@ -89,9 +94,13 @@ function createMockModel(initial: Entity[]): {
 
   const Model = ModelCtor as unknown as Model<Entity>;
 
-  (Model as any).findOne = jest.fn(async (query: Record<string, unknown>) => {
+  (Model as any).findOne = jest.fn((query: Record<string, unknown>) => {
     const found = store.find((doc) => matchesQuery(doc, query));
-    return found ? clone(found) : null;
+    const promise = Promise.resolve(found ? clone(found) : null);
+    const queryResult: any = {};
+    queryResult.exec = jest.fn().mockReturnValue(promise);
+    queryResult.lean = jest.fn().mockReturnValue(queryResult);
+    return queryResult;
   });
 
   (Model as any).find = jest.fn((query: Record<string, unknown>) => {
@@ -99,43 +108,51 @@ function createMockModel(initial: Entity[]): {
     return createQuery(data);
   });
 
-  (Model as any).countDocuments = jest.fn(async (query: Record<string, unknown>) => {
-    return store.filter((doc) => matchesQuery(doc, query)).length;
+  (Model as any).countDocuments = jest.fn((query: Record<string, unknown>) => {
+    const count = store.filter((doc) => matchesQuery(doc, query)).length;
+    return { exec: jest.fn().mockResolvedValue(count) };
   });
 
   (Model as any).findById = jest.fn((id: string) => {
     const doc = getById(id);
-    const promise = Promise.resolve(doc ? clone(doc) : null);
-    return {
-      select: jest.fn(() => ({
-        lean: jest.fn(() =>
-          Promise.resolve(doc ? { _id: doc._id } : null),
-        ),
-      })),
-      then: promise.then.bind(promise),
-      catch: promise.catch.bind(promise),
-      finally: promise.finally.bind(promise),
-    };
+    const basePromise = Promise.resolve(doc ? clone(doc) : null);
+    const state: { select?: string } = {};
+    const queryResult: any = {};
+    queryResult.select = jest.fn((fields: string) => {
+      state.select = fields;
+      return queryResult;
+    });
+    queryResult.lean = jest.fn(() => queryResult);
+    queryResult.exec = jest.fn(() => {
+      if (state.select && state.select.includes('_id')) {
+        return Promise.resolve(doc ? { _id: doc._id } : null);
+      }
+      return basePromise;
+    });
+    queryResult.then = basePromise.then.bind(basePromise);
+    queryResult.catch = basePromise.catch.bind(basePromise);
+    queryResult.finally = basePromise.finally.bind(basePromise);
+    return queryResult;
   });
 
   (Model as any).findByIdAndUpdate = jest.fn(
-    async (id: string, update: Partial<Entity>) => {
+    (id: string, update: Partial<Entity>, options?: Record<string, unknown>) => {
       const index = store.findIndex((doc) => doc._id === id);
-      if (index === -1) {
-        return null;
+      const updated = index === -1 ? null : clone({ ...store[index], ...update });
+      if (index !== -1 && updated) {
+        store[index] = updated;
       }
-      store[index] = { ...store[index], ...update };
-      return clone(store[index]);
-    },
+      return { exec: jest.fn().mockResolvedValue(updated) };
+    }
   );
 
-  (Model as any).findByIdAndDelete = jest.fn(async (id: string) => {
+  (Model as any).findByIdAndDelete = jest.fn((id: string) => {
     const index = store.findIndex((doc) => doc._id === id);
-    if (index === -1) {
-      return null;
+    const removed = index === -1 ? null : clone(store[index]);
+    if (index !== -1) {
+      store.splice(index, 1);
     }
-    const [removed] = store.splice(index, 1);
-    return clone(removed);
+    return { exec: jest.fn().mockResolvedValue(removed) };
   });
 
   return { Model, store };

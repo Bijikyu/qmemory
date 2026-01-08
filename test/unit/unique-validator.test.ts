@@ -11,17 +11,18 @@ import {
 } from '../../lib/unique-validator.js';
 
 interface TestDocument {
+  [key: string]: unknown;
   _id: string;
   name?: string;
   email?: string;
-  save?: jest.Mock<Promise<TestDocument>, []>;
+  save?: () => Promise<TestDocument>;
 }
 
-type FindOneLeanResult = { lean: jest.Mock<Promise<TestDocument | null>, []> };
+type FindOneLeanResult = { lean: any };
 
-function createFindOneMock(): { findOne: jest.Mock<FindOneLeanResult, [unknown]>; lean: jest.Mock<Promise<TestDocument | null>, []> } {
-  const lean = jest.fn<Promise<TestDocument | null>, []>();
-  const findOne = jest.fn<FindOneLeanResult, [unknown]>().mockReturnValue({ lean });
+function createFindOneMock(): { findOne: any; lean: any } {
+  const lean = jest.fn();
+  const findOne = jest.fn().mockReturnValue({ lean });
   return { findOne, lean };
 }
 
@@ -31,7 +32,7 @@ function buildMockModel(findOneImpl?: (query: unknown) => Promise<TestDocument |
     lean.mockImplementation(findOneImpl);
   }
 
-  const findByIdSelectLean = jest.fn<Promise<TestDocument | null>, []>();
+  const findByIdSelectLean = jest.fn();
   const select = jest.fn().mockReturnValue({ lean: findByIdSelectLean });
   const findById = jest.fn().mockReturnValue({ select });
 
@@ -71,8 +72,9 @@ describe('unique-validator utilities', () => {
 
     expect(result).toEqual(existing);
     const queryArg = mocks.findOne.mock.calls[0]?.[0] as Record<string, any>;
-    expect(queryArg.email.$regex).toBeInstanceOf(RegExp);
-    expect(queryArg.email.$regex.test('upper@example.com')).toBe(true);
+    expect(typeof queryArg.email.$regex).toBe('string');
+    const regex = new RegExp(queryArg.email.$regex, queryArg.email.$options);
+    expect(regex.test('upper@example.com')).toBe(true);
   });
 
   test('validateUniqueField throws DuplicateError when duplicate exists', async () => {
@@ -80,12 +82,12 @@ describe('unique-validator utilities', () => {
 
     await expect(
       validateUniqueField(Model, 'name', 'existing', null, 'widget'),
-    ).rejects.toMatchObject<Partial<DuplicateError>>({
+    ).rejects.toMatchObject({
       code: 'DUPLICATE',
       status: 409,
       field: 'name',
       value: 'existing',
-    });
+    } as Partial<DuplicateError>);
 
     expect(mocks.findOne).toHaveBeenCalledTimes(1);
   });

@@ -55,6 +55,8 @@ export default {
     'node_modules/(?!(?:qtests|@tanstack|@radix-ui|lucide-react|react-resizable-panels|cmdk|vaul)/)',
   ],
   moduleNameMapper: {
+    // ts-jest ESM: allow TS sources to import local modules using `.js` extension.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     // Map generated HTTP test helper used by generated tests
     '^\\.\\./utils/httpTest$': '<rootDir>/tests/generated-tests/utils/httpTest.ts',
     '^\\.\\./utils/httpTest\\.shim\\.js$': '<rootDir>/tests/generated-tests/utils/httpTest.shim.js',

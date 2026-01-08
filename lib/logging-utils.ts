@@ -14,7 +14,8 @@ import { getTimestamp } from './common-patterns.js';
 
 // Minimal implementations for missing functions
 function logDebug(message: string, meta?: any): void {
-  if (logger?.logDebug) logger.logDebug(message, meta);
+  if (typeof (logger as any)?.logDebug === 'function') (logger as any).logDebug(message, meta);
+  else if (typeof (logger as any)?.debug === 'function') (logger as any).debug(message, meta);
   else console.log(`DEBUG: ${message}`, meta);
 }
 
@@ -34,12 +35,14 @@ function logError(message: string, meta?: any): void {
 }
 
 function logFatal(message: string, meta?: any): void {
-  if (logger?.logFatal) logger.logFatal(message, meta);
+  if (typeof (logger as any)?.logFatal === 'function') (logger as any).logFatal(message, meta);
+  else if (typeof (logger as any)?.error === 'function') (logger as any).error(message, meta);
   else console.error(`FATAL: ${message}`, meta);
 }
 
 function logAudit(message: string, meta?: any): void {
-  if (logger?.logAudit) logger.logAudit(message, meta);
+  if (typeof (logger as any)?.logAudit === 'function') (logger as any).logAudit(message, meta);
+  else if (typeof (logger as any)?.info === 'function') (logger as any).info(message, meta);
   else console.log(`AUDIT: ${message}`, meta);
 }
 

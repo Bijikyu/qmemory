@@ -25,7 +25,7 @@ import {
   sendConflict,
   sendInternalServerError,
   sendServiceUnavailable,
-} from '../../lib/http-utils.js';
+} from '../../lib/http-utils';
 import { setupTestEnvironment, expectNotFoundResponse } from '../test-utils.js';
 
 describe('HTTP Utils Module', () => {

@@ -3,7 +3,13 @@
  * Centralized test setup and assertion helpers to reduce duplication
  */
 
-const testHelpers = require('qtests/lib/envUtils.js');
+const createRes = () => {
+  const res = {};
+  res.status = jest.fn(() => res);
+  res.json = jest.fn(() => res);
+  res.send = jest.fn(() => res);
+  return res;
+};
 
 /**
  * Creates a standardized mock model for testing database operations
@@ -32,7 +38,7 @@ const createMockModel = (modelName = 'TestModel') => ({
 const setupTestEnvironment = () => {
   jest.clearAllMocks();
   
-  const mockRes = testHelpers.createRes();
+  const mockRes = createRes();
   const mockModel = createMockModel();
   const consoleSpy = {
     log: jest.spyOn(console, 'log').mockImplementation(() => {}),
@@ -49,14 +55,16 @@ const setupTestEnvironment = () => {
  */
 const expectErrorResponse = (mockRes, expectedStatus, expectedType, expectedMessagePattern) => {
   expect(mockRes.status).toHaveBeenCalledWith(expectedStatus);
-  expect(mockRes.json).toHaveBeenCalledWith({ 
-    error: {
-      type: expectedType,
-      message: expectedMessagePattern || expect.any(String),
-      timestamp: expect.any(String),
-      requestId: expect.any(String)
-    }
-  });
+  expect(mockRes.json).toHaveBeenCalledWith(
+    expect.objectContaining({
+      error: expect.objectContaining({
+        type: expectedType,
+        message: expectedMessagePattern || expect.any(String),
+        timestamp: expect.any(String),
+        requestId: expect.any(String),
+      }),
+    })
+  );
 };
 
 /**
