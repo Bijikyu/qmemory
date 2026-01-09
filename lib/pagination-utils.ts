@@ -107,7 +107,7 @@ function validatePagination(req: Request, res: Response, options: any = {}) {
         utils.debugLog(
           `validatePagination is returning null due to invalid page: ${req.query.page}`
         );
-        sendErrorResponse(res, 400, pageResult.error);
+        sendErrorResponse(res, 400, pageResult.error, null);
         return null;
       }
       page = pageResult.value;
@@ -119,7 +119,7 @@ function validatePagination(req: Request, res: Response, options: any = {}) {
         utils.debugLog(
           `validatePagination is returning null due to invalid limit: ${req.query.limit}`
         );
-        sendErrorResponse(res, 400, limitResult.error);
+        sendErrorResponse(res, 400, limitResult.error, null);
         return null;
       }
       limit = limitResult.value;
@@ -128,14 +128,14 @@ function validatePagination(req: Request, res: Response, options: any = {}) {
     // Page must be positive integer starting from 1 for user-friendly URLs
     if (page < 1 || !Number.isInteger(page)) {
       utils.debugLog(`validatePagination is returning null due to invalid page: ${page}`);
-      sendErrorResponse(res, 400, 'Page must be a positive integer starting from 1');
+      sendErrorResponse(res, 400, 'Page must be a positive integer starting from 1', null);
       return null;
     }
     // Validate limit parameter to prevent invalid page sizes
     // Limit must be positive integer starting from 1 to ensure meaningful results
     if (limit < 1 || !Number.isInteger(limit)) {
       utils.debugLog(`validatePagination is returning null due to invalid limit: ${limit}`);
-      sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
+      sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1', null);
       return null;
     }
     // Enforce maximum limit to prevent resource exhaustion and maintain performance
@@ -144,7 +144,7 @@ function validatePagination(req: Request, res: Response, options: any = {}) {
       utils.debugLog(
         `validatePagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`
       );
-      sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
+      sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`, null);
       return null;
     }
     // Calculate database skip offset for efficient query performance
@@ -303,7 +303,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
         utils.debugLog(
           `validateCursorPagination is returning null due to invalid limit: ${req.query.limit}`
         );
-        sendErrorResponse(res, 400, limitResult.error);
+        sendErrorResponse(res, 400, limitResult.error, null);
         return null;
       }
       limit = limitResult.value;
@@ -311,7 +311,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
     // Validate limit parameter range
     if (limit < 1 || !Number.isInteger(limit)) {
       utils.debugLog(`validateCursorPagination is returning null due to invalid limit: ${limit}`);
-      sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1');
+      sendErrorResponse(res, 400, 'Limit must be a positive integer starting from 1', null);
       return null;
     }
     // Enforce maximum limit to prevent resource exhaustion
@@ -319,7 +319,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
       utils.debugLog(
         `validateCursorPagination is returning null due to limit exceeding maximum: ${limit} > ${maxLimit}`
       );
-      sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`);
+      sendErrorResponse(res, 400, `Limit cannot exceed ${maxLimit} records per page`, null);
       return null;
     }
     // Validate direction parameter
@@ -327,7 +327,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
       utils.debugLog(
         `validateCursorPagination is returning null due to invalid direction: ${direction}`
       );
-      sendErrorResponse(res, 400, 'Direction must be either "next" or "prev"');
+      sendErrorResponse(res, 400, 'Direction must be either "next" or "prev"', null);
       return null;
     }
     // Parse cursor if provided
@@ -336,7 +336,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
       try {
         // Validate cursor before processing
         if (cursor.length > 1000) {
-          sendErrorResponse(res, 400, 'Cursor too large');
+          sendErrorResponse(res, 400, 'Cursor too large', null);
           return null;
         }
 
@@ -344,7 +344,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
 
         // Validate JSON structure before parsing
         if (!/^\s*\{[\s\S]*\}\s*$/.test(cursorJson)) {
-          sendErrorResponse(res, 400, 'Invalid cursor format');
+          sendErrorResponse(res, 400, 'Invalid cursor format', null);
           return null;
         }
 
@@ -352,13 +352,13 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
 
         // Validate parsed cursor structure
         if (typeof decodedCursor !== 'object' || decodedCursor === null) {
-          sendErrorResponse(res, 400, 'Invalid cursor structure');
+          sendErrorResponse(res, 400, 'Invalid cursor structure', null);
           return null;
         }
 
         // Prevent prototype pollution
         if (decodedCursor.__proto__ || decodedCursor.constructor || decodedCursor.prototype) {
-          sendErrorResponse(res, 400, 'Invalid cursor structure');
+          sendErrorResponse(res, 400, 'Invalid cursor structure', null);
           return null;
         }
         utils.debugLog('validateCursorPagination decoded cursor:', decodedCursor);
@@ -366,7 +366,7 @@ function validateCursorPagination(req: any, res: any, options: any = {}) {
         utils.debugLog(
           `validateCursorPagination is returning null due to invalid cursor: ${error.message}`
         );
-        sendErrorResponse(res, 400, 'Invalid cursor format');
+        sendErrorResponse(res, 400, 'Invalid cursor format', null);
         return null;
       }
     }
@@ -533,7 +533,7 @@ function validateSorting(req: any, res: any, options: any = {}) {
       utils.debugLog(
         `validateSorting is returning null due to too many sort fields: ${sortFields.length} > ${maxSortFields}`
       );
-      sendErrorResponse(res, 400, `Cannot sort by more than ${maxSortFields} fields`);
+      sendErrorResponse(res, 400, `Cannot sort by more than ${maxSortFields} fields`, null);
       return null;
     }
     // Parse and validate each sort field
@@ -547,7 +547,7 @@ function validateSorting(req: any, res: any, options: any = {}) {
         utils.debugLog(
           `validateSorting is returning null due to dangerous field name: ${fieldName}`
         );
-        sendErrorResponse(res, 400, `Invalid sort field: ${fieldName}`);
+        sendErrorResponse(res, 400, `Invalid sort field: ${fieldName}`, null);
         return null;
       }
 
@@ -556,7 +556,7 @@ function validateSorting(req: any, res: any, options: any = {}) {
         utils.debugLog(
           `validateSorting is returning null due to invalid field format: ${fieldName}`
         );
-        sendErrorResponse(res, 400, `Invalid sort field format: ${fieldName}`);
+        sendErrorResponse(res, 400, `Invalid sort field format: ${fieldName}`, null);
         return null;
       }
 
@@ -565,7 +565,7 @@ function validateSorting(req: any, res: any, options: any = {}) {
         utils.debugLog(
           `validateSorting is returning null due to invalid field format: ${fieldName}`
         );
-        sendErrorResponse(res, 400, `Invalid field name format: ${fieldName}`);
+        sendErrorResponse(res, 400, `Invalid field name format: ${fieldName}`, null);
         return null;
       }
       // Validate field name against allowlist
@@ -574,7 +574,8 @@ function validateSorting(req: any, res: any, options: any = {}) {
         sendErrorResponse(
           res,
           400,
-          `Invalid sort field: ${fieldName}. Allowed fields: ${allowedFields.join(', ')}`
+          `Invalid sort field: ${fieldName}. Allowed fields: ${allowedFields.join(', ')}`,
+          null
         );
         return null;
       }

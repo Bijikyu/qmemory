@@ -184,14 +184,15 @@ export class FastMath {
  */
 export class FastString {
   /**
-   * Fast string concatenation using Node.js built-in Buffer.concat
-   * Provides performance benefit for large numbers of strings
+   * Fast string concatenation using Buffer operations
+   * Provides performance benefit for large string concatenations
    *
-   * @param strings - Array of strings
+   * @param strings - Array or iterable of strings to concatenate
    * @returns Concatenated string
    */
   static fastConcat(strings) {
-    const buffers = strings.map(str => Buffer.from(str, 'utf8'));
+    const stringArray = Array.isArray(strings) ? strings : Array.from(strings);
+    const buffers = stringArray.map(str => Buffer.from(str, 'utf8'));
     const concatenated = Buffer.concat(buffers);
     return concatenated.toString('utf8');
   }

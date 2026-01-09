@@ -64,48 +64,49 @@ type HttpErrorType =
   | 'ERROR'; // Generic error fallback
 
 /**
- * Creates a standardized error response envelope
- * 
- * This function constructs the consistent error response format that includes
- * all required fields for proper error handling and debugging.
- * 
- * @param statusCode - HTTP status code for the error
- * @param message - Error message (will be sanitized)
- * @param requestId - Unique request identifier for correlation
- * @returns {ErrorEnvelope} Standardized error response structure
+ * Union type for known HTTP status codes that have predefined error types
+ *
+ * These status codes are explicitly supported by the error handling system
+ * and have corresponding error types and default messages.
  */
-export const createErrorResponse = (
-  statusCode: number,
-  message: unknown,
-  requestId: string
-): ErrorEnvelope => {
-  const errorId = generateUniqueId(); // Generate unique error ID for tracking
-  return {
-    error: {
-      type: getErrorType(statusCode as KnownStatusCode), // Map status code to error type
-      message: typeof message === 'string' ? message : String(message), // Security: safe type conversion for all message types
-      timestamp: getTimestamp(), // ISO timestamp for request correlation
-      requestId,
-      ...(errorId && { errorId }), // Include error ID if successfully generated
-    },
+type KnownStatusCode =
+  | 400 // Bad Request
+  | 401 // Unauthorized
+  | 404 // Not Found
+  | 409 // Conflict
+  | 500 // Internal Server Error
+  | 503; // Service Unavailable
+
+/**
+ * Interface for standardized error response envelope
+ *
+ * This interface defines the structure of all error responses sent by the API.
+ * It ensures consistent error handling across all endpoints and provides
+ * necessary information for client-side error processing.
+ */
+interface ErrorEnvelope {
+  error: {
+    type: HttpErrorType;
+    message: string;
+    timestamp: string;
+    requestId: string;
+    errorId?: string;
+    details?: unknown;
   };
-};
 }
 
 /**
  * Creates a standardized error response envelope
  *
  * This function constructs the consistent error response format that includes
- * all required fields for proper error handling and debugging. It generates
- * unique identifiers for both the error and request to enable comprehensive
- * logging and client-side error correlation.
+ * all required fields for proper error handling and debugging.
  *
  * @param statusCode - HTTP status code for the error
  * @param message - Error message (will be sanitized)
  * @param requestId - Unique request identifier for correlation
  * @returns {ErrorEnvelope} Standardized error response structure
  */
-const createErrorResponse = (
+export const createErrorResponse = (
   statusCode: number,
   message: unknown,
   requestId: string
@@ -252,9 +253,8 @@ const sendErrorResponse = (
     // Log the error response failure for debugging
     logger.error('Failed to send error response', {
       statusCode,
-      hasError: error !== undefined,
-      errorType:
-        error && typeof error === 'object' && 'type' in error ? (error as any).type : undefined,
+      hasError: err !== undefined,
+      errorType: err && typeof err === 'object' && 'type' in err ? (err as any).type : undefined,
       responseSent: false,
     });
 
@@ -272,23 +272,23 @@ const sendErrorResponse = (
 
 /**
  * Sends a 404 Not Found error response
- * 
+ *
  * Use this function when a requested resource cannot be found. It provides
  * a standardized 404 response with proper error formatting and request ID
  * for debugging purposes.
- * 
+ *
  * Security Features:
  * - Input sanitization to prevent injection attacks
  * - Consistent error response format across all endpoints
  * - Request correlation through unique identifiers
  * - Error message sanitization for client safety
- * 
+ *
  * @param res - Express response object (must be validated)
  * @param message - Optional custom error message (will be sanitized)
  * @returns {Response<ErrorEnvelope>} Express response with 404 error envelope
  */
 export const sendNotFound = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
-  sendErrorResponse(res, 404, typeof message === 'string' ? message : message || 'Resource not found');
+  sendErrorResponse(res, 404, typeof message === 'string' ? message : 'Resource not found', null);
 
 /**
  * Sends a 409 Conflict error response
@@ -302,7 +302,7 @@ export const sendNotFound = (res: Response, message?: unknown): Response<ErrorEn
  * @returns {Response<ErrorEnvelope>} Express response with 409 error envelope
  */
 const sendConflict = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
-  sendErrorResponse(res, 409, message ?? 'Resource conflict');
+  sendErrorResponse(res, 409, message ?? 'Resource conflict', null);
 
 /**
  * Sends a 500 Internal Server Error response
@@ -316,7 +316,7 @@ const sendConflict = (res: Response, message?: unknown): Response<ErrorEnvelope>
  * @returns {Response<ErrorEnvelope>} Express response with 500 error envelope
  */
 const sendInternalServerError = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
-  sendErrorResponse(res, 500, message ?? 'Internal server error');
+  sendErrorResponse(res, 500, message ?? 'Internal server error', null);
 
 /**
  * Sends a 503 Service Unavailable error response
@@ -330,7 +330,7 @@ const sendInternalServerError = (res: Response, message?: unknown): Response<Err
  * @returns {Response<ErrorEnvelope>} Express response with 503 error envelope
  */
 const sendServiceUnavailable = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
-  sendErrorResponse(res, 503, message ?? 'Service temporarily unavailable');
+  sendErrorResponse(res, 503, message ?? 'Service temporarily unavailable', null);
 
 /**
  * Sends a 400 Bad Request error response
@@ -344,7 +344,7 @@ const sendServiceUnavailable = (res: Response, message?: unknown): Response<Erro
  * @returns {Response<ErrorEnvelope>} Express response with 400 error envelope
  */
 const sendBadRequest = (res: Response, message?: unknown): Response<ErrorEnvelope> =>
-  sendErrorResponse(res, 400, message ?? 'Bad request');
+  sendErrorResponse(res, 400, message ?? 'Bad request', null);
 
 /**
  * Sends a 400 Validation Error response with detailed validation information
@@ -522,7 +522,6 @@ const sendTooManyRequests = (
  * ```
  */
 export {
-  sendNotFound, // 404 Not Found responses
   sendConflict, // 409 Conflict responses
   sendInternalServerError, // 500 Internal Server Error responses
   sendServiceUnavailable, // 503 Service Unavailable responses

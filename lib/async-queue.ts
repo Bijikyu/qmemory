@@ -2,18 +2,23 @@
  * Async Queue Management System
  *
  * Purpose: Provides a robust job processing and queue management system built on top of
- * Redis and the bee-queue library. This system handles background job processing, retry
+ * Redis and bee-queue library. This system handles background job processing, retry
  * logic, and job state management with comprehensive error handling and monitoring.
  *
  * Design Philosophy:
  * - Reliability: Jobs are persisted in Redis and survive application restarts
  * - Scalability: Multiple workers can process jobs concurrently with configurable limits
- * - Monitoring: Comprehensive event emission and error logging for observability
- * - Flexibility: Support for different job types, retry strategies, and scheduling
- * - Performance: Optimized for high-throughput job processing with minimal overhead
+ */
+
+import { setInterval, clearInterval } from 'timers';
+
+/**
+ * Monitoring: Comprehensive event emission and error logging for observability
+ * Flexibility: Support for different job types, retry strategies, and scheduling
+ * Performance: Optimized for high-throughput job processing with minimal overhead
  *
  * Integration Notes:
- * - Used throughout the system for background processing, email sending, data cleanup, etc.
+ * - Used throughout system for background processing, email sending, data cleanup, etc.
  * - Integrates with qerrors for consistent error reporting and logging
  * - Emits events for monitoring and debugging purposes
  * - Uses Redis as the backend for job persistence and coordination
@@ -65,11 +70,7 @@ type BeeQueueJob<T extends JobData> = BeeQueue.Job<T> & {
  * @template T - The job data type extending JobData
  */
 type BeeQueueInstance<T extends JobData> = BeeQueue<T> & {
-  getJobs(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _start?: number,
-    end?: number
-  ): Promise<BeeQueueJob<T>[]>;
+  getJobs(): Promise<BeeQueueJob<T>[]>;
 };
 
 /**
@@ -182,10 +183,7 @@ type JobProcessorResult = Promise<unknown> | Array<Promise<unknown>>;
  * @param job - The job to process with its data and metadata
  * @returns Promise or array of promises representing the processing result
  */
-type JobProcessor = (
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  job: BeeQueueJob<JobData>
-) => JobProcessorResult;
+type JobProcessor = (_job: BeeQueueJob<JobData>) => JobProcessorResult;
 
 /**
  * Async Queue Wrapper Class
@@ -236,7 +234,7 @@ export class AsyncQueueWrapper extends EventEmitter {
   private readonly activeJobs: Set<string> = new Set();
 
   // Reference to cleanup interval for proper resource management
-  private cleanupInterval: NodeJS.Timeout | null = null;
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   // Public concurrency setting for monitoring and configuration
   public readonly concurrency: number;
