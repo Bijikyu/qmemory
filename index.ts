@@ -28,6 +28,28 @@ import {
 
 // Storage utilities
 import { MemStorage, storage, User, InsertUser } from './lib/storage';
+// Shared result types
+import {
+  SafeReadResult,
+  SafeWriteResult,
+  SafeReadSimpleResult,
+  SafeReadSyncResult,
+  SafeWriteSyncResult,
+  OperationResult,
+  OperationError,
+  SafeOperation,
+  FileProcessingResult,
+  BatchProcessingResult,
+  PathValidationResult,
+  FileErrorContext,
+  FileMetadataResult,
+  ConfigurationResult,
+  StreamResult,
+  isSuccessResult,
+  isErrorResult,
+  isSuccessRead,
+  isSuccessWrite,
+} from './lib/types/result-types';
 // Document helpers
 import {
   findDocumentById,
@@ -328,6 +350,26 @@ export {
   updateUserDoc,
   validateDocumentUniqueness,
   hasUniqueFieldChanges,
+  // Shared result types
+  SafeReadResult,
+  SafeWriteResult,
+  SafeReadSimpleResult,
+  SafeReadSyncResult,
+  SafeWriteSyncResult,
+  OperationResult,
+  OperationError,
+  SafeOperation,
+  FileProcessingResult,
+  BatchProcessingResult,
+  PathValidationResult,
+  FileErrorContext,
+  FileMetadataResult,
+  ConfigurationResult,
+  StreamResult,
+  isSuccessResult,
+  isErrorResult,
+  isSuccessRead,
+  isSuccessWrite,
   // Storage
   MemStorage,
   storage,

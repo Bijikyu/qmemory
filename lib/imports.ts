@@ -21,6 +21,29 @@ export { createLogger, type LogContext, LogLevel } from './core/centralized-logg
 export { ErrorHandler } from './core/error-handler';
 export type { ErrorContext, ErrorResponse, StandardResponse } from './core/error-handler-types';
 
+// Shared result types
+export {
+  type SafeReadResult,
+  type SafeWriteResult,
+  type SafeReadSimpleResult,
+  type SafeReadSyncResult,
+  type SafeWriteSyncResult,
+  type OperationResult,
+  type OperationError,
+  type SafeOperation,
+  type FileProcessingResult,
+  type BatchProcessingResult,
+  type PathValidationResult,
+  type FileErrorContext,
+  type FileMetadataResult,
+  type ConfigurationResult,
+  type StreamResult,
+  isSuccessResult,
+  isErrorResult,
+  isSuccessRead,
+  isSuccessWrite,
+} from './types/result-types';
+
 // Internal utilities
 export {
   sendNotFound,

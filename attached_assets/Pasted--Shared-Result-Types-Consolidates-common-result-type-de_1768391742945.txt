@@ -1,0 +1,103 @@
+/**
+ * Shared Result Types
+ * Consolidates common result type definitions used across multiple files
+ * Eliminates duplication and provides consistent type interfaces
+ */
+
+// Core result types used across the codebase
+export type SafeReadResult = { success: true; content: string } | { success: false; error: Error };
+export type SafeWriteResult = { success: true; written: boolean } | { success: false; error: Error };
+export type SafeReadSimpleResult = string | null;
+
+// Extended result types for backward compatibility
+export type SafeReadSyncResult = SafeReadResult;
+export type SafeWriteSyncResult = SafeWriteResult;
+
+// Common operation result interface
+export interface OperationResult<T = any> {
+  success: true;
+  data: T;
+  operationId: string;
+}
+
+export interface OperationError {
+  success: false;
+  error: Error;
+  operationId: string;
+}
+
+export type SafeOperation<T = any> = OperationResult<T> | OperationError;
+
+// File processing result types
+export interface FileProcessingResult<T = any> {
+  success: boolean;
+  data?: T;
+  error?: Error;
+  filePath?: string;
+}
+
+export interface BatchProcessingResult<T = any> {
+  success: boolean;
+  results: T[];
+  errors: Array<{ filePath: string; error: Error }>;
+  totalProcessed: number;
+  totalSuccessful: number;
+  totalFailed: number;
+}
+
+// Validation result types
+export interface ValidationResult {
+  filePath: string;
+  isValid: boolean;
+  size?: number;
+  maxSize?: number;
+  error?: string | null;
+}
+
+export interface PathValidationResult {
+  isValid: boolean;
+  resolvedPath?: string;
+  error?: string;
+}
+
+// Error context types
+export interface ErrorContext {
+  context: string;
+  severity: string;
+  [key: string]: any;
+}
+
+export interface EnhancedErrorContext extends ErrorContext {
+  filePath?: string;
+  operationId?: string;
+  errorMessage?: string;
+}
+
+// Metadata result types
+export interface FileMetadataResult {
+  success: boolean;
+  metadata?: {
+    size: number;
+    mtime: Date;
+    exists: boolean;
+    [key: string]: any;
+  };
+  error?: Error;
+}
+
+// Configuration result types
+export interface ConfigurationResult<T = any> {
+  success: boolean;
+  config?: T;
+  error?: Error;
+  defaults?: T;
+}
+
+// Stream processing result types
+export interface StreamResult<T = any> {
+  success: boolean;
+  data?: T[];
+  chunks?: number;
+  bytesProcessed?: number;
+  error?: Error;
+}
