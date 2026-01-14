@@ -141,6 +141,20 @@ import {
 // } from './lib/test-memory-manager';
 // Async queue
 import { createQueue } from './lib/async-queue';
+// Queue management
+import {
+  QueueStateManager,
+  IntervalManager,
+  ConcurrencyLimiter,
+  enforceQueueLimit,
+  createConcurrencyLimiter,
+  startPeriodicTask,
+  stopPeriodicTask,
+  stopAllPeriodicTasks,
+  getActivePeriodicTasks,
+  QueueMetrics,
+  QueueManagerOptions,
+} from './lib/queue/queue-manager';
 // Database pool
 // // Temporarily commented out due to broken implementation
 // // import {
@@ -457,6 +471,16 @@ export {
   // setupTestMemoryMonitoring,
   // teardownTestMemoryMonitoring,
   // createQueue,
+  // Queue management
+  QueueStateManager,
+  IntervalManager,
+  ConcurrencyLimiter,
+  enforceQueueLimit,
+  createConcurrencyLimiter,
+  startPeriodicTask,
+  stopPeriodicTask,
+  stopAllPeriodicTasks,
+  getActivePeriodicTasks,
   // Database pool - temporarily disabled
   // SimpleDatabasePool,
   // DatabaseConnectionPool,
@@ -594,5 +618,6 @@ export {
 
 // Export types
 export type { User, InsertUser } from './lib/storage';
+export type { QueueMetrics, QueueManagerOptions } from './lib/queue/queue-manager';
 // No BasicRateLimiter export here to avoid duplicate
 export type { Application, Request, Response, NextFunction } from 'express';

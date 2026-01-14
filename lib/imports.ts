@@ -340,5 +340,20 @@ export {
   getLocalStorageSize,
 } from './storage/local-storage-utils';
 
+// Queue management
+export {
+  QueueStateManager,
+  IntervalManager,
+  ConcurrencyLimiter,
+  enforceQueueLimit,
+  createConcurrencyLimiter,
+  startPeriodicTask,
+  stopPeriodicTask,
+  stopAllPeriodicTasks,
+  getActivePeriodicTasks,
+  type QueueMetrics,
+  type QueueManagerOptions,
+} from './queue/queue-manager';
+
 // Common patterns
 export { validateResponse, getTimestamp } from './common-patterns';
