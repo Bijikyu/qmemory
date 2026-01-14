@@ -278,6 +278,18 @@ import {
   getMongoDBManager,
   FindManyOptions,
 } from './lib/database/mongodb-operations';
+// LocalStorage utilities
+import {
+  isLocalStorageAvailable,
+  getLocalStorageItem,
+  setLocalStorageItem,
+  removeLocalStorageItem,
+  getLocalStorageBoolean,
+  setLocalStorageBoolean,
+  clearLocalStorage,
+  getLocalStorageKeys,
+  getLocalStorageSize,
+} from './lib/storage/local-storage-utils';
 // Security middleware
 import { setupSecurity, getSecurityConfig, destroySecurity } from './lib/security-middleware';
 // Privacy and compliance
@@ -555,6 +567,16 @@ export {
   FileSystemBinaryStorage,
   StorageFactory,
   getDefaultStorage,
+  // LocalStorage utilities
+  isLocalStorageAvailable,
+  getLocalStorageItem,
+  setLocalStorageItem,
+  removeLocalStorageItem,
+  getLocalStorageBoolean,
+  setLocalStorageBoolean,
+  clearLocalStorage,
+  getLocalStorageKeys,
+  getLocalStorageSize,
   // Serialization utilities
   serializeDocument,
   serializeMongooseDocument,

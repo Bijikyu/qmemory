@@ -327,5 +327,18 @@ export {
   type FindManyOptions,
 } from './database/mongodb-operations';
 
+// LocalStorage utilities
+export {
+  isLocalStorageAvailable,
+  getLocalStorageItem,
+  setLocalStorageItem,
+  removeLocalStorageItem,
+  getLocalStorageBoolean,
+  setLocalStorageBoolean,
+  clearLocalStorage,
+  getLocalStorageKeys,
+  getLocalStorageSize,
+} from './storage/local-storage-utils';
+
 // Common patterns
 export { validateResponse, getTimestamp } from './common-patterns';
