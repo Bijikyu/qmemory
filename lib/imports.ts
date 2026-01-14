@@ -233,6 +233,16 @@ export {
   createWeakCache,
 } from './performance/memory-manager';
 
+// Memory-optimized cache
+export {
+  MemoryOptimizedCache,
+  createMemoryOptimizedCache,
+  globalCaches,
+  type MemoryOptimizedCacheConfig,
+  type CacheMemoryStats,
+  type GlobalCacheInstances,
+} from './performance/memory-optimized-cache';
+
 // Cache utilities
 export { createRedisClient } from './cache-utils';
 

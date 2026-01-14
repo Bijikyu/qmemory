@@ -1,0 +1,398 @@
+/**
+ * @fileoverview Memory-optimized LRU cache for scalability
+ * Provides bounded memory usage with automatic cleanup
+ */
+import * as qerrorsModule from "qerrors";
+const { logInfo, logWarn, logError } = qerrorsModule;
+/**
+ * ✅ SCALABILITY: Memory-optimized LRU cache implementation
+ */
+export class MemoryOptimizedCache {
+  config;
+  cache;
+  head;
+  tail;
+  cleanupTimer;
+  // Statistics
+  stats = {
+    hits: 0,
+    misses: 0,
+    evictions: 0,
+    totalMemoryBytes: 0,
+    createdAt: Date.now(),
+  };
+  constructor(config = {}) {
+    this.config = {
+      maxSize: 1000,
+      maxMemoryMB: 100,
+      cleanupIntervalMs: 30000, // 30 seconds
+      evictionPolicy: "lru",
+      defaultTtlMs: 300000, // 5 minutes
+      enableMemoryMonitoring: true,
+      ...config,
+    };
+    this.cache = new Map();
+    this.head = null;
+    this.tail = null;
+    // Start cleanup timer
+    this.cleanupTimer = setInterval(() => {
+      this.performCleanup();
+    }, this.config.cleanupIntervalMs);
+    logInfo("Memory-optimized cache initialized", {
+      maxSize: this.config.maxSize,
+      maxMemoryMB: this.config.maxMemoryMB,
+      evictionPolicy: this.config.evictionPolicy,
+    });
+  }
+  /**
+   * ✅ SCALABILITY: Get item from cache
+   */
+  get(key) {
+    const node = this.cache.get(key);
+    if (!node) {
+      this.stats.misses++;
+      return undefined;
+    }
+    // Check TTL
+    if (this.config.evictionPolicy === "ttl" && this.isExpired(node)) {
+      this.delete(key);
+      this.stats.misses++;
+      return undefined;
+    }
+    // Update access statistics
+    node.accessCount++;
+    node.lastAccess = Date.now();
+    // Move to front (LRU)
+    if (this.config.evictionPolicy === "lru") {
+      this.moveToFront(node);
+    }
+    this.stats.hits++;
+    return node.value;
+  }
+  /**
+   * ✅ SCALABILITY: Set item in cache with memory management
+   */
+  set(key, value, ttlMs) {
+    const existingNode = this.cache.get(key);
+    const size = this.estimateSize(value);
+    const now = Date.now();
+    // Check if we need to evict items
+    this.ensureCapacity(size);
+    if (existingNode) {
+      // Update existing node
+      this.stats.totalMemoryBytes -= existingNode.size;
+      existingNode.value = value;
+      existingNode.size = size;
+      existingNode.lastAccess = now;
+      existingNode.accessCount++;
+      this.stats.totalMemoryBytes += size;
+      // Move to front
+      if (this.config.evictionPolicy === "lru") {
+        this.moveToFront(existingNode);
+      }
+    } else {
+      // Create new node
+      const node = {
+        key,
+        value,
+        prev: null,
+        next: null,
+        size,
+        accessCount: 1,
+        lastAccess: now,
+      };
+      // Add to cache and front of list
+      this.cache.set(key, node);
+      this.addToFront(node);
+      this.stats.totalMemoryBytes += size;
+    }
+    // Log memory warnings
+    this.checkMemoryUsage();
+  }
+  /**
+   * ✅ SCALABILITY: Delete item from cache
+   */
+  delete(key) {
+    const node = this.cache.get(key);
+    if (!node) {
+      return false;
+    }
+    this.cache.delete(key);
+    this.removeFromList(node);
+    this.stats.totalMemoryBytes -= node.size;
+    return true;
+  }
+  /**
+   * ✅ SCALABILITY: Check if key exists
+   */
+  has(key) {
+    const node = this.cache.get(key);
+    if (!node) {
+      return false;
+    }
+    // Check TTL
+    if (this.config.evictionPolicy === "ttl" && this.isExpired(node)) {
+      this.delete(key);
+      return false;
+    }
+    return true;
+  }
+  /**
+   * ✅ SCALABILITY: Clear all items
+   */
+  clear() {
+    this.cache.clear();
+    this.head = null;
+    this.tail = null;
+    this.stats.totalMemoryBytes = 0;
+    this.stats.evictions = 0;
+    logInfo("Memory-optimized cache cleared");
+  }
+  /**
+   * ✅ SCALABILITY: Get cache size
+   */
+  get size() {
+    return this.cache.size;
+  }
+  /**
+   * ✅ SCALABILITY: Get memory statistics
+   */
+  getMemoryStats() {
+    const now = Date.now();
+    const totalRequests = this.stats.hits + this.stats.misses;
+    const hitRate = totalRequests > 0 ? this.stats.hits / totalRequests : 0;
+    const missRate = totalRequests > 0 ? this.stats.misses / totalRequests : 0;
+    let oldestItemAge = 0;
+    let newestItemAge = 0;
+    // ✅ CRITICAL BUG FIX: O(1) statistics calculation to avoid O(n) forEach overhead
+    let totalSize = 0;
+    if (this.head) {
+      oldestItemAge = now - this.head.lastAccess;
+    }
+    if (this.tail) {
+      newestItemAge = now - this.tail.lastAccess;
+    }
+    // ✅ FIX: Use existing totalMemoryBytes tracking to avoid O(n) recalculation
+    totalSize = this.stats.totalMemoryBytes;
+    const averageItemSize =
+      this.cache.size > 0 ? totalSize / this.cache.size : 0;
+    return {
+      itemsCount: this.cache.size,
+      memoryUsageMB: this.stats.totalMemoryBytes / (1024 * 1024),
+      memoryUsageBytes: this.stats.totalMemoryBytes,
+      hitRate: Math.round(hitRate * 100) / 100,
+      missRate: Math.round(missRate * 100) / 100,
+      evictionCount: this.stats.evictions,
+      averageItemSize: Math.round(averageItemSize),
+      oldestItemAge,
+      newestItemAge,
+    };
+  }
+  /**
+   * ✅ SCALABILITY: Ensure capacity by evicting items if needed
+   */
+  ensureCapacity(newItemSize) {
+    const maxMemoryBytes = this.config.maxMemoryMB * 1024 * 1024;
+    const projectedMemory = this.stats.totalMemoryBytes + newItemSize;
+    // Evict based on memory limit
+    while (
+      this.stats.totalMemoryBytes + newItemSize > maxMemoryBytes &&
+      this.tail
+    ) {
+      this.evictItem(this.tail);
+    }
+    // Evict based on size limit
+    while (this.cache.size >= this.config.maxSize && this.tail) {
+      this.evictItem(this.tail);
+    }
+  }
+  /**
+   * ✅ SCALABILITY: Evict single item
+   */
+  evictItem(node) {
+    this.cache.delete(node.key);
+    this.removeFromList(node);
+    this.stats.totalMemoryBytes -= node.size;
+    this.stats.evictions++;
+  }
+  /**
+   * ✅ SCALABILITY: Add node to front of list
+   */
+  addToFront(node) {
+    node.prev = null;
+    node.next = this.head;
+    if (this.head) {
+      this.head.prev = node;
+    }
+    this.head = node;
+    if (!this.tail) {
+      this.tail = node;
+    }
+  }
+  /**
+   * ✅ SCALABILITY: Move node to front of list
+   */
+  moveToFront(node) {
+    if (node === this.head) {
+      return;
+    }
+    this.removeFromList(node);
+    this.addToFront(node);
+  }
+  /**
+   * ✅ SCALABILITY: Remove node from list
+   */
+  removeFromList(node) {
+    if (node.prev) {
+      node.prev.next = node.next;
+    } else {
+      this.head = node.next;
+    }
+    if (node.next) {
+      node.next.prev = node.prev;
+    } else {
+      this.tail = node.prev;
+    }
+  }
+  /**
+   * ✅ SCALABILITY: Estimate memory size of value
+   */
+  estimateSize(value) {
+    if (value === null || value === undefined) {
+      return 0;
+    }
+    if (typeof value === "string") {
+      return value.length * 2; // UTF-16
+    }
+    if (typeof value === "number") {
+      return 8; // 64-bit number
+    }
+    if (typeof value === "boolean") {
+      return 4;
+    }
+    if (value instanceof ArrayBuffer) {
+      return value.byteLength;
+    }
+    if (Array.isArray(value)) {
+      return (
+        value.reduce((total, item) => total + this.estimateSize(item), 0) + 24
+      );
+    }
+    if (typeof value === "object") {
+      try {
+        const jsonString = JSON.stringify(value);
+        return jsonString.length * 2 + 24; // String + object overhead
+      } catch {
+        return 1024; // Fallback estimate
+      }
+    }
+    return 64; // Default estimate
+  }
+  /**
+   * ✅ SCALABILITY: Check if item is expired
+   */
+  isExpired(node) {
+    const age = Date.now() - node.lastAccess;
+    return age > this.config.defaultTtlMs;
+  }
+  /**
+   * ✅ SCALABILITY: Check memory usage and log warnings
+   */
+  checkMemoryUsage() {
+    if (!this.config.enableMemoryMonitoring) {
+      return;
+    }
+    const memoryUsageMB = this.stats.totalMemoryBytes / (1024 * 1024);
+    const maxMemoryMB = this.config.maxMemoryMB;
+    const usagePercent =
+      maxMemoryMB > 0 ? (memoryUsageMB / maxMemoryMB) * 100 : 0;
+    if (usagePercent > 90) {
+      logWarn("Cache memory usage critical", {
+        memoryUsageMB: Math.round(memoryUsageMB * 100) / 100,
+        maxMemoryMB,
+        usagePercent: Math.round(usagePercent * 100) / 100,
+        itemsCount: this.cache.size,
+      });
+    } else if (usagePercent > 75) {
+      logInfo("Cache memory usage high", {
+        memoryUsageMB: Math.round(memoryUsageMB * 100) / 100,
+        maxMemoryMB,
+        usagePercent: Math.round(usagePercent * 100) / 100,
+        itemsCount: this.cache.size,
+      });
+    }
+  }
+  /**
+   * ✅ SCALABILITY: Perform cleanup of expired items
+   */
+  performCleanup() {
+    if (this.config.evictionPolicy !== "ttl") {
+      return;
+    }
+    const now = Date.now();
+    let cleanedCount = 0;
+    // Collect expired items
+    const expiredKeys = [];
+    this.cache.forEach((node, key) => {
+      if (this.isExpired(node)) {
+        expiredKeys.push(key);
+      }
+    });
+    // Remove expired items
+    expiredKeys.forEach((key) => {
+      if (this.delete(key)) {
+        cleanedCount++;
+      }
+    });
+    if (cleanedCount > 0) {
+      logInfo("Cache cleanup completed", {
+        cleanedCount,
+        remainingItems: this.cache.size,
+        memoryUsageMB: this.stats.totalMemoryBytes / (1024 * 1024),
+      });
+    }
+  }
+  /**
+   * ✅ SCALABILITY: Destroy cache and cleanup resources
+   */
+  destroy() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.clear();
+    logInfo("Memory-optimized cache destroyed");
+  }
+}
+/**
+ * ✅ SCALABILITY: Factory function for creating optimized caches
+ */
+export function createMemoryOptimizedCache(config) {
+  return new MemoryOptimizedCache(config);
+}
+/**
+ * ✅ SCALABILITY: Global cache instances for common use cases
+ */
+export const globalCaches = {
+  // Session cache with 1MB limit, 1000 items max
+  sessions: createMemoryOptimizedCache({
+    maxSize: 1000,
+    maxMemoryMB: 1,
+    evictionPolicy: "lru",
+    defaultTtlMs: 1800000, // 30 minutes
+  }),
+  // User cache with 10MB limit, 5000 items max
+  users: createMemoryOptimizedCache({
+    maxSize: 5000,
+    maxMemoryMB: 10,
+    evictionPolicy: "lru",
+    defaultTtlMs: 3600000, // 1 hour
+  }),
+  // Challenge cache with 500KB limit, 100 items max
+  challenges: createMemoryOptimizedCache({
+    maxSize: 100,
+    maxMemoryMB: 0.5,
+    evictionPolicy: "ttl",
+    defaultTtlMs: 300000, // 5 minutes
+  }),
+};

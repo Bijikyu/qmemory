@@ -222,6 +222,15 @@ import {
   cleanupObject,
   createWeakCache,
 } from './lib/performance/memory-manager';
+// Memory-optimized cache
+import {
+  MemoryOptimizedCache,
+  createMemoryOptimizedCache,
+  globalCaches,
+  MemoryOptimizedCacheConfig,
+  CacheMemoryStats,
+  GlobalCacheInstances,
+} from './lib/performance/memory-optimized-cache';
 // Cache utilities
 import { createRedisClient } from './lib/cache-utils';
 // LRU cache
@@ -506,6 +515,13 @@ export {
   sanitizeObject,
   cleanupObject,
   createWeakCache,
+  // Memory-optimized cache
+  MemoryOptimizedCache,
+  createMemoryOptimizedCache,
+  globalCaches,
+  MemoryOptimizedCacheConfig,
+  CacheMemoryStats,
+  GlobalCacheInstances,
   // Cache utilities
   createRedisClient,
   // LRU cache
