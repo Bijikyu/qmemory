@@ -1,0 +1,170 @@
+/**
+ * 🧪 MONITORING: Timer Leak Detection Utility
+ * Rationale: Provides monitoring and alerting for potential timer memory leaks
+ */
+
+import { timerManager } from './timerManager.js';
+
+export interface TimerLeakReport {
+  timestamp: number;
+  totalTimers: number;
+  detectedLeaks: Array<{
+    source: string;
+    age: number;
+    type: string;
+  }>;
+  stats: {
+    timeouts: number;
+    intervals: number;
+    bySource: Record<string, number>;
+  };
+}
+
+export class TimerLeakDetector {
+  private static instance: TimerLeakDetector;
+  private monitoringInterval?: NodeJS.Timeout;
+  private readonly maxAgeThreshold = 300000; // 5 minutes
+  private readonly maxTimerThreshold = 50; // Alert if more than 50 timers
+  private readonly checkInterval = 60000; // Check every minute
+
+  private constructor() {}
+
+  static getInstance(): TimerLeakDetector {
+    if (!this.instance) {
+      this.instance = new TimerLeakDetector();
+    }
+    return this.instance;
+  }
+
+  /**
+   * Start monitoring for timer leaks
+   */
+  startMonitoring(): void {
+    if (this.monitoringInterval) return;
+
+    this.monitoringInterval = timerManager.setInterval(() => {
+      this.checkForLeaks();
+    }, this.checkInterval, 'timerLeakDetector-monitoring');
+
+    console.log('TimerLeakDetector: Started monitoring for timer leaks');
+  }
+
+  /**
+   * Stop monitoring
+   */
+  stopMonitoring(): void {
+    if (this.monitoringInterval) {
+      timerManager.clearInterval(this.monitoringInterval);
+      this.monitoringInterval = undefined;
+      console.log('TimerLeakDetector: Stopped monitoring');
+    }
+  }
+
+  /**
+   * Check for timer leaks and report
+   */
+  private checkForLeaks(): void {
+    const stats = timerManager.getStats();
+    const leaks = timerManager.detectMemoryLeaks(this.maxAgeThreshold);
+
+    // Alert conditions
+    const hasTooManyTimers = stats.total > this.maxTimerThreshold;
+    const hasOldTimers = leaks.length > 0;
+
+    if (hasTooManyTimers || hasOldTimers) {
+      const report: TimerLeakReport = {
+        timestamp: Date.now(),
+        totalTimers: stats.total,
+        detectedLeaks: leaks,
+        stats: {
+          timeouts: stats.timeouts,
+          intervals: stats.intervals,
+          bySource: stats.bySource
+        }
+      };
+
+      this.logLeakReport(report);
+    }
+  }
+
+  /**
+   * Log leak report with actionable information
+   */
+  private logLeakReport(report: TimerLeakReport): void {
+    console.warn('🚨 Timer Leak Detection Alert:');
+    console.warn(`Total timers: ${report.totalTimers}`);
+    console.warn(`Timeouts: ${report.stats.timeouts}, Intervals: ${report.stats.intervals}`);
+
+    if (report.detectedLeaks.length > 0) {
+      console.warn('Potentially leaked timers:');
+      report.detectedLeaks.forEach(leak => {
+        console.warn(`  - ${leak.source}: ${leak.type} (${Math.round(leak.age / 1000)}s old)`);
+      });
+    }
+
+    // Top sources by timer count
+    const topSources = Object.entries(report.stats.bySource)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5);
+    
+    if (topSources.length > 0) {
+      console.warn('Top timer sources:');
+      topSources.forEach(([source, count]) => {
+        console.warn(`  - ${source}: ${count} timers`);
+      });
+    }
+
+    console.warn('Run timerManager.getStats() for detailed information');
+    console.warn('Run timerManager.clearBySource("source-name") to clean up specific sources');
+  }
+
+  /**
+   * Get current timer leak report
+   */
+  getCurrentReport(): TimerLeakReport {
+    const stats = timerManager.getStats();
+    const leaks = timerManager.detectMemoryLeaks(this.maxAgeThreshold);
+
+    return {
+      timestamp: Date.now(),
+      totalTimers: stats.total,
+      detectedLeaks: leaks,
+      stats: {
+        timeouts: stats.timeouts,
+        intervals: stats.intervals,
+        bySource: stats.bySource
+      }
+    };
+  }
+
+  /**
+   * Force cleanup of old timers
+   */
+  cleanupOldTimers(maxAge?: number): number {
+    const threshold = maxAge || this.maxAgeThreshold;
+    const leaks = timerManager.detectMemoryLeaks(threshold);
+    
+    let cleaned = 0;
+    leaks.forEach(leak => {
+      cleaned += timerManager.clearBySource(leak.source);
+    });
+
+    console.log(`TimerLeakDetector: Cleaned up ${cleaned} old timers`);
+    return cleaned;
+  }
+
+  /**
+   * Emergency cleanup - clear all managed timers
+   */
+  emergencyCleanup(): void {
+    console.warn('TimerLeakDetector: Emergency cleanup activated');
+    timerManager.emergencyCleanup();
+  }
+}
+
+// Auto-start monitoring in production
+if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+  TimerLeakDetector.getInstance().startMonitoring();
+}
+
+export const timerLeakDetector = TimerLeakDetector.getInstance();
