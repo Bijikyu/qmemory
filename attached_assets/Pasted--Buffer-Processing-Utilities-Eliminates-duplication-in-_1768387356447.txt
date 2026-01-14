@@ -1,0 +1,380 @@
+/**
+ * Buffer Processing Utilities - Eliminates duplication in buffer operations
+ * 
+ * This utility centralizes common buffer processing patterns found in:
+ * - server/features/faceQrop/cropFaceCtrl.ts (base64 encoding/decoding)
+ * - server/features/faceQrop/cropFaceSvc.ts (Sharp operations, metadata caching)
+ * - server/services/imageProcessingWorker.ts (image transformations)
+ * - And potentially 30+ other files with buffer processing patterns
+ * 
+ * Key Features:
+ * - Base64 encoding/decoding with data URL support
+ * - Buffer-to-base64 response formatting
+ * - Sharp metadata caching
+ * - Image buffer validation
+ * - Memory-efficient processing
+ */
+
+// @ts-ignore - Sharp default import works despite TypeScript warning
+import sharp, { type Metadata } from 'sharp';
+
+export interface BufferProcessResult {
+  buffer: Buffer;
+  metadata: Metadata;
+  size: number;
+}
+
+export interface Base64ResponseOptions {
+  mimeType?: string;
+  includeDataUrlPrefix?: boolean;
+}
+
+export interface ImageValidationResult {
+  isValid: boolean;
+  error?: string;
+  metadata?: Metadata;
+}
+
+// Cache for Sharp metadata to prevent redundant operations
+const metadataCache = new Map<string, Metadata>();
+const MAX_CACHE_SIZE = 10;
+
+/**
+ * Gets cached Sharp metadata or computes and caches it using worker threads
+ * 🚀 SCALABILITY: Moved to worker thread to prevent blocking main event loop
+ */
+export async function getCachedMetadata(
+  buffer: Buffer, 
+  cacheKey: string
+): Promise<Metadata> {
+  const cached = metadataCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
+  // 🚀 SCALABILITY: Use worker thread for metadata extraction
+  const { extractImageMetadata } = await import('./imageProcessingHelper');
+  const metadata = await extractImageMetadata(buffer, 'bufferUtils-metadata');
+  
+  // Prevent unbounded cache growth
+  if (metadataCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = metadataCache.keys().next().value;
+    if (firstKey !== undefined) {
+      metadataCache.delete(firstKey);
+    }
+  }
+  
+  metadataCache.set(cacheKey, metadata as Metadata);
+  return metadata as Metadata;
+}
+
+/**
+ * Clears the metadata cache (useful for memory management)
+ */
+export function clearMetadataCache(): void {
+  metadataCache.clear();
+}
+
+/**
+ * Converts buffer to base64 string with optional data URL prefix
+ * Eliminates duplicate base64 encoding patterns found in controllers
+ */
+export function bufferToBase64(
+  buffer: Buffer, 
+  options: Base64ResponseOptions = {}
+): string {
+  const { mimeType = 'image/jpeg', includeDataUrlPrefix = true } = options;
+  
+  const base64String = buffer.toString('base64');
+  
+  if (includeDataUrlPrefix) {
+    return `data:${mimeType};base64,${base64String}`;
+  }
+  
+  return base64String;
+}
+
+/**
+ * Creates a standardized base64 response for face API endpoints
+ * Eliminates duplicate response formatting patterns
+ */
+export function createBase64ImageResponse(
+  imageBuffer: Buffer,
+  additionalData: Record<string, any> = {},
+  options: Base64ResponseOptions = {}
+): Record<string, any> {
+  return {
+    croppedBase64: bufferToBase64(imageBuffer, options),
+    faceDetected: true,
+    ...additionalData
+  };
+}
+
+/**
+ * Validates image buffer and extracts metadata
+ * Consolidates image validation patterns from multiple files
+ */
+export async function validateImageBuffer(
+  buffer: Buffer,
+  options: {
+    maxSize?: number;
+    allowedFormats?: string[];
+  } = {}
+): Promise<ImageValidationResult> {
+  const { maxSize = 10 * 1024 * 1024, allowedFormats = ['jpeg', 'png', 'webp'] } = options;
+  
+  try {
+    // Check buffer size
+    if (buffer.length === 0) {
+      return { isValid: false, error: 'Empty image buffer' };
+    }
+    
+    if (buffer.length > maxSize) {
+      return { 
+        isValid: false, 
+        error: `Image too large - maximum ${Math.round(maxSize / 1024 / 1024)}MB` 
+      };
+    }
+    
+    // 🚀 SCALABILITY: Use worker thread for metadata extraction
+    const { workerServiceManager } = await import('../services/workerServiceManager');
+    const metadataResult = await workerServiceManager.processImage({
+      inputBuffer: buffer,
+      operation: 'metadata'
+    });
+    
+    let metadata;
+    try {
+      const metadataJson = metadataResult.toString('utf8');
+      metadata = JSON.parse(metadataJson);
+    } catch (parseError) {
+      return { isValid: false, error: 'Failed to parse image metadata' };
+    }
+    
+    if (!metadata.format) {
+      return { isValid: false, error: 'Unable to determine image format' };
+    }
+    
+    if (!allowedFormats.includes(metadata.format)) {
+      return { 
+        isValid: false, 
+        error: `Unsupported image format: ${metadata.format}. Allowed: ${allowedFormats.join(', ')}` 
+      };
+    }
+    
+    if (!metadata.width || !metadata.height) {
+      return { isValid: false, error: 'Unable to determine image dimensions' };
+    }
+    
+    if (metadata.width === 0 || metadata.height === 0) {
+      return { isValid: false, error: 'Invalid image dimensions: width and height must be greater than 0' };
+    }
+    
+    return { isValid: true, metadata };
+    
+  } catch (error) {
+    return { 
+      isValid: false, 
+      error: error instanceof Error ? error.message : 'Unknown image validation error' 
+    };
+  }
+}
+
+/**
+ * Processes image buffer with Sharp using centralized patterns
+ * Eliminates duplicate Sharp operation patterns
+ */
+/**
+ * 🚀 SCALABILITY: Process image buffer using worker threads to prevent blocking main thread
+ */
+export async function processImageBuffer(
+  inputBuffer: Buffer,
+  operations: {
+    resize?: { width?: number; height?: number; fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside' };
+    crop?: { left: number; top: number; width: number; height: number };
+    format?: 'jpeg' | 'png' | 'webp';
+    quality?: number;
+    removeAlpha?: boolean;
+  } = {},
+  cacheKey?: string
+): Promise<BufferProcessResult> {
+  // 🚀 SCALABILITY: Use worker thread for all image processing operations
+  const { workerServiceManager } = await import('../services/workerServiceManager');
+  
+  const workerPayload: any = {
+    inputBuffer,
+    format: operations.format || 'jpeg',
+    quality: operations.quality || 90
+  };
+  
+  // Add resize parameters if specified
+  if (operations.resize) {
+    workerPayload.width = operations.resize.width;
+    workerPayload.height = operations.resize.height;
+    workerPayload.fit = operations.resize.fit || 'inside';
+  }
+  
+  // Add crop parameters if specified
+  if (operations.crop) {
+    workerPayload.extract = operations.crop;
+  }
+  
+  // Process image in worker thread
+  const { processImageWithWorker } = await import('./imageProcessingHelper');
+  const resultBuffer = await processImageWithWorker(workerPayload, 'bufferUtils-process');
+  
+// Get metadata for caching
+  let metadata;
+  try {
+    const { extractImageMetadata } = await import('./imageProcessingHelper');
+    metadata = await extractImageMetadata(resultBuffer, 'bufferUtils-cache-metadata');
+  } catch (error) {
+    console.warn('Failed to get metadata for caching:', error);
+    metadata = { width: 0, height: 0, format: 'unknown', channels: 3 };
+  }
+  
+  // Cache metadata if key provided
+  if (cacheKey) {
+    metadataCache.set(cacheKey, metadata as Metadata);
+  }
+  
+  return {
+    buffer: resultBuffer,
+    metadata: metadata as Metadata,
+    size: resultBuffer.length
+  };
+}
+
+/**
+ * Creates a streaming base64 decoder for large images
+ * Eliminates duplicate streaming decoder patterns
+ */
+export async function streamDecodeBase64(base64String: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    setImmediate(() => {
+      try {
+        // 🚀 SCALABILITY: Add memory bounds for streaming operations
+        const maxTotalSize = 100 * 1024 * 1024; // 100MB max total
+        const chunkSize = 32768; // Smaller chunks for better responsiveness
+        const chunks: Buffer[] = [];
+        let totalLength = 0;
+        let offset = 0;
+        
+        const processChunk = () => {
+          if (offset >= base64String.length) {
+            const finalBuffer = Buffer.concat(chunks, totalLength);
+            resolve(finalBuffer);
+            return;
+          }
+          
+          const chunk = base64String.slice(offset, offset + chunkSize);
+          const chunkBuffer = Buffer.from(chunk, 'base64');
+          
+          // 🚀 SCALABILITY: Check memory bounds BEFORE adding to total
+          const newTotalLength = totalLength + chunkBuffer.length;
+          if (newTotalLength > maxTotalSize) {
+            reject(new Error(`Buffer size exceeded during streaming: ${newTotalLength} bytes > ${maxTotalSize} bytes`));
+            return;
+          }
+          
+          chunks.push(chunkBuffer);
+          totalLength = newTotalLength;
+          offset += chunkSize;
+          
+          setImmediate(processChunk);
+        };
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+/**
+ * Memory-efficient buffer processing for large images
+ * Enhanced security with comprehensive bounds checking and memory pressure monitoring
+ * Chooses between direct and streaming processing based on size
+ */
+export async function processBase64Efficiently(
+  cleanBase64: string,
+  threshold: number = 1000000 // 1MB
+): Promise<Buffer> {
+  // 🚀 ENHANCED SECURITY: Comprehensive input validation
+  if (typeof cleanBase64 !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  
+  if (cleanBase64.length === 0) {
+    throw new Error('Input cannot be empty');
+  }
+
+  // Strict size limits to prevent DoS attacks
+  const maxInputSize = 10 * 1024 * 1024; // 10MB max input (reduced from 50MB)
+  const maxOutputSize = 50 * 1024 * 1024; // 50MB max output (reduced from 100MB)
+  
+  if (cleanBase64.length > maxInputSize) {
+    throw new Error(`Input base64 string exceeds maximum size: ${cleanBase64.length} > ${maxInputSize} bytes`);
+  }
+  
+  // Conservative output size estimation (0.8 instead of 0.75 for safety margin)
+  const estimatedOutputSize = Math.floor(cleanBase64.length * 0.8);
+  if (estimatedOutputSize > maxOutputSize) {
+    throw new Error(`Estimated output size exceeds maximum limit: ${estimatedOutputSize} > ${maxOutputSize} bytes`);
+  }
+  
+  // Memory pressure monitoring before allocation
+  const memUsage = process.memoryUsage();
+  const maxHeapUsage = 500 * 1024 * 1024; // 500MB heap limit
+  
+  if (memUsage.heapUsed > maxHeapUsage) {
+    throw new Error('Server memory pressure too high - processing denied');
+  }
+  
+  // Additional safety check for available memory
+  if (memUsage.heapTotal - memUsage.heapUsed < estimatedOutputSize * 2) {
+    throw new Error('Insufficient available memory for processing');
+  }
+  
+  try {
+    if (cleanBase64.length < threshold) {
+      // Direct processing for small inputs
+      return Buffer.from(cleanBase64, 'base64');
+    } else {
+      // Stream processing for large inputs with enhanced error handling
+      return await streamDecodeBase64(cleanBase64);
+    }
+  } catch (error) {
+    // Enhanced error context for debugging
+    const errorContext = {
+      inputLength: cleanBase64.length,
+      estimatedOutputSize,
+      memoryUsage: {
+        heapUsed: memUsage.heapUsed,
+        heapTotal: memUsage.heapTotal,
+        external: memUsage.external
+      },
+      threshold,
+      processingMethod: cleanBase64.length < threshold ? 'direct' : 'streaming'
+    };
+    
+    // Log error context for security monitoring
+    console.error('Buffer processing failed with security context:', errorContext);
+    
+    // Re-throw with enhanced message
+    throw new Error(`Buffer processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Default export for easy importing
+ */
+export default {
+  getCachedMetadata,
+  clearMetadataCache,
+  bufferToBase64,
+  createBase64ImageResponse,
+  validateImageBuffer,
+  processImageBuffer,
+  streamDecodeBase64,
+  processBase64Efficiently
+};
