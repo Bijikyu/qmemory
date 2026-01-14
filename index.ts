@@ -106,6 +106,8 @@ import {
   getEmailDomain,
   filterValidEmails,
 } from './lib/email-utils';
+// Memoization utilities
+import { memoize, memoizeWithTTL, createMemoizedFunction, MemoizeOptions } from './lib/memoize';
 // Circuit breaker
 import { createCircuitBreaker, STATES as CIRCUIT_BREAKER_STATES } from './lib/circuit-breaker';
 // Circuit breaker factory
@@ -453,6 +455,10 @@ export {
   normalizeEmail,
   getEmailDomain,
   filterValidEmails,
+  // Memoization utilities
+  memoize,
+  memoizeWithTTL,
+  createMemoizedFunction,
   createCircuitBreaker,
   CIRCUIT_BREAKER_STATES,
   // Circuit breaker factory
@@ -651,5 +657,6 @@ export type {
   ScalableFileReaderOptions,
   LineReaderOptions,
 } from './lib/streaming/streaming-utils';
+export type { MemoizeOptions } from './lib/memoize';
 // No BasicRateLimiter export here to avoid duplicate
 export type { Application, Request, Response, NextFunction } from 'express';

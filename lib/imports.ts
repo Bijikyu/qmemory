@@ -372,5 +372,13 @@ export {
   type LineReaderOptions,
 } from './streaming/streaming-utils';
 
+// Memoization utilities
+export {
+  memoize,
+  memoizeWithTTL,
+  createMemoizedFunction,
+  type MemoizeOptions,
+} from './memoize';
+
 // Common patterns
 export { validateResponse, getTimestamp } from './common-patterns';
