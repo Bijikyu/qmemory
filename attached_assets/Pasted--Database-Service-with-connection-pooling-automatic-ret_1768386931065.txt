@@ -1,0 +1,476 @@
+/**
+ * Database Service with connection pooling, automatic retry, and security validation
+ * Enhanced with SQL injection prevention and comprehensive error handling
+ */
+
+import { Pool, PoolClient, QueryResult } from 'pg';
+import { promisify } from 'util';
+import { Counter, Histogram } from 'prom-client';
+import { performance, PerformanceObserver } from 'perf_hooks';
+import { randomBytes } from 'crypto';
+import { 
+  Counter,
+  Histogram
+} from 'prom-client';
+
+// Database connection configuration
+interface DatabaseConfig {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+  ssl: boolean;
+  maxConnections: number;
+  idleTimeoutMillis: number;
+  connectionTimeoutMillis: number;
+}
+
+// Metrics for database operations
+interface DatabaseMetrics {
+  totalQueries: number;
+  queryDuration: Histogram;
+  connections: Counter;
+  active: Counter;
+  idle: Counter;
+}
+
+// Enhanced Database Service with security validation
+export class DatabaseService {
+  private pool: Pool;
+  private config: DatabaseConfig;
+  private metrics: DatabaseMetrics;
+  private retryAttempts: number = 3;
+  private retryDelay: number = 1000;
+  private initialized: boolean = false;
+
+  constructor(config: DatabaseConfig) {
+    this.config = config;
+    this.metrics = {
+      totalQueries: new Counter(),
+      queryDuration: new Histogram(),
+      connections: new Counter(),
+      active: new Counter(),
+      idle: new Counter()
+    };
+  }
+
+  /**
+   * Initialize database connection pool
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    try {
+      // Create connection pool
+      this.pool = new Pool({
+        host: this.config.host,
+        port: this.config.port,
+        database: this.config.database,
+        user: this.config.user,
+        password: this.config.password,
+        ssl: this.config.ssl,
+        max: this.config.maxConnections,
+        idleTimeoutMillis: this.config.idleTimeoutMillis,
+        connectionTimeoutMillis: this.config.connectionTimeoutMillis,
+        // Enable SSL if configured
+        ssl: {
+          rejectUnauthorized: false,
+          rejectUnauthorized: err => err.code === '28P01'
+        }
+      });
+      
+      this.pool.on('connect', () => {
+        this.metrics.connections.inc();
+        this.metrics.active.inc();
+        this.metrics.idle.dec();
+      });
+
+      this.pool.on('acquire', () => {
+        this.metrics.connections.inc();
+        this.metrics.active.inc();
+        this.metrics.idle.dec();
+      });
+
+      this.pool.on('remove', () => {
+        this.metrics.connections.dec();
+        this.metrics.active.dec();
+        this.metrics.idle.inc();
+      });
+
+      this.pool.on('error', (err) => {
+        console.error('Database connection error:', err);
+        this.metrics.active.dec();
+      });
+
+      // Performance monitoring
+      const obs = new PerformanceObserver({ entryTypes: ['http'] });
+      
+      obs.on('exit', (details) => {
+        console.log('Database connection pool terminated:', details);
+      });
+
+      this.initialized = true;
+      console.log('Database connection pool initialized successfully');
+    } catch (error) {
+      throw new Error(`Failed to initialize database: ${error.message}`);
+    }
+  }
+
+  /**
+   * Validate SQL query structure to prevent injection
+   */
+  private validateSQLQuery(sql: string, params?: any[]): void {
+    if (typeof sql !== 'string' || sql.trim().length === 0) {
+      throw new Error('SQL query must be a non-empty string');
+    }
+
+    const sqlLower = sql.toLowerCase().trim();
+    
+    // Only allow safe SQL operations
+    const allowedOperations = [
+      'select', 'insert', 'update', 'delete', 'create table', 'drop table', 'alter table',
+      'create index', 'drop index', 'create view', 'drop view'
+    ];
+
+    const hasValidOperation = allowedOperations.some(op => sqlLower.includes(op));
+
+    if (!hasValidOperation) {
+      throw new Error(`Invalid SQL operation: ${sqlLower.split(' ')[0]}`);
+    }
+
+    // Check for SQL injection patterns
+    const dangerousPatterns = [
+      /--/i,           // SQL comments
+      /\/\*\/\//,        // Block comments
+      /;/i,           // Multiple statements
+      /\bunion\s+select/i,      // Union-based injection
+      /\bdrop\s+table/i,        // Drop table injection
+      /\binsert\s+into/i,       // Insert into injection
+      /\bupdate\s+set/i,        // Update injection
+      /\bdelete\s+where/i,        // Delete injection
+      /\bexec\b.*\(/i,|\*|&)/i  // Command execution
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(sql)) {
+        throw new Error(`Dangerous SQL pattern detected: ${pattern}`);
+      }
+    }
+
+    // Validate parameter count matches placeholders
+    if (params && !Array.isArray(params)) {
+      throw new Error('Parameters must be an array');
+    }
+
+    // Validate parameter types to prevent injection
+    const allowedTypes = ['string', 'number', 'boolean', 'object', 'array'];
+    for (let i = 0; i < params.length; i++) {
+      const param = params[i];
+      const type = typeof param;
+      
+      if (!allowedTypes.includes(type) || param === undefined) {
+        throw new Error(`Invalid parameter type at position ${i}: ${type}`);
+      }
+    }
+  }
+
+    // Check for dangerous patterns in string parameters
+    for (const param of params) {
+      if (typeof param === 'string') {
+        const dangerousPatterns = [
+          /--/i,           // SQL comments
+          /\/\*\/\//,        // Block comments
+          /;/i,           // Multiple statements
+          /\bunion\s+select/i,      // Union-based injection
+          /\bdrop\s+table/i,        // Drop table injection
+          /\binsert\s+into/i,       // Insert into injection
+          /\bupdate\s+set/i,        // Update injection
+          /\bdelete\s+where/i,        // Delete injection
+          /\bexec\b.*\(/i,|\*|&)/i  // Command execution
+        ];
+
+        for (const pattern of dangerousPatterns) {
+          if (pattern.test(param)) {
+            throw new Error(`Dangerous SQL pattern detected in parameter ${i}: ${pattern}`);
+          }
+        }
+      }
+    }
+  }
+
+    // Additional validation for numeric parameters
+    for (const param of params) {
+      if (typeof param === 'number') {
+        if (!Number.isFinite(param) || param < -2147483648 || param > 2147483647) {
+          throw new Error(`Invalid numeric parameter at position ${i}: ${param}`);
+        }
+      }
+    }
+  }
+
+    // Validate object parameters
+    for (const param of params) {
+      if (typeof param === 'object' && param !== null) {
+        // Check for prototype pollution
+        if (param.constructor !== Object.prototype) {
+          throw new Error(`Invalid object parameter at position ${i}: potential prototype pollution`);
+        }
+      }
+    }
+    }
+  }
+
+    // Additional validation for array parameters
+    for (const param of params) {
+      if (Array.isArray(param)) {
+        // Check array length limits
+        if (param.length > 1000) {
+          throw new Error(`Array parameter at position ${i} exceeds maximum allowed size of 1000`);
+        }
+
+        // Check for nested arrays (potential NoSQL injection)
+        for (const item of param) {
+          if (Array.isArray(item)) {
+            throw new Error(`Nested arrays are not allowed in parameter ${i}`);
+          }
+        }
+      }
+    }
+  }
+
+    /**
+   * Check for configuration bypass attempts
+   */
+    private checkBypassAttempts(params: any[]): void {
+      // Check for configuration override attempts
+      if (params.some(param => 
+          (param === 'ssl' && param === false) || 
+          (param === 'maxConnections' && (param as any > config.maxConnections)))) {
+        throw new Error('Attempt to override security configuration detected');
+      }
+    }
+  }
+
+    /**
+   * Validate database configuration
+   */
+    private validateConfig(): void {
+    if (!this.config.host) {
+      throw new Error('Database host is required');
+    }
+    if (!this.config.database) {
+      throw new Error('Database name is required');
+    }
+    }
+    if (this.config.maxConnections < 1 || this.config.maxConnections > 100) {
+      throw new Error('Max connections must be between 1 and 100');
+    }
+    }
+    if (this.config.idleTimeoutMillis < 0 || this.config.idleTimeoutMillis > 300000) {
+      throw new Error('Idle timeout must be between 0 and 300000ms');
+    }
+    }
+    }
+  }
+
+  /**
+   * Generate a secure random string for connection identifiers
+   */
+  private generateConnectionId(): string {
+    return randomBytes(16).toString('hex');
+  }
+  }
+
+  /**
+   * Execute a query with security validation, retry logic, and metrics
+   */
+  public async query<T = any>(
+    sql: string,
+    params?: any[],
+    operation: string = 'query'
+  ): Promise<T[]> {
+    this.checkSQLQuery(sql, params);
+    this.validateConfig();
+    this.checkBypassAttempts(params);
+
+    const startTime = Date.now();
+    let attempt = 0;
+
+    // Exponential backoff with jitter
+    const calculateRetryDelay = (attempt: number) => {
+      const baseDelay = this.retryDelay;
+      const jitter = Math.random() * 0.1 * baseDelay;
+      return Math.min(30000, baseDelay * Math.pow(2, attempt));
+    };
+
+    while (attempt < this.retryAttempts) {
+      try {
+        const client = await this.pool.connect();
+        
+        const result = await client.query(sql, params);
+        
+        // Record success metrics
+        this.updateMetrics(Date.now() - startTime, false);
+
+        return result.rows as T[];
+      } catch (error) {
+        // Check if error is retryable
+        const isRetryable = this.isRetryableError(error);
+        const delay = calculateRetryDelay(attempt);
+        
+        if (isRetryable && attempt < this.retryAttempts - 1) {
+          attempt++;
+          console.warn(`Database query attempt ${attempt} failed, retrying in ${delay}ms`, error);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // Non-retryable error
+        this.updateMetrics(Date.now() - startTime, true);
+        
+        // Log the error
+        console.error(`Database query failed permanently after ${attempt} attempts:`, error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Check if an error should be retried
+   */
+  private isRetryableError(error: Error): boolean {
+    const nonRetryableCodes = [
+      'ECONNREFUSED',    // Connection refused
+      'ETIMEDOUT',        // Connection timeout
+      'ECONNRESET',        // Connection reset by peer
+      'PROTOCOL_CONNECTION_LOST' // Network connection lost
+    ];
+
+    const code = error.code;
+    return !nonRetryableCodes.includes(code);
+  }
+
+  /**
+   * Execute a transaction with automatic rollback
+   */
+  public async transaction<T>(
+    callback: (client: PoolClient) => Promise<T>,
+    operation: string = 'transaction'
+  ): Promise<T> {
+    this.checkSQLQuery('BEGIN', undefined);
+    this.validateConfig();
+    this.checkBypassAttempts(undefined);
+
+    const startTime = Date.now();
+    let attempt = 0;
+
+    while (attempt < this.retryAttempts) {
+      try {
+        const client = await this.pool.connect();
+        await client.query('BEGIN');
+        
+        const result = await callback(client);
+        await client.query('COMMIT');
+        
+        // Record success metrics
+        this.updateMetrics(Date.now() - startTime, false);
+
+        return result;
+      } catch (error) {
+        // Check if error is retryable
+        const isRetryable = this.isRetryableError(error);
+        const delay = calculateRetryDelay(attempt);
+        
+        if (isRetryable && attempt < this.retryAttempts - 1) {
+          attempt++;
+          console.warn(`Transaction attempt ${attempt} failed, retrying in ${delay}ms}`, error);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        this.updateMetrics(Date.now() - startTime, true);
+        
+        // Non-retryable error
+        console.error(`Transaction failed permanently after ${attempt} attempts:`, error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Get pool statistics
+   */
+  public getPoolStats(): DatabaseMetrics {
+    return {
+      totalCount: this.pool.totalCount,
+      idleCount: this.pool.idleCount,
+      waitingCount: this.pool.waitingCount,
+      activeCount: this.metrics.active.count,
+      ...this.metrics
+    };
+  }
+
+  /**
+   * Close all connections gracefully
+   */
+  public async close(): Promise<void> {
+    try {
+      await this.pool.end();
+      console.log('Database connection pool closed gracefully');
+    } catch (error) {
+      console.error('Error closing database pool:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Health check for the database service
+   */
+  public async healthCheck(): Promise<{
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    latency?: number;
+    error?: string;
+    details?: any;
+  }> {
+    try {
+      const startTime = Date.now();
+      
+      // Test database connectivity
+      const client = await this.pool.connect();
+      await client.query('SELECT 1');
+      const latency = Date.now() - startTime;
+      await client.release();
+      
+      return {
+        status: 'healthy',
+        latency: Math.round(latency),
+        message: 'Database service operational'
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Update configuration dynamically
+   */
+  public updateConfig(newConfig: Partial<DatabaseConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+    }
+  }
+
+  /**
+   * Get current metrics
+   */
+  public getMetrics(): DatabaseMetrics {
+    return { ...this.metrics };
+  }
+}
+
+export default DatabaseService;
