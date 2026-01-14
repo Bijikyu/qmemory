@@ -1,0 +1,358 @@
+/**
+ * Database Query Utilities
+ * Refactored to use qmemory database utilities directly
+ * Eliminates redundancy by leveraging qmemory functions
+ */
+
+/**
+ * Escapes special characters in RegExp to prevent NoSQL injection
+ * @param {string} string - String to escape
+ * @returns {string} Escaped string safe for RegExp
+ */
+const escapeRegExp = (string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+/**
+ * Finds a document by field with case-insensitive regex
+ * @param {Object} Model - Mongoose model to query
+ * @param {string} field - Field name to search
+ * @param {*} value - Value to search for
+ * @returns {Promise<Object|null>} Found document or null
+ */
+const findByFieldIgnoreCase = async (Model, field, value) => {
+  try {
+    const escapedValue = escapeRegExp(String(value || ''));
+    return await Model.findOne({
+      [field]: { $regex: new RegExp(`^${escapedValue}$`, 'i') }
+    });
+  } catch (error) {
+    console.error('findByFieldIgnoreCase error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Finds multiple documents by field with case-insensitive regex
+ * @param {Object} Model - Mongoose model to query
+ * @param {string} field - Field name to search
+ * @param {*} value - Value to search for
+ * @param {Object} options - Query options
+ * @returns {Promise<Array>} Array of found documents
+ */
+const findManyByFieldIgnoreCase = async (Model, field, value, options = {}) => {
+  try {
+    const { limit = 50, sort = { createdAt: -1 } } = options;
+    const escapedValue = escapeRegExp(String(value || ''));
+    const filters = { [field]: { $regex: new RegExp(`^${escapedValue}$`, 'i') } };
+    
+    let results = await Model.find(filters);
+    
+    // Apply sorting if needed
+    if (sort && Object.keys(sort).length > 0) {
+      results = results.sort((a, b) => {
+        for (const [key, order] of Object.entries(sort)) {
+          if (a[key] !== b[key]) {
+            // Handle different data types properly
+            const valA = a[key];
+            const valB = b[key];
+            
+            if (typeof valA === 'number' && typeof valB === 'number') {
+              return order === 1 ? valA - valB : valB - valA;
+            } else {
+              // Convert to strings for comparison
+              const strA = String(valA || '');
+              const strB = String(valB || '');
+              const comparison = strA.localeCompare(strB);
+              return order === 1 ? comparison : -comparison;
+            }
+          }
+        }
+        return 0;
+      });
+    }
+    
+    // Apply limit
+    return results.slice(0, limit);
+  } catch (error) {
+    console.error('findManyByFieldIgnoreCase error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Performs a text search across multiple fields
+ * @param {Object} Model - Mongoose model to query
+ * @param {string} query - Search query string
+ * @param {Array} searchFields - Fields to search in
+ * @param {Object} options - Query options
+ * @returns {Promise<Array>} Array of found documents
+ */
+const textSearch = async (Model, query, searchFields, options = {}) => {
+  try {
+    const { limit = 50, page = 1 } = options;
+    const skip = (page - 1) * limit;
+
+    // Build search criteria
+    const escapedQuery = escapeRegExp(String(query || ''));
+    const searchCriteria = {
+      $or: searchFields.map(field => ({
+        [field]: { $regex: escapedQuery, $options: 'i' }
+      }))
+    };
+
+    let results = await Model.find(searchCriteria);
+    
+    // Sort by creation date (newest first) - pre-process dates for efficiency
+    const sortedResults = results.map(item => ({
+      ...item,
+      _sortDate: new Date(item.createdAt || 0)
+    })).sort((a, b) => b._sortDate - a._sortDate);
+    results = sortedResults.map(({ _sortDate, ...item }) => item);
+    
+    // Apply pagination
+    return results.slice(skip, skip + limit);
+  } catch (error) {
+    console.error('textSearch error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets paginated results with filtering and sorting
+ * @param {Object} Model - Mongoose model to query
+ * @param {Object} filters - Filter criteria
+ * @param {Object} pagination - Pagination options
+ * @param {Object} sort - Sort options
+ * @returns {Promise<Object>} Paginated results
+ */
+const getPaginatedResults = async (Model, filters = {}, pagination = {}, sort = {}) => {
+  try {
+    const { page = 1, limit = 10 } = pagination;
+
+    // Get all documents matching filters
+    let data = await Model.find(filters);
+    
+    // Apply sorting
+    if (Object.keys(sort).length > 0) {
+      data = data.sort((a, b) => {
+        for (const [key, order] of Object.entries(sort)) {
+          if (a[key] !== b[key]) {
+            const valA = a[key];
+            const valB = b[key];
+            
+            // Handle numeric values
+            if (typeof valA === 'number' && typeof valB === 'number') {
+              return order === 1 ? valA - valB : valB - valA;
+            }
+            // Handle string values
+            else if (typeof valA === 'string' && typeof valB === 'string') {
+              const comparison = valA.localeCompare(valB);
+              return order === 1 ? comparison : -comparison;
+            }
+            // Handle mixed types by converting to strings
+            else {
+              const strA = String(valA || '');
+              const strB = String(valB || '');
+              const comparison = strA.localeCompare(strB);
+              return order === 1 ? comparison : -comparison;
+            }
+          }
+        }
+        return 0;
+      });
+    } else {
+      data.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+    }
+
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const paginatedData = data.slice(startIndex, startIndex + limit);
+    const total = data.length;
+
+    // Create paginated response
+    const paginationMeta = {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit)
+    };
+
+    return {
+      data: paginatedData,
+      pagination: paginationMeta
+    };
+  } catch (error) {
+    console.error('getPaginatedResults error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Checks if a document exists by field value
+ * @param {Object} Model - Mongoose model to query
+ * @param {string} field - Field name to check
+ * @param {*} value - Value to check for
+ * @returns {Promise<boolean>} True if document exists
+ */
+const existsByField = async (Model, field, value) => {
+  try {
+    const document = await Model.findOne({ [field]: value });
+    return !!document;
+  } catch (error) {
+    console.error('existsByField error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets distinct values for a field
+ * @param {Object} Model - Mongoose model to query
+ * @param {string} field - Field name to get distinct values for
+ * @param {Object} filters - Filter criteria
+ * @returns {Promise<Array>} Array of distinct values
+ */
+const getDistinctValues = async (Model, field, filters = {}) => {
+  try {
+    const documents = await Model.find(filters);
+    const uniqueValues = [...new Set(documents.map(doc => doc[field]).filter(Boolean))];
+    return uniqueValues;
+  } catch (error) {
+    console.error('getDistinctValues error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Performs a bulk update operation
+ * @param {Object} Model - Mongoose model to update
+ * @param {Object} filters - Filter criteria for documents to update
+ * @param {Object} updateData - Data to update
+ * @param {Object} options - Update options
+ * @returns {Promise<Object>} Update result
+ */
+const bulkUpdate = async (Model, filters, updateData, options = {}) => {
+  try {
+    return await Model.updateMany(filters, updateData, options);
+  } catch (error) {
+    console.error('bulkUpdate error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Performs a bulk delete operation
+ * @param {Object} Model - Mongoose model to delete from
+ * @param {Object} filters - Filter criteria for documents to delete
+ * @returns {Promise<Object>} Delete result
+ */
+const bulkDelete = async (Model, filters) => {
+  try {
+    const documents = await Model.find(filters);
+    const deletePromises = documents.map(doc => Model.findByIdAndDelete(doc._id));
+    await Promise.all(deletePromises);
+    return { deletedCount: documents.length };
+  } catch (error) {
+    console.error('bulkDelete error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Aggregates data using MongoDB aggregation pipeline
+ * @param {Object} Model - Mongoose model to aggregate
+ * @param {Array} pipeline - Aggregation pipeline
+ * @returns {Promise<Array>} Aggregation results
+ */
+const aggregate = async (Model, pipeline) => {
+  try {
+    return await Model.aggregate(pipeline);
+  } catch (error) {
+    console.error('aggregate error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets documents by date range
+ * @param {Object} Model - Mongoose model to query
+ * @param {string} dateField - Date field name
+ * @param {Date} startDate - Start date
+ * @param {Date} endDate - End date
+ * @param {Object} additionalFilters - Additional filter criteria
+ * @returns {Promise<Array>} Array of documents
+ */
+const getByDateRange = async (Model, dateField, startDate, endDate, additionalFilters = {}) => {
+  try {
+    const filters = {
+      ...additionalFilters,
+      [dateField]: {
+        $gte: startDate,
+        $lte: endDate
+      }
+    };
+
+    let results = await Model.find(filters);
+    
+    // Sort by date field descending
+    results = results.sort((a, b) => new Date(b[dateField] || 0) - new Date(a[dateField] || 0));
+    
+    return results;
+  } catch (error) {
+    console.error('getByDateRange error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Soft deletes a document by setting a deleted flag
+ * @param {Object} Model - Mongoose model to soft delete
+ * @param {string} id - Document ID
+ * @returns {Promise<Object>} Updated document
+ */
+const softDelete = async (Model, id) => {
+  try {
+    return await Model.findByIdAndUpdate(id, { 
+      deleted: true, 
+      deletedAt: new Date() 
+    }, { new: true });
+  } catch (error) {
+    console.error('softDelete error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets documents that are not soft deleted
+ * @param {Object} Model - Mongoose model to query
+ * @param {Object} filters - Additional filter criteria
+ * @returns {Promise<Array>} Array of non-deleted documents
+ */
+const getActiveDocuments = async (Model, filters = {}) => {
+  try {
+    const activeFilters = { ...filters, deleted: { $ne: true } };
+    return await Model.find(activeFilters);
+  } catch (error) {
+    console.error('getActiveDocuments error:', error);
+    throw error;
+  }
+};
+
+module.exports = {
+  findByFieldIgnoreCase,
+  findManyByFieldIgnoreCase,
+  textSearch,
+  getPaginatedResults,
+  existsByField,
+  getDistinctValues,
+  bulkUpdate,
+  bulkDelete,
+  aggregate,
+  getByDateRange,
+  softDelete,
+  getActiveDocuments
+};

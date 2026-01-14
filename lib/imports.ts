@@ -53,6 +53,16 @@ export {
   findDocuments,
   findOneDocument,
   bulkUpdateDocuments,
+  findManyByFieldIgnoreCase,
+  existsByField,
+  getDistinctValues,
+  bulkDeleteDocuments,
+  aggregateDocuments,
+  getByDateRange,
+  softDeleteDocument,
+  getActiveDocuments,
+  textSearchDocuments,
+  getPaginatedDocuments,
 } from './document-helpers';
 export {
   performUserDocOp,

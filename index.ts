@@ -38,6 +38,16 @@ import {
   findDocuments,
   findOneDocument,
   bulkUpdateDocuments,
+  findManyByFieldIgnoreCase,
+  existsByField,
+  getDistinctValues,
+  bulkDeleteDocuments,
+  aggregateDocuments,
+  getByDateRange,
+  softDeleteDocument,
+  getActiveDocuments,
+  textSearchDocuments,
+  getPaginatedDocuments,
 } from './lib/document-helpers';
 // Document operations
 import {
@@ -288,6 +298,16 @@ export {
   findDocuments,
   findOneDocument,
   bulkUpdateDocuments,
+  findManyByFieldIgnoreCase,
+  existsByField,
+  getDistinctValues,
+  bulkDeleteDocuments,
+  aggregateDocuments,
+  getByDateRange,
+  softDeleteDocument,
+  getActiveDocuments,
+  textSearchDocuments,
+  getPaginatedDocuments,
   // Document operations
   performUserDocOp,
   findUserDoc,

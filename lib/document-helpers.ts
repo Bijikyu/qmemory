@@ -8,6 +8,7 @@ import {
   Types,
   AnyKeys,
   AnyObject,
+  PipelineStage,
 } from 'mongoose';
 import type { Response } from 'express';
 type LeanDocument<T> = T;
@@ -334,6 +335,355 @@ const bulkUpdateDocuments = async <TSchema extends AnyDocumentShape>(
   );
 };
 
+/**
+ * Escapes special characters in RegExp to prevent NoSQL injection.
+ * @param string - String to escape.
+ * @returns Escaped string safe for RegExp.
+ */
+const escapeRegExpForQuery = (value: string): string => {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+/**
+ * Finds multiple documents by field with case-insensitive regex.
+ * @param model Target Mongoose model.
+ * @param field Field name to search.
+ * @param value Value to search for.
+ * @param options Query options (limit, sort).
+ * @returns Array of found documents.
+ */
+const findManyByFieldIgnoreCase = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  field: keyof TSchema & string,
+  value: string,
+  options: { limit?: number; sort?: Record<string, 1 | -1> } = {}
+): Promise<Array<LeanDocument<TSchema>>> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const { limit = 50, sort = { createdAt: -1 } } = options;
+      const escapedValue = escapeRegExpForQuery(value);
+      const filters = { [field]: { $regex: new RegExp(`^${escapedValue}$`, 'i') } } as FilterQuery<TSchema>;
+      
+      const result = await safeDbOperation(
+        () => model.find(filters).sort(sort).limit(limit).lean().exec(),
+        'findManyByFieldIgnoreCase'
+      );
+      utils
+        .getFunctionLogger('findManyByFieldIgnoreCase')
+        .debug('returning results', { count: Array.isArray(result) ? result.length : 0 });
+      return (result ?? []) as LeanDocument<TSchema>[];
+    },
+    'findManyByFieldIgnoreCase',
+    { model: model.modelName, field, limit: options.limit }
+  );
+};
+
+/**
+ * Checks if a document exists by field value.
+ * @param model Target Mongoose model.
+ * @param field Field name to check.
+ * @param value Value to check for.
+ * @returns True if document exists.
+ */
+const existsByField = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  field: keyof TSchema & string,
+  value: unknown
+): Promise<boolean> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const result = await safeDbOperation(
+        () => model.findOne({ [field]: value } as FilterQuery<TSchema>).select('_id').lean().exec(),
+        'existsByField'
+      );
+      return result !== null;
+    },
+    'existsByField',
+    { model: model.modelName, field }
+  );
+};
+
+/**
+ * Gets distinct values for a field.
+ * @param model Target Mongoose model.
+ * @param field Field name to get distinct values for.
+ * @param filters Optional filter criteria.
+ * @returns Array of distinct values.
+ */
+const getDistinctValues = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  field: keyof TSchema & string,
+  filters: FilterQuery<TSchema> = {}
+): Promise<unknown[]> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const result = await safeDbOperation(
+        () => model.distinct(field, filters).exec(),
+        'getDistinctValues'
+      );
+      utils
+        .getFunctionLogger('getDistinctValues')
+        .debug('returning distinct values', { count: Array.isArray(result) ? result.length : 0 });
+      return result ?? [];
+    },
+    'getDistinctValues',
+    { model: model.modelName, field }
+  );
+};
+
+/**
+ * Performs a bulk delete operation.
+ * @param model Target Mongoose model.
+ * @param filters Filter criteria for documents to delete.
+ * @returns Delete result with count.
+ */
+const bulkDeleteDocuments = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  filters: FilterQuery<TSchema>
+): Promise<{ deletedCount: number }> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const result = await safeDbOperation(
+        () => model.deleteMany(filters).exec(),
+        'bulkDeleteDocuments'
+      );
+      const deletedCount = result?.deletedCount ?? 0;
+      utils
+        .getFunctionLogger('bulkDeleteDocuments')
+        .debug('returning delete result', { deletedCount });
+      return { deletedCount };
+    },
+    'bulkDeleteDocuments',
+    { model: model.modelName }
+  );
+};
+
+/**
+ * Aggregates data using MongoDB aggregation pipeline.
+ * @param model Target Mongoose model.
+ * @param pipeline Aggregation pipeline stages.
+ * @returns Aggregation results.
+ */
+const aggregateDocuments = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  pipeline: PipelineStage[]
+): Promise<unknown[]> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const result = await safeDbOperation(
+        () => model.aggregate(pipeline).exec(),
+        'aggregateDocuments'
+      );
+      utils
+        .getFunctionLogger('aggregateDocuments')
+        .debug('returning aggregation results', { count: Array.isArray(result) ? result.length : 0 });
+      return result ?? [];
+    },
+    'aggregateDocuments',
+    { model: model.modelName, pipelineLength: pipeline.length }
+  );
+};
+
+/**
+ * Gets documents by date range.
+ * @param model Target Mongoose model.
+ * @param dateField Date field name.
+ * @param startDate Start date (inclusive).
+ * @param endDate End date (inclusive).
+ * @param additionalFilters Optional additional filter criteria.
+ * @returns Array of documents within the date range.
+ */
+const getByDateRange = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  dateField: keyof TSchema & string,
+  startDate: Date,
+  endDate: Date,
+  additionalFilters: FilterQuery<TSchema> = {}
+): Promise<Array<LeanDocument<TSchema>>> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const filters = {
+        ...additionalFilters,
+        [dateField]: {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      } as FilterQuery<TSchema>;
+      
+      const result = await safeDbOperation(
+        () => model.find(filters).sort({ [dateField]: -1 } as Record<string, 1 | -1>).lean().exec(),
+        'getByDateRange'
+      );
+      utils
+        .getFunctionLogger('getByDateRange')
+        .debug('returning date range results', { count: Array.isArray(result) ? result.length : 0 });
+      return (result ?? []) as LeanDocument<TSchema>[];
+    },
+    'getByDateRange',
+    { model: model.modelName, dateField, startDate, endDate }
+  );
+};
+
+/**
+ * Soft deletes a document by setting a deleted flag.
+ * @param model Target Mongoose model.
+ * @param id Document ID.
+ * @returns Updated document with deleted flag or null.
+ */
+const softDeleteDocument = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  id: DocumentId
+): Promise<HydratedDocument<TSchema> | null> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const result = await safeDbOperation(
+        () =>
+          model.findByIdAndUpdate(
+            id,
+            { deleted: true, deletedAt: new Date() } as UpdateQuery<TSchema>,
+            { new: true }
+          ).exec(),
+        'softDeleteDocument'
+      );
+      utils
+        .getFunctionLogger('softDeleteDocument')
+        .debug('returning soft delete result', { hasResult: Boolean(result) });
+      return result;
+    },
+    'softDeleteDocument',
+    { model: model.modelName, id }
+  );
+};
+
+/**
+ * Gets documents that are not soft deleted.
+ * @param model Target Mongoose model.
+ * @param filters Optional additional filter criteria.
+ * @returns Array of non-deleted documents.
+ */
+const getActiveDocuments = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  filters: FilterQuery<TSchema> = {}
+): Promise<Array<LeanDocument<TSchema>>> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const activeFilters = { ...filters, deleted: { $ne: true } } as FilterQuery<TSchema>;
+      const result = await safeDbOperation(
+        () => model.find(activeFilters).lean().exec(),
+        'getActiveDocuments'
+      );
+      utils
+        .getFunctionLogger('getActiveDocuments')
+        .debug('returning active documents', { count: Array.isArray(result) ? result.length : 0 });
+      return (result ?? []) as LeanDocument<TSchema>[];
+    },
+    'getActiveDocuments',
+    { model: model.modelName }
+  );
+};
+
+/**
+ * Performs a text search across multiple fields.
+ * @param model Target Mongoose model.
+ * @param query Search query string.
+ * @param searchFields Fields to search in.
+ * @param options Query options (limit, page).
+ * @returns Array of found documents.
+ */
+const textSearchDocuments = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  query: string,
+  searchFields: Array<keyof TSchema & string>,
+  options: { limit?: number; page?: number } = {}
+): Promise<Array<LeanDocument<TSchema>>> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const { limit = 50, page = 1 } = options;
+      const skip = (page - 1) * limit;
+      const escapedQuery = escapeRegExpForQuery(query);
+      
+      const searchCriteria = {
+        $or: searchFields.map(field => ({
+          [field]: { $regex: escapedQuery, $options: 'i' },
+        })),
+      } as FilterQuery<TSchema>;
+      
+      const result = await safeDbOperation(
+        () => model.find(searchCriteria).sort({ createdAt: -1 } as Record<string, 1 | -1>).skip(skip).limit(limit).lean().exec(),
+        'textSearchDocuments'
+      );
+      utils
+        .getFunctionLogger('textSearchDocuments')
+        .debug('returning search results', { count: Array.isArray(result) ? result.length : 0 });
+      return (result ?? []) as LeanDocument<TSchema>[];
+    },
+    'textSearchDocuments',
+    { model: model.modelName, query, searchFieldCount: searchFields.length }
+  );
+};
+
+/**
+ * Gets paginated results with filtering and sorting.
+ * @param model Target Mongoose model.
+ * @param filters Filter criteria.
+ * @param pagination Pagination options.
+ * @param sort Sort options.
+ * @returns Paginated results with metadata.
+ */
+const getPaginatedDocuments = async <TSchema extends AnyDocumentShape>(
+  model: Model<TSchema>,
+  filters: FilterQuery<TSchema> = {},
+  pagination: { page?: number; limit?: number } = {},
+  sort: Record<string, 1 | -1> = { createdAt: -1 }
+): Promise<{
+  data: Array<LeanDocument<TSchema>>;
+  pagination: { page: number; limit: number; total: number; pages: number };
+}> => {
+  return utils.safeAsync(
+    async () => {
+      validateModel(model);
+      const { page = 1, limit = 10 } = pagination;
+      const skip = (page - 1) * limit;
+      
+      const [data, total] = await Promise.all([
+        safeDbOperation(
+          () => model.find(filters).sort(sort).skip(skip).limit(limit).lean().exec(),
+          'getPaginatedDocuments.find'
+        ),
+        safeDbOperation(
+          () => model.countDocuments(filters).exec(),
+          'getPaginatedDocuments.count'
+        ),
+      ]);
+      
+      utils
+        .getFunctionLogger('getPaginatedDocuments')
+        .debug('returning paginated results', { count: Array.isArray(data) ? data.length : 0, total });
+      
+      return {
+        data: (data ?? []) as LeanDocument<TSchema>[],
+        pagination: {
+          page,
+          limit,
+          total: total ?? 0,
+          pages: Math.ceil((total ?? 0) / limit),
+        },
+      };
+    },
+    'getPaginatedDocuments',
+    { model: model.modelName, page: pagination.page, limit: pagination.limit }
+  );
+};
+
 export {
   findDocumentById,
   updateDocumentById,
@@ -343,4 +693,14 @@ export {
   findDocuments,
   findOneDocument,
   bulkUpdateDocuments,
+  findManyByFieldIgnoreCase,
+  existsByField,
+  getDistinctValues,
+  bulkDeleteDocuments,
+  aggregateDocuments,
+  getByDateRange,
+  softDeleteDocument,
+  getActiveDocuments,
+  textSearchDocuments,
+  getPaginatedDocuments,
 };
