@@ -201,6 +201,15 @@ export {
   performanceMonitor,
 } from './performance-utils';
 
+// Memory management utilities
+export {
+  MemoryManager,
+  memoryManager,
+  sanitizeObject,
+  cleanupObject,
+  createWeakCache,
+} from './performance/memory-manager';
+
 // Cache utilities
 export { createRedisClient } from './cache-utils';
 

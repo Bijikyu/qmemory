@@ -192,6 +192,14 @@ import {
   PerformanceMonitor,
   performanceMonitor,
 } from './lib/performance-utils';
+// Memory management utilities
+import {
+  MemoryManager,
+  memoryManager,
+  sanitizeObject,
+  cleanupObject,
+  createWeakCache,
+} from './lib/performance/memory-manager';
 // Cache utilities
 import { createRedisClient } from './lib/cache-utils';
 // LRU cache
@@ -436,6 +444,12 @@ export {
   SystemMetrics,
   PerformanceMonitor,
   performanceMonitor,
+  // Memory management utilities
+  MemoryManager,
+  memoryManager,
+  sanitizeObject,
+  cleanupObject,
+  createWeakCache,
   // Cache utilities
   createRedisClient,
   // LRU cache

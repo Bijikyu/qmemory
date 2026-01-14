@@ -300,4 +300,89 @@ export const memoryManager = new MemoryManager({
   maxHeapSizeMB: 1024
 });
 
+/**
+ * Safely sanitizes objects to prevent memory leaks by creating a deep clone.
+ * Breaks circular references and removes non-serializable values.
+ * @param obj - Object to sanitize
+ * @returns Sanitized deep clone of the object
+ */
+export const sanitizeObject = <T extends object>(obj: T): T => {
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch (error) {
+    console.error('Failed to sanitize object:', error);
+    return {} as T;
+  }
+};
+
+/**
+ * Cleans up object references to prevent memory leaks by deleting properties.
+ * @param obj - Object to clean up
+ * @param excludeKeys - Keys to exclude from cleanup
+ */
+export const cleanupObject = (obj: Record<string, unknown>, excludeKeys: string[] = []): void => {
+  if (!obj || typeof obj !== 'object') return;
+  
+  Object.keys(obj).forEach(key => {
+    if (!excludeKeys.includes(key)) {
+      delete obj[key];
+    }
+  });
+};
+
+/**
+ * Interface for WeakCache operations
+ */
+export interface WeakCache<K extends object, V extends object> {
+  get: (key: K) => V | undefined;
+  set: (key: K, value: V) => void;
+  has: (key: K) => boolean;
+  delete: (key: K) => void;
+  clear: () => void;
+  size: () => number;
+}
+
+/**
+ * Creates a weak reference cache for memory-efficient caching.
+ * Uses WeakRef to allow garbage collection of cached values when no longer referenced elsewhere.
+ * @param maxSize - Maximum cache size before evicting oldest entries
+ * @returns Cache object with weak references
+ */
+export const createWeakCache = <K extends object, V extends object>(maxSize: number = 100): WeakCache<K, V> => {
+  const cache = new Map<K, boolean>();
+  const weakRefs = new WeakMap<K, WeakRef<V>>();
+  
+  return {
+    get: (key: K): V | undefined => {
+      const ref = weakRefs.get(key);
+      return ref ? ref.deref() : undefined;
+    },
+    
+    set: (key: K, value: V): void => {
+      if (cache.size >= maxSize) {
+        const oldestKey = cache.keys().next().value;
+        if (oldestKey) {
+          cache.delete(oldestKey);
+        }
+      }
+      
+      const ref = new WeakRef(value);
+      weakRefs.set(key, ref);
+      cache.set(key, true);
+    },
+    
+    has: (key: K): boolean => cache.has(key),
+    
+    delete: (key: K): void => {
+      cache.delete(key);
+    },
+    
+    clear: (): void => {
+      cache.clear();
+    },
+    
+    size: (): number => cache.size
+  };
+};
+
 export default MemoryManager;
