@@ -194,6 +194,22 @@ import {
 } from './lib/unique-validator';
 // Streaming JSON
 import { safeJsonStringify, safeJsonParse, SafeJSON } from './lib/streaming-json';
+// Streaming utilities
+import {
+  ChunkedStreamProcessor,
+  JSONStreamProcessor,
+  ScalableFileReader,
+  LineStreamProcessor,
+  createChunkedProcessor,
+  createJSONStreamProcessor,
+  createLineStreamProcessor,
+  createScalableFileReader,
+  ChunkedStreamOptions,
+  ChunkResult,
+  JSONStreamOptions,
+  ScalableFileReaderOptions,
+  LineReaderOptions,
+} from './lib/streaming/streaming-utils';
 // Fast operations
 import {
   FastMath,
@@ -515,6 +531,15 @@ export {
   safeJsonStringify,
   safeJsonParse,
   SafeJSON as JSON,
+  // Streaming utilities
+  ChunkedStreamProcessor,
+  JSONStreamProcessor,
+  ScalableFileReader,
+  LineStreamProcessor,
+  createChunkedProcessor,
+  createJSONStreamProcessor,
+  createLineStreamProcessor,
+  createScalableFileReader,
   // Fast operations
   FastMath,
   FastString,
@@ -619,5 +644,12 @@ export {
 // Export types
 export type { User, InsertUser } from './lib/storage';
 export type { QueueMetrics, QueueManagerOptions } from './lib/queue/queue-manager';
+export type {
+  ChunkedStreamOptions,
+  ChunkResult,
+  JSONStreamOptions,
+  ScalableFileReaderOptions,
+  LineReaderOptions,
+} from './lib/streaming/streaming-utils';
 // No BasicRateLimiter export here to avoid duplicate
 export type { Application, Request, Response, NextFunction } from 'express';

@@ -355,5 +355,22 @@ export {
   type QueueManagerOptions,
 } from './queue/queue-manager';
 
+// Streaming utilities
+export {
+  ChunkedStreamProcessor,
+  JSONStreamProcessor,
+  ScalableFileReader,
+  LineStreamProcessor,
+  createChunkedProcessor,
+  createJSONStreamProcessor,
+  createLineStreamProcessor,
+  createScalableFileReader,
+  type ChunkedStreamOptions,
+  type ChunkResult,
+  type JSONStreamOptions,
+  type ScalableFileReaderOptions,
+  type LineReaderOptions,
+} from './streaming/streaming-utils';
+
 // Common patterns
 export { validateResponse, getTimestamp } from './common-patterns';
