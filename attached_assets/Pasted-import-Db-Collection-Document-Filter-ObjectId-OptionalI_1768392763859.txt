@@ -1,0 +1,240 @@
+import {
+  Db,
+  Collection,
+  Document,
+  Filter,
+  ObjectId,
+  OptionalId,
+} from "mongodb";
+import { qerrors } from "./qerrorsImports.js";
+
+/**
+ * Standardized database operation patterns
+ * Eliminates duplicate database operation code across application
+ */
+
+/**
+ * Basic database operations wrapper
+ */
+export class DatabaseOperations<T extends Document> {
+  private collection: Collection<T>;
+
+  constructor(db: Db, collectionName: string) {
+    this.collection = db.collection(collectionName);
+  }
+
+  async findOne(filter: Filter<T> = {}): Promise<T | null> {
+    try {
+      return await this.collection.findOne(filter);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.findOne", { filter });
+      throw error;
+    }
+  }
+
+  async findMany(
+    filter: Filter<T> = {},
+    options: { limit?: number; sort?: any } = {},
+  ): Promise<T[]> {
+    try {
+      let cursor = this.collection.find(filter);
+
+      if (options.limit) {
+        cursor = cursor.limit(options.limit);
+      }
+
+      if (options.sort) {
+        cursor = cursor.sort(options.sort);
+      }
+
+      const results = await cursor.toArray();
+      return results as T[];
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.findMany", {
+        filter,
+        options,
+      });
+      throw error;
+    }
+  }
+
+  async insertOne(doc: OptionalId<T>): Promise<any> {
+    try {
+      return await this.collection.insertOne(doc);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.insertOne", { doc });
+      throw error;
+    }
+  }
+
+  async insertMany(docs: OptionalId<T>[]): Promise<any> {
+    try {
+      return await this.collection.insertMany(docs);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.insertMany", { docs });
+      throw error;
+    }
+  }
+
+  async updateOne(filter: Filter<T>, update: Partial<T>): Promise<any> {
+    try {
+      const updateDoc = { $set: update };
+      return await this.collection.updateOne(filter, updateDoc);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.updateOne", {
+        filter,
+        update,
+      });
+      throw error;
+    }
+  }
+
+  async updateMany(filter: Filter<T>, update: Partial<T>): Promise<any> {
+    try {
+      const updateDoc = { $set: update };
+      return await this.collection.updateMany(filter, updateDoc);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.updateMany", {
+        filter,
+        update,
+      });
+      throw error;
+    }
+  }
+
+  async deleteOne(filter: Filter<T>): Promise<any> {
+    try {
+      return await this.collection.deleteOne(filter);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.deleteOne", { filter });
+      throw error;
+    }
+  }
+
+  async deleteMany(filter: Filter<T>): Promise<any> {
+    try {
+      return await this.collection.deleteMany(filter);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.deleteMany", { filter });
+      throw error;
+    }
+  }
+
+  async count(filter: Filter<T> = {}): Promise<number> {
+    try {
+      return await this.collection.countDocuments(filter);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.count", { filter });
+      throw error;
+    }
+  }
+
+  async exists(filter: Filter<T>): Promise<boolean> {
+    try {
+      const count = await this.collection.countDocuments(filter, { limit: 1 });
+      return count > 0;
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.exists", { filter });
+      throw error;
+    }
+  }
+
+  async findById(id: string): Promise<T | null> {
+    try {
+      if (!ObjectId.isValid(id)) {
+        throw new Error(`Invalid ObjectId: ${id}`);
+      }
+      // Atomic operation: validate and convert ObjectId in single step
+      let objectId: ObjectId;
+      try {
+        objectId = new ObjectId(id);
+      } catch (conversionError) {
+        throw new Error(`Failed to convert ObjectId: ${id}`);
+      }
+
+      const result = await this.collection.findOne({
+        _id: objectId,
+      } as Filter<T>);
+      return result as T | null;
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.findById", { id });
+      // Don't expose internal implementation details
+      throw new Error(`Database operation failed for id: ${id}`);
+    }
+  }
+
+  async updateById(id: string, update: Partial<T>): Promise<any> {
+    try {
+      if (!ObjectId.isValid(id)) {
+        throw new Error(`Invalid ObjectId: ${id}`);
+      }
+      return await this.updateOne(
+        { _id: new ObjectId(id) } as Filter<T>,
+        update,
+      );
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.updateById", { id, update });
+      throw error;
+    }
+  }
+
+  async deleteById(id: string): Promise<any> {
+    try {
+      if (!ObjectId.isValid(id)) {
+        throw new Error(`Invalid ObjectId: ${id}`);
+      }
+      return await this.deleteOne({ _id: new ObjectId(id) } as Filter<T>);
+    } catch (error) {
+      qerrors(error as Error, "DatabaseOperations.deleteById", { id });
+      throw error;
+    }
+  }
+}
+
+/**
+ * Database connection management
+ */
+export class DatabaseManager {
+  private static instance: DatabaseManager;
+  private db: Db | null = null;
+
+  private constructor() {}
+
+  public static getInstance(): DatabaseManager {
+    if (!DatabaseManager.instance) {
+      DatabaseManager.instance = new DatabaseManager();
+    }
+    return DatabaseManager.instance;
+  }
+
+  public setDatabase(db: Db): void {
+    this.db = db;
+  }
+
+  public getDatabase(): Db | null {
+    return this.db;
+  }
+
+  public getOperations<T extends Document>(
+    collectionName: string,
+  ): DatabaseOperations<T> {
+    if (!this.db) {
+      throw new Error("Database not initialized. Call setDatabase() first.");
+    }
+    return new DatabaseOperations<T>(this.db, collectionName);
+  }
+}
+
+/**
+ * Export factory functions
+ */
+export const createDatabaseOperations = <T extends Document>(
+  db: Db,
+  collectionName: string,
+): DatabaseOperations<T> => {
+  return new DatabaseOperations<T>(db, collectionName);
+};
+
+export const getDatabaseManager = (): DatabaseManager => {
+  return DatabaseManager.getInstance();
+};

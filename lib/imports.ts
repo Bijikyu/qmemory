@@ -308,5 +308,14 @@ export {
   databaseConnectionPool as sharedDatabaseConnectionPool,
 } from './database/connection-pool-manager';
 
+// Native MongoDB operations
+export {
+  MongoDBOperations,
+  MongoDBManager,
+  createMongoDBOperations,
+  getMongoDBManager,
+  type FindManyOptions,
+} from './database/mongodb-operations';
+
 // Common patterns
 export { validateResponse, getTimestamp } from './common-patterns';

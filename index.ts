@@ -261,6 +261,14 @@ import {
   getDefaultStorage,
 } from './lib/binary-storage';
 import { IStorage } from './lib/storage-interfaces';
+// Native MongoDB operations
+import {
+  MongoDBOperations,
+  MongoDBManager,
+  createMongoDBOperations,
+  getMongoDBManager,
+  FindManyOptions,
+} from './lib/database/mongodb-operations';
 // Security middleware
 import { setupSecurity, getSecurityConfig, destroySecurity } from './lib/security-middleware';
 // Privacy and compliance
@@ -319,6 +327,12 @@ export {
   ensureIdempotency,
   optimizeQuery,
   createAggregationPipeline,
+  // Native MongoDB operations
+  MongoDBOperations,
+  MongoDBManager,
+  createMongoDBOperations,
+  getMongoDBManager,
+  FindManyOptions,
   // Document helpers
   findDocumentById,
   updateDocumentById,
