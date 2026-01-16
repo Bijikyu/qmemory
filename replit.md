@@ -65,3 +65,31 @@ Functions are designed for universal input/output. Input parameters are passed v
 -   **Redis**: Used for implementing caching mechanisms.
 -   **Codex CLI**: Used for executing automated tasks and parallel workflows.
 -   **npm**: Package manager for Node.js modules.
+
+## Demo Interface
+
+The library includes a comprehensive interactive demo at `demo/` with 16 tabbed sections covering all library functionality:
+
+### Demo Tabs
+1. **Overview** - Library stats and architecture overview
+2. **User Management** - CRUD operations with in-memory storage
+3. **Utilities** - Basic utility functions (greet, unique ID, sleep, date formatting)
+4. **Email Utils** - Email validation, normalization, domain extraction, filtering
+5. **Memoization** - Fibonacci with/without caching, TTL-based memoization, stats
+6. **Circuit Breaker** - State management (closed/open/half-open), failure simulation
+7. **Queue Management** - Async queues, concurrency limiters, periodic tasks
+8. **Fast Operations** - FastMath, FastString, FastHash, ObjectPool, LockFreeQueue, FastTimer
+9. **Pagination** - Offset-based and cursor-based pagination, sorting validation
+10. **Cache Utils** - LRU cache, bounded queue/map, memory-optimized cache, metrics
+11. **Streaming** - JSON parse/stringify, chunked processing, line streaming
+12. **Field Utils** - Field normalization, collection naming, type mapping, serialization
+13. **Security** - Rate limiting, security headers, CCPA compliance, data export/deletion
+14. **Storage** - User storage with atomic operations
+15. **HTTP Utils** - Response helpers and status codes
+16. **Documentation** - API reference and endpoint documentation
+
+### Running the Demo
+```bash
+node demo/simple-demo-server.cjs
+```
+Access at http://localhost:5000
