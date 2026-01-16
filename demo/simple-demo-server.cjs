@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 
 const app = express();
-const port = 3000;
+const port = 5000;
 
 // Mock storage for testing
 let users = [];
@@ -10,7 +10,7 @@ let userId = 1;
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname));
+app.use(express.static(path.join(__dirname)));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
