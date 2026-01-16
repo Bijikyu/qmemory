@@ -404,7 +404,17 @@
         <button class="tab active" onclick="switchTab('overview', event)">📊 Overview</button>
         <button class="tab" onclick="switchTab('users', event)">👥 User Management</button>
         <button class="tab" onclick="switchTab('utils', event)">🛠️ Utilities</button>
-        <button class="tab" onclick="switchTab('storage', event)">💾 Storage</button>
+        <button class="tab" onclick="switchTab('email', event)">📧 Email Utils</button>
+        <button class="tab" onclick="switchTab('memoize', event)">🧠 Memoization</button>
+        <button class="tab" onclick="switchTab('circuit', event)">⚡ Circuit Breaker</button>
+        <button class="tab" onclick="switchTab('queue', event)">📋 Queue Management</button>
+        <button class="tab" onclick="switchTab('fast', event)">🚀 Fast Operations</button>
+        <button class="tab" onclick="switchTab('pagination', event)">📄 Pagination</button>
+        <button class="tab" onclick="switchTab('cache', event)">💾 Cache Utils</button>
+        <button class="tab" onclick="switchTab('streaming', event)">🌊 Streaming</button>
+        <button class="tab" onclick="switchTab('fields', event)">🔧 Field Utils</button>
+        <button class="tab" onclick="switchTab('security', event)">🔒 Security</button>
+        <button class="tab" onclick="switchTab('storage', event)">💽 Storage</button>
         <button class="tab" onclick="switchTab('http', event)">🌐 HTTP Utils</button>
         <button class="tab" onclick="switchTab('docs', event)">📚 Documentation</button>
       </div>
@@ -658,9 +668,519 @@
         </div>
       </div>
 
+      <!-- Email Utils Tab -->
+      <div id="email" class="tab-content">
+        <h2>📧 Email Utilities</h2>
+        <div class="alert info">
+          <strong>Email utilities</strong> provide validation, normalization, and parsing functions for email addresses.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Email Validation</h3>
+            <div class="form-group">
+              <label for="emailInput">Email Address:</label>
+              <input type="text" id="emailInput" placeholder="user@example.com" />
+            </div>
+            <button onclick="testEmailValidation()">Validate Email</button>
+            <button onclick="testEmailNormalize()" class="secondary">Normalize Email</button>
+            <div id="emailValidationResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Email Domain Extraction</h3>
+            <div class="form-group">
+              <label for="emailDomainInput">Email Address:</label>
+              <input type="text" id="emailDomainInput" placeholder="user@example.com" />
+            </div>
+            <button onclick="testEmailDomain()">Extract Domain</button>
+            <div id="emailDomainResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Batch Email Filtering</h3>
+            <div class="form-group">
+              <label for="emailListInput">Email List (comma-separated):</label>
+              <textarea id="emailListInput" rows="3" placeholder="user1@example.com, invalid-email, user2@test.com"></textarea>
+            </div>
+            <button onclick="testFilterEmails()">Filter Valid Emails</button>
+            <div id="emailFilterResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Email Target Creation</h3>
+            <div class="form-group">
+              <label for="emailTargetName">Name:</label>
+              <input type="text" id="emailTargetName" placeholder="John Doe" />
+            </div>
+            <div class="form-group">
+              <label for="emailTargetAddress">Email:</label>
+              <input type="text" id="emailTargetAddress" placeholder="john@example.com" />
+            </div>
+            <button onclick="testCreateEmailTarget()">Create Email Target</button>
+            <div id="emailTargetResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Memoization Tab -->
+      <div id="memoize" class="tab-content">
+        <h2>🧠 Memoization Utilities</h2>
+        <div class="alert info">
+          <strong>Memoization</strong> caches function results to avoid redundant computation. Supports TTL-based expiration.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Basic Memoization</h3>
+            <div class="form-group">
+              <label for="memoFibInput">Fibonacci Number (n):</label>
+              <input type="number" id="memoFibInput" value="35" min="1" max="45" />
+            </div>
+            <button onclick="testMemoizedFib()">Calculate (Memoized)</button>
+            <button onclick="testUnmemoizedFib()" class="secondary">Calculate (Unmemoized)</button>
+            <div id="memoFibResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>TTL-Based Memoization</h3>
+            <div class="form-group">
+              <label for="memoTTLInput">Value to cache:</label>
+              <input type="text" id="memoTTLInput" placeholder="Enter any value" />
+            </div>
+            <div class="form-group">
+              <label for="memoTTLDuration">TTL (milliseconds):</label>
+              <input type="number" id="memoTTLDuration" value="5000" min="1000" />
+            </div>
+            <button onclick="testMemoWithTTL()">Cache with TTL</button>
+            <button onclick="testMemoTTLExpiry()" class="secondary">Check Expiry</button>
+            <div id="memoTTLResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Memoization Stats</h3>
+            <button onclick="getMemoStats()">Get Cache Stats</button>
+            <button onclick="clearMemoCache()" class="danger">Clear Cache</button>
+            <div id="memoStatsResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Circuit Breaker Tab -->
+      <div id="circuit" class="tab-content">
+        <h2>⚡ Circuit Breaker Pattern</h2>
+        <div class="alert info">
+          <strong>Circuit Breaker</strong> prevents cascading failures by monitoring service health and short-circuiting requests when failures exceed thresholds.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Circuit Breaker Demo</h3>
+            <div class="form-group">
+              <label for="cbFailureRate">Simulated Failure Rate (%):</label>
+              <input type="number" id="cbFailureRate" value="50" min="0" max="100" />
+            </div>
+            <button onclick="testCircuitBreaker()">Test Circuit Breaker</button>
+            <button onclick="triggerCircuitOpen()" class="danger">Force Failures</button>
+            <div id="circuitBreakerResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Circuit State</h3>
+            <button onclick="getCircuitState()">Get Current State</button>
+            <button onclick="resetCircuit()" class="secondary">Reset Circuit</button>
+            <div id="circuitStateResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Circuit Breaker Factory</h3>
+            <div class="form-group">
+              <label for="cbServiceName">Service Name:</label>
+              <input type="text" id="cbServiceName" value="demo-service" />
+            </div>
+            <button onclick="createManagedBreaker()">Create Managed Breaker</button>
+            <button onclick="getFactoryStats()" class="secondary">Get Factory Stats</button>
+            <div id="circuitFactoryResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue Management Tab -->
+      <div id="queue" class="tab-content">
+        <h2>📋 Queue Management</h2>
+        <div class="alert info">
+          <strong>Queue utilities</strong> provide async job processing, concurrency limiting, and periodic task management.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Async Queue</h3>
+            <div class="form-group">
+              <label for="queueJobCount">Number of Jobs:</label>
+              <input type="number" id="queueJobCount" value="5" min="1" max="20" />
+            </div>
+            <div class="form-group">
+              <label for="queueConcurrency">Concurrency Limit:</label>
+              <input type="number" id="queueConcurrency" value="2" min="1" max="10" />
+            </div>
+            <button onclick="testAsyncQueue()">Run Queue Jobs</button>
+            <div id="asyncQueueResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Concurrency Limiter</h3>
+            <div class="form-group">
+              <label for="limiterMaxConcurrent">Max Concurrent:</label>
+              <input type="number" id="limiterMaxConcurrent" value="3" min="1" max="10" />
+            </div>
+            <button onclick="testConcurrencyLimiter()">Test Limiter</button>
+            <div id="concurrencyLimiterResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Periodic Tasks</h3>
+            <div class="form-group">
+              <label for="periodicInterval">Interval (ms):</label>
+              <input type="number" id="periodicInterval" value="1000" min="500" />
+            </div>
+            <button onclick="startPeriodicTask()">Start Task</button>
+            <button onclick="stopPeriodicTask()" class="danger">Stop Task</button>
+            <button onclick="getActivePeriodicTasks()" class="secondary">List Active</button>
+            <div id="periodicTaskResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Queue State Manager</h3>
+            <button onclick="getQueueState()">Get Queue State</button>
+            <button onclick="enforceQueueLimit()" class="secondary">Enforce Limit</button>
+            <div id="queueStateResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fast Operations Tab -->
+      <div id="fast" class="tab-content">
+        <h2>🚀 Fast Operations</h2>
+        <div class="alert info">
+          <strong>Fast operations</strong> provide optimized utilities for math, string manipulation, hashing, and memory operations.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>FastMath</h3>
+            <div class="form-group">
+              <label for="fastMathA">Number A:</label>
+              <input type="number" id="fastMathA" value="100" />
+            </div>
+            <div class="form-group">
+              <label for="fastMathB">Number B:</label>
+              <input type="number" id="fastMathB" value="50" />
+            </div>
+            <button onclick="testFastMath()">Test FastMath</button>
+            <div id="fastMathResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>FastString</h3>
+            <div class="form-group">
+              <label for="fastStringInput">Input String:</label>
+              <input type="text" id="fastStringInput" value="Hello World Test String" />
+            </div>
+            <button onclick="testFastString()">Test FastString</button>
+            <div id="fastStringResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>FastHash</h3>
+            <div class="form-group">
+              <label for="fastHashInput">Input to Hash:</label>
+              <input type="text" id="fastHashInput" value="test-data-to-hash" />
+            </div>
+            <button onclick="testFastHash()">Generate Hash</button>
+            <div id="fastHashResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Object Pool</h3>
+            <div class="form-group">
+              <label for="poolSize">Pool Size:</label>
+              <input type="number" id="poolSize" value="10" min="1" max="100" />
+            </div>
+            <button onclick="testObjectPool()">Test Object Pool</button>
+            <div id="objectPoolResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Lock-Free Queue</h3>
+            <div class="form-group">
+              <label for="lfqOperations">Operations Count:</label>
+              <input type="number" id="lfqOperations" value="1000" min="100" max="10000" />
+            </div>
+            <button onclick="testLockFreeQueue()">Test Lock-Free Queue</button>
+            <div id="lockFreeQueueResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>FastTimer</h3>
+            <button onclick="testFastTimer()">Benchmark Timer Precision</button>
+            <div id="fastTimerResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination Tab -->
+      <div id="pagination" class="tab-content">
+        <h2>📄 Pagination Utilities</h2>
+        <div class="alert info">
+          <strong>Pagination utilities</strong> provide offset-based and cursor-based pagination with validation.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Offset Pagination</h3>
+            <div class="form-group">
+              <label for="paginationPage">Page:</label>
+              <input type="number" id="paginationPage" value="1" min="1" />
+            </div>
+            <div class="form-group">
+              <label for="paginationLimit">Limit:</label>
+              <input type="number" id="paginationLimit" value="10" min="1" max="100" />
+            </div>
+            <div class="form-group">
+              <label for="paginationTotal">Total Items:</label>
+              <input type="number" id="paginationTotal" value="100" min="0" />
+            </div>
+            <button onclick="testOffsetPagination()">Generate Pagination Meta</button>
+            <div id="offsetPaginationResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Cursor Pagination</h3>
+            <div class="form-group">
+              <label for="cursorInput">Cursor (base64):</label>
+              <input type="text" id="cursorInput" placeholder="Leave empty for first page" />
+            </div>
+            <div class="form-group">
+              <label for="cursorLimit">Limit:</label>
+              <input type="number" id="cursorLimit" value="10" min="1" max="100" />
+            </div>
+            <button onclick="testCursorPagination()">Test Cursor Pagination</button>
+            <button onclick="generateCursor()" class="secondary">Generate Cursor</button>
+            <div id="cursorPaginationResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Sorting Validation</h3>
+            <div class="form-group">
+              <label for="sortField">Sort Field:</label>
+              <input type="text" id="sortField" value="createdAt" />
+            </div>
+            <div class="form-group">
+              <label for="sortOrder">Sort Order:</label>
+              <select id="sortOrder">
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
+            <button onclick="testSortingValidation()">Validate Sorting</button>
+            <div id="sortingValidationResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cache Utils Tab -->
+      <div id="cache" class="tab-content">
+        <h2>💾 Cache Utilities</h2>
+        <div class="alert info">
+          <strong>Cache utilities</strong> include LRU cache, bounded collections, and memory-optimized caching.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>LRU Cache</h3>
+            <div class="form-group">
+              <label for="lruKey">Key:</label>
+              <input type="text" id="lruKey" placeholder="cache-key" />
+            </div>
+            <div class="form-group">
+              <label for="lruValue">Value:</label>
+              <input type="text" id="lruValue" placeholder="cache-value" />
+            </div>
+            <button onclick="lruSet()">Set</button>
+            <button onclick="lruGet()" class="secondary">Get</button>
+            <button onclick="lruDelete()" class="danger">Delete</button>
+            <div id="lruCacheResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Bounded Queue</h3>
+            <div class="form-group">
+              <label for="bqMaxSize">Max Size:</label>
+              <input type="number" id="bqMaxSize" value="5" min="1" max="20" />
+            </div>
+            <div class="form-group">
+              <label for="bqItemCount">Items to Add:</label>
+              <input type="number" id="bqItemCount" value="10" min="1" max="50" />
+            </div>
+            <button onclick="testBoundedQueue()">Test Bounded Queue</button>
+            <div id="boundedQueueResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Bounded Map</h3>
+            <div class="form-group">
+              <label for="bmMaxSize">Max Size:</label>
+              <input type="number" id="bmMaxSize" value="5" min="1" max="20" />
+            </div>
+            <button onclick="testBoundedMap()">Test Bounded Map</button>
+            <div id="boundedMapResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Cache Metrics</h3>
+            <button onclick="getCacheMetrics()">Get Cache Metrics</button>
+            <button onclick="resetCacheMetrics()" class="secondary">Reset Metrics</button>
+            <div id="cacheMetricsResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Memory-Optimized Cache</h3>
+            <div class="form-group">
+              <label for="mocMaxItems">Max Items:</label>
+              <input type="number" id="mocMaxItems" value="100" min="10" max="1000" />
+            </div>
+            <button onclick="testMemoryOptimizedCache()">Test Memory Cache</button>
+            <button onclick="getMemoryCacheStats()" class="secondary">Get Stats</button>
+            <div id="memoryOptimizedCacheResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Streaming Tab -->
+      <div id="streaming" class="tab-content">
+        <h2>🌊 Streaming Utilities</h2>
+        <div class="alert info">
+          <strong>Streaming utilities</strong> provide chunked processing, JSON streaming, and scalable file reading.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Safe JSON Operations</h3>
+            <div class="form-group">
+              <label for="jsonInput">JSON Input:</label>
+              <textarea id="jsonInput" rows="3" placeholder='{"key": "value"}'></textarea>
+            </div>
+            <button onclick="testSafeJsonParse()">Safe Parse</button>
+            <button onclick="testSafeJsonStringify()" class="secondary">Safe Stringify</button>
+            <div id="safeJsonResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Chunked Processing</h3>
+            <div class="form-group">
+              <label for="chunkDataSize">Data Size (items):</label>
+              <input type="number" id="chunkDataSize" value="100" min="10" max="1000" />
+            </div>
+            <div class="form-group">
+              <label for="chunkSize">Chunk Size:</label>
+              <input type="number" id="chunkSize" value="10" min="1" max="100" />
+            </div>
+            <button onclick="testChunkedProcessing()">Process in Chunks</button>
+            <div id="chunkedProcessingResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Line Stream Processing</h3>
+            <div class="form-group">
+              <label for="lineStreamInput">Multi-line Text:</label>
+              <textarea id="lineStreamInput" rows="4" placeholder="Line 1&#10;Line 2&#10;Line 3"></textarea>
+            </div>
+            <button onclick="testLineStreamProcessing()">Process Lines</button>
+            <div id="lineStreamResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Field Utils Tab -->
+      <div id="fields" class="tab-content">
+        <h2>🔧 Field Utilities</h2>
+        <div class="alert info">
+          <strong>Field utilities</strong> handle field normalization, denormalization, and type mapping for database operations.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Field Normalization</h3>
+            <div class="form-group">
+              <label for="fieldNameInput">Field Name:</label>
+              <input type="text" id="fieldNameInput" placeholder="UserName, first_name, etc." />
+            </div>
+            <button onclick="testNormalizeField()">Normalize</button>
+            <button onclick="testDenormalizeField()" class="secondary">Denormalize</button>
+            <div id="fieldNormalizeResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Object Field Normalization</h3>
+            <div class="form-group">
+              <label for="objectFieldsInput">Object (JSON):</label>
+              <textarea id="objectFieldsInput" rows="3" placeholder='{"FirstName": "John", "LastName": "Doe"}'></textarea>
+            </div>
+            <button onclick="testNormalizeObjectFields()">Normalize Object</button>
+            <button onclick="testDenormalizeObjectFields()" class="secondary">Denormalize Object</button>
+            <div id="objectFieldsResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Collection Name</h3>
+            <div class="form-group">
+              <label for="modelNameInput">Model Name:</label>
+              <input type="text" id="modelNameInput" placeholder="User, BlogPost, etc." />
+            </div>
+            <button onclick="testGetCollectionName()">Get Collection Name</button>
+            <div id="collectionNameResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Type Mapping</h3>
+            <div class="form-group">
+              <label for="typeMapInput">Type Name:</label>
+              <select id="typeMapInput">
+                <option value="string">String</option>
+                <option value="number">Number</option>
+                <option value="boolean">Boolean</option>
+                <option value="date">Date</option>
+                <option value="objectId">ObjectId</option>
+                <option value="array">Array</option>
+                <option value="object">Object</option>
+              </select>
+            </div>
+            <button onclick="testGetMongoType()">Get Mongo Type</button>
+            <button onclick="testGetSupportedTypes()" class="secondary">List Supported Types</button>
+            <div id="typeMapResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Serialization</h3>
+            <div class="form-group">
+              <label for="serializeInput">Document (JSON):</label>
+              <textarea id="serializeInput" rows="3" placeholder='{"_id": "abc123", "name": "Test", "__v": 0}'></textarea>
+            </div>
+            <button onclick="testSerializeDocument()">Serialize Document</button>
+            <button onclick="testSerializeWithoutFields()" class="secondary">Serialize Without Fields</button>
+            <div id="serializeResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security Tab -->
+      <div id="security" class="tab-content">
+        <h2>🔒 Security & Privacy</h2>
+        <div class="alert info">
+          <strong>Security middleware</strong> provides rate limiting, headers security, and privacy compliance utilities.
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Rate Limiter Demo</h3>
+            <div class="form-group">
+              <label for="rateLimitRequests">Requests to Send:</label>
+              <input type="number" id="rateLimitRequests" value="15" min="1" max="50" />
+            </div>
+            <button onclick="testRateLimiter()">Test Rate Limiter</button>
+            <div id="rateLimiterResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Security Headers</h3>
+            <button onclick="getSecurityHeaders()">Get Current Headers</button>
+            <button onclick="testHelmetConfig()" class="secondary">Test Helmet Config</button>
+            <div id="securityHeadersResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Privacy Compliance</h3>
+            <button onclick="testPrivacyHeaders()">Privacy Headers</button>
+            <button onclick="testCCPACompliance()" class="secondary">CCPA Compliance</button>
+            <div id="privacyComplianceResponse" class="response hidden"></div>
+          </div>
+          <div class="card">
+            <h3>Data Management</h3>
+            <div class="form-group">
+              <label for="dataUserId">User ID for Data Request:</label>
+              <input type="text" id="dataUserId" placeholder="user-123" />
+            </div>
+            <button onclick="testDataExport()">Export User Data</button>
+            <button onclick="testDataDeletion()" class="danger">Request Data Deletion</button>
+            <div id="dataManagementResponse" class="response hidden"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Storage Tab -->
       <div id="storage" class="tab-content">
-        <h2>💾 Storage Operations</h2>
+        <h2>💽 Storage Operations</h2>
 
         <div class="alert info">
           <strong>Note:</strong> The demo uses in-memory storage. Data is lost when the server
@@ -1487,7 +2007,6 @@ console.log(data.data.pagination); // Pagination info</pre
           showResponse('batchResponse', { error: error.message }, 'error');
         }
       }
-      }
 
       async function runPerformanceTest() {
         const iterations = 50;
@@ -1840,6 +2359,837 @@ console.log(data.data.pagination); // Pagination info</pre
         requestCount++;
         if (type === 'success') successCount++;
         updateRequestStats();
+      }
+
+      // ============ EMAIL UTILITIES ============
+      async function testEmailValidation() {
+        const email = document.getElementById('emailInput').value;
+        if (!email) {
+          showResponse('emailValidationResponse', { error: 'Please enter an email address' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/email/validate', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+          });
+          showResponse('emailValidationResponse', data, 'success');
+        } catch (error) {
+          showResponse('emailValidationResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testEmailNormalize() {
+        const email = document.getElementById('emailInput').value;
+        if (!email) {
+          showResponse('emailValidationResponse', { error: 'Please enter an email address' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/email/normalize', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+          });
+          showResponse('emailValidationResponse', data, 'success');
+        } catch (error) {
+          showResponse('emailValidationResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testEmailDomain() {
+        const email = document.getElementById('emailDomainInput').value;
+        if (!email) {
+          showResponse('emailDomainResponse', { error: 'Please enter an email address' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/email/domain', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+          });
+          showResponse('emailDomainResponse', data, 'success');
+        } catch (error) {
+          showResponse('emailDomainResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testFilterEmails() {
+        const input = document.getElementById('emailListInput').value;
+        if (!input) {
+          showResponse('emailFilterResponse', { error: 'Please enter email addresses' }, 'error');
+          return;
+        }
+        const emails = input.split(',').map(e => e.trim());
+        try {
+          const data = await apiRequest('/utils/email/filter', {
+            method: 'POST',
+            body: JSON.stringify({ emails })
+          });
+          showResponse('emailFilterResponse', data, 'success');
+        } catch (error) {
+          showResponse('emailFilterResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testCreateEmailTarget() {
+        const name = document.getElementById('emailTargetName').value;
+        const email = document.getElementById('emailTargetAddress').value;
+        if (!email) {
+          showResponse('emailTargetResponse', { error: 'Please enter an email address' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/email/target', {
+            method: 'POST',
+            body: JSON.stringify({ name, email })
+          });
+          showResponse('emailTargetResponse', data, 'success');
+        } catch (error) {
+          showResponse('emailTargetResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ MEMOIZATION ============
+      async function testMemoizedFib() {
+        const n = parseInt(document.getElementById('memoFibInput').value);
+        try {
+          const data = await apiRequest('/utils/memoize/fibonacci', {
+            method: 'POST',
+            body: JSON.stringify({ n, memoized: true })
+          });
+          showResponse('memoFibResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoFibResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testUnmemoizedFib() {
+        const n = parseInt(document.getElementById('memoFibInput').value);
+        if (n > 35) {
+          showResponse('memoFibResponse', { warning: 'Unmemoized calculation for n > 35 may be very slow' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/memoize/fibonacci', {
+            method: 'POST',
+            body: JSON.stringify({ n, memoized: false })
+          });
+          showResponse('memoFibResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoFibResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testMemoWithTTL() {
+        const value = document.getElementById('memoTTLInput').value;
+        const ttl = parseInt(document.getElementById('memoTTLDuration').value);
+        try {
+          const data = await apiRequest('/utils/memoize/ttl', {
+            method: 'POST',
+            body: JSON.stringify({ value, ttl })
+          });
+          showResponse('memoTTLResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoTTLResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testMemoTTLExpiry() {
+        try {
+          const data = await apiRequest('/utils/memoize/ttl/check');
+          showResponse('memoTTLResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoTTLResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function getMemoStats() {
+        try {
+          const data = await apiRequest('/utils/memoize/stats');
+          showResponse('memoStatsResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoStatsResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function clearMemoCache() {
+        try {
+          const data = await apiRequest('/utils/memoize/clear', { method: 'POST' });
+          showResponse('memoStatsResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoStatsResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ CIRCUIT BREAKER ============
+      async function testCircuitBreaker() {
+        const failureRate = parseInt(document.getElementById('cbFailureRate').value);
+        try {
+          const data = await apiRequest('/utils/circuit-breaker/test', {
+            method: 'POST',
+            body: JSON.stringify({ failureRate })
+          });
+          showResponse('circuitBreakerResponse', data, 'success');
+        } catch (error) {
+          showResponse('circuitBreakerResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function triggerCircuitOpen() {
+        try {
+          const data = await apiRequest('/utils/circuit-breaker/trigger-open', { method: 'POST' });
+          showResponse('circuitBreakerResponse', data, 'success');
+        } catch (error) {
+          showResponse('circuitBreakerResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function getCircuitState() {
+        try {
+          const data = await apiRequest('/utils/circuit-breaker/state');
+          showResponse('circuitStateResponse', data, 'success');
+        } catch (error) {
+          showResponse('circuitStateResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function resetCircuit() {
+        try {
+          const data = await apiRequest('/utils/circuit-breaker/reset', { method: 'POST' });
+          showResponse('circuitStateResponse', data, 'success');
+        } catch (error) {
+          showResponse('circuitStateResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function createManagedBreaker() {
+        const serviceName = document.getElementById('cbServiceName').value;
+        try {
+          const data = await apiRequest('/utils/circuit-breaker/factory/create', {
+            method: 'POST',
+            body: JSON.stringify({ serviceName })
+          });
+          showResponse('circuitFactoryResponse', data, 'success');
+        } catch (error) {
+          showResponse('circuitFactoryResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function getFactoryStats() {
+        try {
+          const data = await apiRequest('/utils/circuit-breaker/factory/stats');
+          showResponse('circuitFactoryResponse', data, 'success');
+        } catch (error) {
+          showResponse('circuitFactoryResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ QUEUE MANAGEMENT ============
+      async function testAsyncQueue() {
+        const jobCount = parseInt(document.getElementById('queueJobCount').value);
+        const concurrency = parseInt(document.getElementById('queueConcurrency').value);
+        try {
+          const data = await apiRequest('/utils/queue/async', {
+            method: 'POST',
+            body: JSON.stringify({ jobCount, concurrency })
+          });
+          showResponse('asyncQueueResponse', data, 'success');
+        } catch (error) {
+          showResponse('asyncQueueResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testConcurrencyLimiter() {
+        const maxConcurrent = parseInt(document.getElementById('limiterMaxConcurrent').value);
+        try {
+          const data = await apiRequest('/utils/queue/concurrency-limiter', {
+            method: 'POST',
+            body: JSON.stringify({ maxConcurrent })
+          });
+          showResponse('concurrencyLimiterResponse', data, 'success');
+        } catch (error) {
+          showResponse('concurrencyLimiterResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function startPeriodicTask() {
+        const interval = parseInt(document.getElementById('periodicInterval').value);
+        try {
+          const data = await apiRequest('/utils/queue/periodic/start', {
+            method: 'POST',
+            body: JSON.stringify({ interval })
+          });
+          showResponse('periodicTaskResponse', data, 'success');
+        } catch (error) {
+          showResponse('periodicTaskResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function stopPeriodicTask() {
+        try {
+          const data = await apiRequest('/utils/queue/periodic/stop', { method: 'POST' });
+          showResponse('periodicTaskResponse', data, 'success');
+        } catch (error) {
+          showResponse('periodicTaskResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function getActivePeriodicTasks() {
+        try {
+          const data = await apiRequest('/utils/queue/periodic/active');
+          showResponse('periodicTaskResponse', data, 'success');
+        } catch (error) {
+          showResponse('periodicTaskResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function getQueueState() {
+        try {
+          const data = await apiRequest('/utils/queue/state');
+          showResponse('queueStateResponse', data, 'success');
+        } catch (error) {
+          showResponse('queueStateResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function enforceQueueLimit() {
+        try {
+          const data = await apiRequest('/utils/queue/enforce-limit', { method: 'POST' });
+          showResponse('queueStateResponse', data, 'success');
+        } catch (error) {
+          showResponse('queueStateResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ FAST OPERATIONS ============
+      async function testFastMath() {
+        const a = parseFloat(document.getElementById('fastMathA').value);
+        const b = parseFloat(document.getElementById('fastMathB').value);
+        try {
+          const data = await apiRequest('/utils/fast/math', {
+            method: 'POST',
+            body: JSON.stringify({ a, b })
+          });
+          showResponse('fastMathResponse', data, 'success');
+        } catch (error) {
+          showResponse('fastMathResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testFastString() {
+        const input = document.getElementById('fastStringInput').value;
+        try {
+          const data = await apiRequest('/utils/fast/string', {
+            method: 'POST',
+            body: JSON.stringify({ input })
+          });
+          showResponse('fastStringResponse', data, 'success');
+        } catch (error) {
+          showResponse('fastStringResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testFastHash() {
+        const input = document.getElementById('fastHashInput').value;
+        try {
+          const data = await apiRequest('/utils/fast/hash', {
+            method: 'POST',
+            body: JSON.stringify({ input })
+          });
+          showResponse('fastHashResponse', data, 'success');
+        } catch (error) {
+          showResponse('fastHashResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testObjectPool() {
+        const poolSize = parseInt(document.getElementById('poolSize').value);
+        try {
+          const data = await apiRequest('/utils/fast/object-pool', {
+            method: 'POST',
+            body: JSON.stringify({ poolSize })
+          });
+          showResponse('objectPoolResponse', data, 'success');
+        } catch (error) {
+          showResponse('objectPoolResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testLockFreeQueue() {
+        const operations = parseInt(document.getElementById('lfqOperations').value);
+        try {
+          const data = await apiRequest('/utils/fast/lock-free-queue', {
+            method: 'POST',
+            body: JSON.stringify({ operations })
+          });
+          showResponse('lockFreeQueueResponse', data, 'success');
+        } catch (error) {
+          showResponse('lockFreeQueueResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testFastTimer() {
+        try {
+          const data = await apiRequest('/utils/fast/timer');
+          showResponse('fastTimerResponse', data, 'success');
+        } catch (error) {
+          showResponse('fastTimerResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ PAGINATION ============
+      async function testOffsetPagination() {
+        const page = parseInt(document.getElementById('paginationPage').value);
+        const limit = parseInt(document.getElementById('paginationLimit').value);
+        const total = parseInt(document.getElementById('paginationTotal').value);
+        try {
+          const data = await apiRequest('/utils/pagination/offset', {
+            method: 'POST',
+            body: JSON.stringify({ page, limit, total })
+          });
+          showResponse('offsetPaginationResponse', data, 'success');
+        } catch (error) {
+          showResponse('offsetPaginationResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testCursorPagination() {
+        const cursor = document.getElementById('cursorInput').value;
+        const limit = parseInt(document.getElementById('cursorLimit').value);
+        try {
+          const data = await apiRequest('/utils/pagination/cursor', {
+            method: 'POST',
+            body: JSON.stringify({ cursor: cursor || null, limit })
+          });
+          showResponse('cursorPaginationResponse', data, 'success');
+        } catch (error) {
+          showResponse('cursorPaginationResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function generateCursor() {
+        try {
+          const data = await apiRequest('/utils/pagination/cursor/generate', {
+            method: 'POST',
+            body: JSON.stringify({ id: 'sample-id-' + Date.now(), timestamp: new Date().toISOString() })
+          });
+          showResponse('cursorPaginationResponse', data, 'success');
+          if (data.cursor) {
+            document.getElementById('cursorInput').value = data.cursor;
+          }
+        } catch (error) {
+          showResponse('cursorPaginationResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testSortingValidation() {
+        const field = document.getElementById('sortField').value;
+        const order = document.getElementById('sortOrder').value;
+        try {
+          const data = await apiRequest('/utils/pagination/sort/validate', {
+            method: 'POST',
+            body: JSON.stringify({ field, order })
+          });
+          showResponse('sortingValidationResponse', data, 'success');
+        } catch (error) {
+          showResponse('sortingValidationResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ CACHE UTILITIES ============
+      async function lruSet() {
+        const key = document.getElementById('lruKey').value;
+        const value = document.getElementById('lruValue').value;
+        if (!key) {
+          showResponse('lruCacheResponse', { error: 'Please enter a key' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/cache/lru/set', {
+            method: 'POST',
+            body: JSON.stringify({ key, value })
+          });
+          showResponse('lruCacheResponse', data, 'success');
+        } catch (error) {
+          showResponse('lruCacheResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function lruGet() {
+        const key = document.getElementById('lruKey').value;
+        if (!key) {
+          showResponse('lruCacheResponse', { error: 'Please enter a key' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest(`/utils/cache/lru/get/${encodeURIComponent(key)}`);
+          showResponse('lruCacheResponse', data, 'success');
+        } catch (error) {
+          showResponse('lruCacheResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function lruDelete() {
+        const key = document.getElementById('lruKey').value;
+        if (!key) {
+          showResponse('lruCacheResponse', { error: 'Please enter a key' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest(`/utils/cache/lru/delete/${encodeURIComponent(key)}`, {
+            method: 'DELETE'
+          });
+          showResponse('lruCacheResponse', data, 'success');
+        } catch (error) {
+          showResponse('lruCacheResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testBoundedQueue() {
+        const maxSize = parseInt(document.getElementById('bqMaxSize').value);
+        const itemCount = parseInt(document.getElementById('bqItemCount').value);
+        try {
+          const data = await apiRequest('/utils/cache/bounded-queue', {
+            method: 'POST',
+            body: JSON.stringify({ maxSize, itemCount })
+          });
+          showResponse('boundedQueueResponse', data, 'success');
+        } catch (error) {
+          showResponse('boundedQueueResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testBoundedMap() {
+        const maxSize = parseInt(document.getElementById('bmMaxSize').value);
+        try {
+          const data = await apiRequest('/utils/cache/bounded-map', {
+            method: 'POST',
+            body: JSON.stringify({ maxSize })
+          });
+          showResponse('boundedMapResponse', data, 'success');
+        } catch (error) {
+          showResponse('boundedMapResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function getCacheMetrics() {
+        try {
+          const data = await apiRequest('/utils/cache/metrics');
+          showResponse('cacheMetricsResponse', data, 'success');
+        } catch (error) {
+          showResponse('cacheMetricsResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function resetCacheMetrics() {
+        try {
+          const data = await apiRequest('/utils/cache/metrics/reset', { method: 'POST' });
+          showResponse('cacheMetricsResponse', data, 'success');
+        } catch (error) {
+          showResponse('cacheMetricsResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testMemoryOptimizedCache() {
+        const maxItems = parseInt(document.getElementById('mocMaxItems').value);
+        try {
+          const data = await apiRequest('/utils/cache/memory-optimized', {
+            method: 'POST',
+            body: JSON.stringify({ maxItems })
+          });
+          showResponse('memoryOptimizedCacheResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoryOptimizedCacheResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function getMemoryCacheStats() {
+        try {
+          const data = await apiRequest('/utils/cache/memory-optimized/stats');
+          showResponse('memoryOptimizedCacheResponse', data, 'success');
+        } catch (error) {
+          showResponse('memoryOptimizedCacheResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ STREAMING ============
+      async function testSafeJsonParse() {
+        const input = document.getElementById('jsonInput').value;
+        try {
+          const data = await apiRequest('/utils/streaming/json/parse', {
+            method: 'POST',
+            body: JSON.stringify({ input })
+          });
+          showResponse('safeJsonResponse', data, 'success');
+        } catch (error) {
+          showResponse('safeJsonResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testSafeJsonStringify() {
+        const input = document.getElementById('jsonInput').value;
+        try {
+          const parsed = JSON.parse(input);
+          const data = await apiRequest('/utils/streaming/json/stringify', {
+            method: 'POST',
+            body: JSON.stringify({ input: parsed })
+          });
+          showResponse('safeJsonResponse', data, 'success');
+        } catch (error) {
+          showResponse('safeJsonResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testChunkedProcessing() {
+        const dataSize = parseInt(document.getElementById('chunkDataSize').value);
+        const chunkSize = parseInt(document.getElementById('chunkSize').value);
+        try {
+          const data = await apiRequest('/utils/streaming/chunked', {
+            method: 'POST',
+            body: JSON.stringify({ dataSize, chunkSize })
+          });
+          showResponse('chunkedProcessingResponse', data, 'success');
+        } catch (error) {
+          showResponse('chunkedProcessingResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testLineStreamProcessing() {
+        const input = document.getElementById('lineStreamInput').value;
+        try {
+          const data = await apiRequest('/utils/streaming/lines', {
+            method: 'POST',
+            body: JSON.stringify({ input })
+          });
+          showResponse('lineStreamResponse', data, 'success');
+        } catch (error) {
+          showResponse('lineStreamResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ FIELD UTILITIES ============
+      async function testNormalizeField() {
+        const fieldName = document.getElementById('fieldNameInput').value;
+        if (!fieldName) {
+          showResponse('fieldNormalizeResponse', { error: 'Please enter a field name' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/fields/normalize', {
+            method: 'POST',
+            body: JSON.stringify({ fieldName })
+          });
+          showResponse('fieldNormalizeResponse', data, 'success');
+        } catch (error) {
+          showResponse('fieldNormalizeResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testDenormalizeField() {
+        const fieldName = document.getElementById('fieldNameInput').value;
+        if (!fieldName) {
+          showResponse('fieldNormalizeResponse', { error: 'Please enter a field name' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/fields/denormalize', {
+            method: 'POST',
+            body: JSON.stringify({ fieldName })
+          });
+          showResponse('fieldNormalizeResponse', data, 'success');
+        } catch (error) {
+          showResponse('fieldNormalizeResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testNormalizeObjectFields() {
+        const input = document.getElementById('objectFieldsInput').value;
+        try {
+          const obj = JSON.parse(input);
+          const data = await apiRequest('/utils/fields/normalize-object', {
+            method: 'POST',
+            body: JSON.stringify({ object: obj })
+          });
+          showResponse('objectFieldsResponse', data, 'success');
+        } catch (error) {
+          showResponse('objectFieldsResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testDenormalizeObjectFields() {
+        const input = document.getElementById('objectFieldsInput').value;
+        try {
+          const obj = JSON.parse(input);
+          const data = await apiRequest('/utils/fields/denormalize-object', {
+            method: 'POST',
+            body: JSON.stringify({ object: obj })
+          });
+          showResponse('objectFieldsResponse', data, 'success');
+        } catch (error) {
+          showResponse('objectFieldsResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testGetCollectionName() {
+        const modelName = document.getElementById('modelNameInput').value;
+        if (!modelName) {
+          showResponse('collectionNameResponse', { error: 'Please enter a model name' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/fields/collection-name', {
+            method: 'POST',
+            body: JSON.stringify({ modelName })
+          });
+          showResponse('collectionNameResponse', data, 'success');
+        } catch (error) {
+          showResponse('collectionNameResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testGetMongoType() {
+        const typeName = document.getElementById('typeMapInput').value;
+        try {
+          const data = await apiRequest('/utils/fields/mongo-type', {
+            method: 'POST',
+            body: JSON.stringify({ typeName })
+          });
+          showResponse('typeMapResponse', data, 'success');
+        } catch (error) {
+          showResponse('typeMapResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testGetSupportedTypes() {
+        try {
+          const data = await apiRequest('/utils/fields/supported-types');
+          showResponse('typeMapResponse', data, 'success');
+        } catch (error) {
+          showResponse('typeMapResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testSerializeDocument() {
+        const input = document.getElementById('serializeInput').value;
+        try {
+          const doc = JSON.parse(input);
+          const data = await apiRequest('/utils/fields/serialize', {
+            method: 'POST',
+            body: JSON.stringify({ document: doc })
+          });
+          showResponse('serializeResponse', data, 'success');
+        } catch (error) {
+          showResponse('serializeResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testSerializeWithoutFields() {
+        const input = document.getElementById('serializeInput').value;
+        try {
+          const doc = JSON.parse(input);
+          const data = await apiRequest('/utils/fields/serialize-without', {
+            method: 'POST',
+            body: JSON.stringify({ document: doc, excludeFields: ['__v', '_id'] })
+          });
+          showResponse('serializeResponse', data, 'success');
+        } catch (error) {
+          showResponse('serializeResponse', { error: error.message }, 'error');
+        }
+      }
+
+      // ============ SECURITY ============
+      async function testRateLimiter() {
+        const requests = parseInt(document.getElementById('rateLimitRequests').value);
+        const results = [];
+        for (let i = 0; i < requests; i++) {
+          try {
+            const data = await apiRequest('/utils/security/rate-limit-test');
+            results.push({ request: i + 1, status: 'allowed', data });
+          } catch (error) {
+            results.push({ request: i + 1, status: 'blocked', error: error.message });
+          }
+        }
+        showResponse('rateLimiterResponse', {
+          totalRequests: requests,
+          allowed: results.filter(r => r.status === 'allowed').length,
+          blocked: results.filter(r => r.status === 'blocked').length,
+          results: results.slice(-10)
+        }, 'success');
+      }
+
+      async function getSecurityHeaders() {
+        try {
+          const response = await fetch(`${API_BASE}/utils/security/headers`);
+          const headers = {};
+          response.headers.forEach((value, key) => {
+            headers[key] = value;
+          });
+          showResponse('securityHeadersResponse', { headers }, 'success');
+        } catch (error) {
+          showResponse('securityHeadersResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testHelmetConfig() {
+        try {
+          const data = await apiRequest('/utils/security/helmet-config');
+          showResponse('securityHeadersResponse', data, 'success');
+        } catch (error) {
+          showResponse('securityHeadersResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testPrivacyHeaders() {
+        try {
+          const data = await apiRequest('/utils/security/privacy-headers');
+          showResponse('privacyComplianceResponse', data, 'success');
+        } catch (error) {
+          showResponse('privacyComplianceResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testCCPACompliance() {
+        try {
+          const data = await apiRequest('/utils/security/ccpa-compliance');
+          showResponse('privacyComplianceResponse', data, 'success');
+        } catch (error) {
+          showResponse('privacyComplianceResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testDataExport() {
+        const userId = document.getElementById('dataUserId').value;
+        if (!userId) {
+          showResponse('dataManagementResponse', { error: 'Please enter a user ID' }, 'error');
+          return;
+        }
+        try {
+          const data = await apiRequest('/utils/security/data-export', {
+            method: 'POST',
+            body: JSON.stringify({ userId })
+          });
+          showResponse('dataManagementResponse', data, 'success');
+        } catch (error) {
+          showResponse('dataManagementResponse', { error: error.message }, 'error');
+        }
+      }
+
+      async function testDataDeletion() {
+        const userId = document.getElementById('dataUserId').value;
+        if (!userId) {
+          showResponse('dataManagementResponse', { error: 'Please enter a user ID' }, 'error');
+          return;
+        }
+        if (!confirm('This will simulate a data deletion request. Continue?')) return;
+        try {
+          const data = await apiRequest('/utils/security/data-deletion', {
+            method: 'POST',
+            body: JSON.stringify({ userId })
+          });
+          showResponse('dataManagementResponse', data, 'success');
+        } catch (error) {
+          showResponse('dataManagementResponse', { error: error.message }, 'error');
+        }
       }
     </script>
   </body>
