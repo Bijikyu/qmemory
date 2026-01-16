@@ -4,7 +4,98 @@ const path = require('path');
 const app = express();
 const port = 5000;
 
-// Mock storage for testing
+// Library imports (loaded dynamically since library is ESM)
+// Falls back to mock implementations if library can't load
+let lib = null;
+let libraryError = null;
+
+const loadLibrary = async () => {
+  if (lib) return lib;
+  if (libraryError) throw new Error('Library unavailable: ' + libraryError);
+  try {
+    lib = await import('../dist/index.js');
+    return lib;
+  } catch (err) {
+    libraryError = err.message;
+    throw err;
+  }
+};
+
+// Mock implementations for fallback
+const mockLib = {
+  isValidEmail: (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+  normalizeEmail: (email) => email.toLowerCase().trim(),
+  getEmailDomain: (email) => email.split('@')[1] || null,
+  filterValidEmails: (emails) => emails.filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)),
+  createEmailTarget: (name, email) => name ? `"${name}" <${email}>` : email,
+  greet: (name) => `Hello, ${name}!`,
+  add: (a, b) => a + b,
+  isEven: (n) => n % 2 === 0,
+  dedupe: (arr) => [...new Set(arr)],
+  normalizeFieldName: (f) => f.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, ''),
+  denormalizeFieldName: (f) => f.split('_').map((w, i) => i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(''),
+  normalizeObjectFields: (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, ''), v])),
+  denormalizeObjectFields: (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.split('_').map((w, i) => i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(''), v])),
+  getCollectionName: (model) => model.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '') + 's',
+  getMongoType: (t) => ({ string: 'String', number: 'Number', boolean: 'Boolean', date: 'Date', objectId: 'ObjectId', array: 'Array', object: 'Mixed' }[t] || 'Mixed'),
+  getSupportedTypes: () => [{ name: 'string', mongoType: 'String' }, { name: 'number', mongoType: 'Number' }, { name: 'boolean', mongoType: 'Boolean' }],
+  serializeDocument: (doc) => { const s = { ...doc }; if (s._id) { s.id = s._id; delete s._id; } delete s.__v; return s; },
+  serializeWithoutFields: (doc, fields) => { const s = { ...doc }; fields.forEach(f => delete s[f]); return s; },
+  safeJsonParse: (str) => { try { return { success: true, data: JSON.parse(str) }; } catch (e) { return { success: false, error: e.message }; } },
+  safeJsonStringify: (obj, r, s) => { try { return { success: true, data: JSON.stringify(obj, r, s) }; } catch (e) { return { success: false, error: e.message }; } },
+  validatePagination: (page, limit) => ({ valid: page > 0 && limit > 0, error: page <= 0 || limit <= 0 ? 'Invalid pagination' : null }),
+  createPaginationMeta: (page, limit, total) => ({ page, limit, total, totalPages: Math.ceil(total / limit), offset: (page - 1) * limit, hasNextPage: page < Math.ceil(total / limit), hasPrevPage: page > 1 }),
+  createCursor: (data) => Buffer.from(JSON.stringify(data)).toString('base64'),
+  validateSorting: (field, order, allowedFields) => ({ isValid: allowedFields.includes(field) && ['asc', 'desc'].includes(order), isValidField: allowedFields.includes(field), isValidOrder: ['asc', 'desc'].includes(order) }),
+  getCacheMetrics: () => ({ hits: 0, misses: 0, sets: 0 }),
+  resetCacheMetrics: () => {},
+  FastMath: { add: (a, b) => a + b, sub: (a, b) => a - b, mul: (a, b) => a * b, div: (a, b) => a / b, mod: (a, b) => a % b, pow: Math.pow, max: Math.max, min: Math.min, abs: Math.abs, floor: Math.floor, ceil: Math.ceil, sqrt: Math.sqrt },
+  FastString: { len: (s) => s.length, upper: (s) => s.toUpperCase(), lower: (s) => s.toLowerCase(), reverse: (s) => s.split('').reverse().join(''), trim: (s) => s.trim(), charAt: (s, i) => s.charAt(i) },
+  FastHash: { djb2: (s) => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h = h & h; } return Math.abs(h); } },
+  ObjectPool: class { constructor(f, s) { this.factory = f; this.pool = Array.from({ length: s }, () => f()); } acquire() { return this.pool.pop() || this.factory(); } release(o) { this.pool.push(o); } },
+  LockFreeQueue: class { constructor() { this.items = []; } enqueue(v) { this.items.push(v); } dequeue() { return this.items.shift(); } size() { return this.items.length; } },
+  BoundedQueue: class { constructor(max) { this.max = max; this.items = []; } enqueue(v) { if (this.items.length >= this.max) { const e = this.items.shift(); this.items.push(v); return { evicted: e }; } this.items.push(v); return null; } toArray() { return [...this.items]; } },
+  BoundedMap: class { constructor(max) { this.max = max; this.map = new Map(); } set(k, v) { if (this.map.size >= this.max && !this.map.has(k)) { const fk = this.map.keys().next().value; const e = { key: fk, value: this.map.get(fk) }; this.map.delete(fk); this.map.set(k, v); return { evicted: e }; } this.map.set(k, v); return null; } entries() { return this.map.entries(); } },
+  MemStorage: class { constructor() { this.users = new Map(); this.id = 0; } async getUser(id) { return this.users.get(id); } async getUserByUsername(u) { return Array.from(this.users.values()).find(x => x.username === u); } async createUser(d) { const u = { ...d, id: ++this.id }; this.users.set(u.id, u); return u; } async getAllUsers() { return Array.from(this.users.values()); } },
+};
+
+// Get library (returns real or mock)
+let usingMock = false;
+const getLib = async () => {
+  try {
+    const realLib = await loadLibrary();
+    usingMock = false;
+    return realLib;
+  } catch {
+    usingMock = true;
+    return mockLib;
+  }
+};
+
+// Helper to get source label
+const getSource = (funcName) => usingMock ? `mock.${funcName}` : `library.${funcName}`;
+
+// Initialize library on startup
+let libraryReady = false;
+loadLibrary().then(() => {
+  libraryReady = true;
+  console.log('📚 Library loaded successfully');
+}).catch(err => {
+  console.log('⚠️ Library not available, using mock implementations');
+  console.log('   Reason:', err.message);
+});
+
+// Real storage using library's MemStorage
+let memStorage = null;
+const getStorage = async () => {
+  if (!memStorage) {
+    const library = await getLib();
+    memStorage = new library.MemStorage();
+  }
+  return memStorage;
+};
+
+// Mock storage fallback for testing
 let users = [];
 let userId = 1;
 
@@ -279,64 +370,61 @@ const demoState = {
   rateLimitCounter: new Map(),
 };
 
-// ============ EMAIL UTILITIES ============
-app.post('/utils/email/validate', (req, res) => {
+// ============ EMAIL UTILITIES (real library) ============
+app.post('/utils/email/validate', async (req, res) => {
   const { email } = req.body;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const isValid = emailRegex.test(email);
-  res.json({
-    email,
-    isValid,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const isValid = library.isValidEmail(email);
+    res.json({ email, isValid, source: getSource('isValidEmail'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/email/normalize', (req, res) => {
+app.post('/utils/email/normalize', async (req, res) => {
   const { email } = req.body;
-  const normalized = email.toLowerCase().trim();
-  res.json({
-    original: email,
-    normalized,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const normalized = library.normalizeEmail(email);
+    res.json({ original: email, normalized, source: getSource('normalizeEmail'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/email/domain', (req, res) => {
+app.post('/utils/email/domain', async (req, res) => {
   const { email } = req.body;
-  const parts = email.split('@');
-  const domain = parts.length === 2 ? parts[1].toLowerCase() : null;
-  res.json({
-    email,
-    domain,
-    isValid: domain !== null,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const domain = library.getEmailDomain(email);
+    res.json({ email, domain, isValid: domain !== null, source: getSource('getEmailDomain'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/email/filter', (req, res) => {
+app.post('/utils/email/filter', async (req, res) => {
   const { emails } = req.body;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const valid = emails.filter(e => emailRegex.test(e));
-  const invalid = emails.filter(e => !emailRegex.test(e));
-  res.json({
-    totalInput: emails.length,
-    validCount: valid.length,
-    invalidCount: invalid.length,
-    validEmails: valid,
-    invalidEmails: invalid,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const validEmails = library.filterValidEmails(emails);
+    const invalidEmails = emails.filter(e => !library.isValidEmail(e));
+    res.json({ totalInput: emails.length, validCount: validEmails.length, invalidCount: invalidEmails.length, validEmails, invalidEmails, source: getSource('filterValidEmails'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/email/target', (req, res) => {
+app.post('/utils/email/target', async (req, res) => {
   const { name, email } = req.body;
-  const target = name ? `"${name}" <${email}>` : email;
-  res.json({
-    target,
-    name: name || null,
-    email,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const target = library.createEmailTarget(name, email);
+    res.json({ target, name: name || null, email, source: getSource('createEmailTarget'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 // ============ MEMOIZATION ============
@@ -663,112 +751,132 @@ app.post('/utils/queue/enforce-limit', (req, res) => {
   });
 });
 
-// ============ FAST OPERATIONS ============
-app.post('/utils/fast/math', (req, res) => {
+// ============ FAST OPERATIONS (real library) ============
+app.post('/utils/fast/math', async (req, res) => {
   const { a, b } = req.body;
-  res.json({
-    operations: {
-      add: a + b,
-      subtract: a - b,
-      multiply: a * b,
-      divide: b !== 0 ? a / b : 'undefined',
-      modulo: b !== 0 ? a % b : 'undefined',
-      power: Math.pow(a, b > 10 ? 10 : b),
-      max: Math.max(a, b),
-      min: Math.min(a, b),
-      abs_a: Math.abs(a),
-      floor_a: Math.floor(a),
-      ceil_a: Math.ceil(a),
-      sqrt_a: a >= 0 ? Math.sqrt(a) : 'undefined',
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
-
-app.post('/utils/fast/string', (req, res) => {
-  const { input } = req.body;
-  res.json({
-    operations: {
-      length: input.length,
-      uppercase: input.toUpperCase(),
-      lowercase: input.toLowerCase(),
-      reversed: input.split('').reverse().join(''),
-      trimmed: input.trim(),
-      words: input.split(/\s+/).length,
-      chars: input.replace(/\s/g, '').length,
-      firstChar: input.charAt(0),
-      lastChar: input.charAt(input.length - 1),
-      isPalindrome: input.toLowerCase().replace(/\s/g, '') === input.toLowerCase().replace(/\s/g, '').split('').reverse().join(''),
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
-
-app.post('/utils/fast/hash', (req, res) => {
-  const { input } = req.body;
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+  try {
+    const library = await getLib();
+    const FM = library.FastMath;
+    res.json({
+      operations: {
+        add: FM.add(a, b),
+        subtract: FM.sub(a, b),
+        multiply: FM.mul(a, b),
+        divide: b !== 0 ? FM.div(a, b) : 'undefined',
+        modulo: b !== 0 ? FM.mod(a, b) : 'undefined',
+        power: FM.pow(a, Math.min(b, 10)),
+        max: FM.max(a, b),
+        min: FM.min(a, b),
+        abs_a: FM.abs(a),
+        floor_a: FM.floor(a),
+        ceil_a: FM.ceil(a),
+        sqrt_a: a >= 0 ? FM.sqrt(a) : 'undefined',
+      },
+      source: getSource('FastMath'),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  res.json({
-    input,
-    hash: Math.abs(hash).toString(16),
-    hashInt: Math.abs(hash),
-    djb2: Math.abs(hash),
-    timestamp: new Date().toISOString(),
-  });
 });
 
-app.post('/utils/fast/object-pool', (req, res) => {
+app.post('/utils/fast/string', async (req, res) => {
+  const { input } = req.body;
+  try {
+    const library = await getLib();
+    const FS = library.FastString;
+    res.json({
+      operations: {
+        length: FS.len(input),
+        uppercase: FS.upper(input),
+        lowercase: FS.lower(input),
+        reversed: FS.reverse(input),
+        trimmed: FS.trim(input),
+        words: input.split(/\s+/).length,
+        chars: input.replace(/\s/g, '').length,
+        firstChar: FS.charAt(input, 0),
+        lastChar: FS.charAt(input, input.length - 1),
+        isPalindrome: FS.lower(input).replace(/\s/g, '') === FS.reverse(FS.lower(input).replace(/\s/g, '')),
+      },
+      source: getSource('FastString'),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
+});
+
+app.post('/utils/fast/hash', async (req, res) => {
+  const { input } = req.body;
+  try {
+    const library = await getLib();
+    const FH = library.FastHash;
+    const hash = FH.djb2(input);
+    res.json({
+      input,
+      hash: Math.abs(hash).toString(16),
+      hashInt: Math.abs(hash),
+      djb2: Math.abs(hash),
+      source: getSource('FastHash'),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
+});
+
+app.post('/utils/fast/object-pool', async (req, res) => {
   const { poolSize } = req.body;
-  const pool = [];
-  const acquired = [];
-  
-  for (let i = 0; i < poolSize; i++) {
-    pool.push({ id: i + 1, data: null });
+  try {
+    const library = await getLib();
+    const pool = new library.ObjectPool(() => ({ id: 0, data: null }), poolSize);
+    const acquired = [];
+    for (let i = 0; i < Math.min(3, poolSize); i++) {
+      const obj = pool.acquire();
+      obj.id = i + 1;
+      obj.data = `acquired-${i + 1}`;
+      acquired.push({ ...obj });
+    }
+    res.json({
+      poolSize,
+      availableInPool: poolSize - acquired.length,
+      acquired: acquired.length,
+      acquiredObjects: acquired,
+      source: getSource('ObjectPool'),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  
-  for (let i = 0; i < Math.min(3, poolSize); i++) {
-    const obj = pool.pop();
-    obj.data = `acquired-${i + 1}`;
-    acquired.push(obj);
-  }
-  
-  res.json({
-    poolSize,
-    availableInPool: pool.length,
-    acquired: acquired.length,
-    acquiredObjects: acquired,
-    timestamp: new Date().toISOString(),
-  });
 });
 
-app.post('/utils/fast/lock-free-queue', (req, res) => {
+app.post('/utils/fast/lock-free-queue', async (req, res) => {
   const { operations } = req.body;
-  const queue = [];
-  const startTime = process.hrtime.bigint();
-  
-  for (let i = 0; i < operations / 2; i++) {
-    queue.push(i);
+  try {
+    const library = await getLib();
+    const queue = new library.LockFreeQueue();
+    const startTime = process.hrtime.bigint();
+    for (let i = 0; i < operations / 2; i++) {
+      queue.enqueue(i);
+    }
+    for (let i = 0; i < operations / 2; i++) {
+      queue.dequeue();
+    }
+    const endTime = process.hrtime.bigint();
+    const durationMs = Number(endTime - startTime) / 1000000;
+    res.json({
+      operations,
+      enqueued: operations / 2,
+      dequeued: operations / 2,
+      finalQueueSize: queue.size(),
+      durationMs: durationMs.toFixed(3),
+      opsPerSecond: Math.floor(operations / (durationMs / 1000)),
+      source: getSource('LockFreeQueue'),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  for (let i = 0; i < operations / 2; i++) {
-    queue.shift();
-  }
-  
-  const endTime = process.hrtime.bigint();
-  const durationMs = Number(endTime - startTime) / 1000000;
-  
-  res.json({
-    operations,
-    enqueued: operations / 2,
-    dequeued: operations / 2,
-    finalQueueSize: queue.length,
-    durationMs: durationMs.toFixed(3),
-    opsPerSecond: Math.floor(operations / (durationMs / 1000)),
-    timestamp: new Date().toISOString(),
-  });
 });
 
 app.get('/utils/fast/timer', (req, res) => {
@@ -787,26 +895,20 @@ app.get('/utils/fast/timer', (req, res) => {
   });
 });
 
-// ============ PAGINATION ============
-app.post('/utils/pagination/offset', (req, res) => {
+// ============ PAGINATION (real library) ============
+app.post('/utils/pagination/offset', async (req, res) => {
   const { page, limit, total } = req.body;
-  const totalPages = Math.ceil(total / limit);
-  const offset = (page - 1) * limit;
-  
-  res.json({
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages,
-      offset,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
-      nextPage: page < totalPages ? page + 1 : null,
-      prevPage: page > 1 ? page - 1 : null,
-    },
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const validation = library.validatePagination(page, limit);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error, timestamp: new Date().toISOString() });
+    }
+    const meta = library.createPaginationMeta(page, limit, total);
+    res.json({ pagination: meta, source: getSource('createPaginationMeta'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 app.post('/utils/pagination/cursor', (req, res) => {
@@ -841,34 +943,27 @@ app.post('/utils/pagination/cursor', (req, res) => {
   });
 });
 
-app.post('/utils/pagination/cursor/generate', (req, res) => {
+app.post('/utils/pagination/cursor/generate', async (req, res) => {
   const { id, timestamp } = req.body;
-  const cursor = Buffer.from(JSON.stringify({ id, timestamp, offset: 0 })).toString('base64');
-  res.json({
-    cursor,
-    decoded: { id, timestamp, offset: 0 },
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const cursor = library.createCursor({ id, timestamp, offset: 0 });
+    res.json({ cursor, decoded: { id, timestamp, offset: 0 }, source: getSource('createCursor'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/pagination/sort/validate', (req, res) => {
+app.post('/utils/pagination/sort/validate', async (req, res) => {
   const { field, order } = req.body;
-  const allowedFields = ['id', 'name', 'createdAt', 'updatedAt', 'username', 'email'];
-  const allowedOrders = ['asc', 'desc'];
-  
-  const isValidField = allowedFields.includes(field);
-  const isValidOrder = allowedOrders.includes(order);
-  
-  res.json({
-    field,
-    order,
-    isValidField,
-    isValidOrder,
-    isValid: isValidField && isValidOrder,
-    allowedFields,
-    allowedOrders,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const allowedFields = ['id', 'name', 'createdAt', 'updatedAt', 'username', 'email'];
+    const result = library.validateSorting(field, order, allowedFields);
+    res.json({ field, order, ...result, allowedFields, allowedOrders: ['asc', 'desc'], source: getSource('validateSorting'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 // ============ CACHE UTILITIES ============
@@ -925,71 +1020,58 @@ app.delete('/utils/cache/lru/delete/:key', (req, res) => {
   });
 });
 
-app.post('/utils/cache/bounded-queue', (req, res) => {
+app.post('/utils/cache/bounded-queue', async (req, res) => {
   const { maxSize, itemCount } = req.body;
-  const queue = [];
-  const evicted = [];
-  
-  for (let i = 0; i < itemCount; i++) {
-    if (queue.length >= maxSize) {
-      evicted.push(queue.shift());
+  try {
+    const library = await getLib();
+    const queue = new library.BoundedQueue(maxSize);
+    const evicted = [];
+    for (let i = 0; i < itemCount; i++) {
+      const result = queue.enqueue(`item-${i + 1}`);
+      if (result && result.evicted) evicted.push(result.evicted);
     }
-    queue.push(`item-${i + 1}`);
+    res.json({ maxSize, itemsAdded: itemCount, itemsEvicted: evicted.length, evictedItems: evicted, finalQueue: queue.toArray(), source: getSource('BoundedQueue'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  
-  res.json({
-    maxSize,
-    itemsAdded: itemCount,
-    itemsEvicted: evicted.length,
-    evictedItems: evicted,
-    finalQueue: queue,
-    timestamp: new Date().toISOString(),
-  });
 });
 
-app.post('/utils/cache/bounded-map', (req, res) => {
+app.post('/utils/cache/bounded-map', async (req, res) => {
   const { maxSize } = req.body;
-  const map = new Map();
-  const evicted = [];
-  
-  for (let i = 0; i < maxSize + 5; i++) {
-    if (map.size >= maxSize) {
-      const firstKey = map.keys().next().value;
-      evicted.push({ key: firstKey, value: map.get(firstKey) });
-      map.delete(firstKey);
+  try {
+    const library = await getLib();
+    const map = new library.BoundedMap(maxSize);
+    const evicted = [];
+    for (let i = 0; i < maxSize + 5; i++) {
+      const result = map.set(`key-${i + 1}`, `value-${i + 1}`);
+      if (result && result.evicted) evicted.push(result.evicted);
     }
-    map.set(`key-${i + 1}`, `value-${i + 1}`);
+    res.json({ maxSize, entriesAdded: maxSize + 5, entriesEvicted: evicted.length, evictedEntries: evicted, finalMap: Object.fromEntries(map.entries()), source: getSource('BoundedMap'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  
-  res.json({
-    maxSize,
-    entriesAdded: maxSize + 5,
-    entriesEvicted: evicted.length,
-    evictedEntries: evicted,
-    finalMap: Object.fromEntries(map),
-    timestamp: new Date().toISOString(),
-  });
 });
 
-let cacheMetrics = { hits: 0, misses: 0, sets: 0 };
-app.get('/utils/cache/metrics', (req, res) => {
-  res.json({
-    metrics: cacheMetrics,
-    hitRate: cacheMetrics.hits + cacheMetrics.misses > 0 
-      ? ((cacheMetrics.hits / (cacheMetrics.hits + cacheMetrics.misses)) * 100).toFixed(2) + '%'
-      : '0%',
-    lruCacheSize: demoState.lruCache.size,
-    timestamp: new Date().toISOString(),
-  });
+app.get('/utils/cache/metrics', async (req, res) => {
+  try {
+    const library = await getLib();
+    const metrics = library.getCacheMetrics();
+    const hitRate = metrics.hits + metrics.misses > 0 
+      ? ((metrics.hits / (metrics.hits + metrics.misses)) * 100).toFixed(2) + '%' : '0%';
+    res.json({ metrics, hitRate, lruCacheSize: demoState.lruCache.size, source: getSource('getCacheMetrics'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/cache/metrics/reset', (req, res) => {
-  cacheMetrics = { hits: 0, misses: 0, sets: 0 };
-  res.json({
-    message: 'Cache metrics reset',
-    metrics: cacheMetrics,
-    timestamp: new Date().toISOString(),
-  });
+app.post('/utils/cache/metrics/reset', async (req, res) => {
+  try {
+    const library = await getLib();
+    library.resetCacheMetrics();
+    res.json({ message: 'Cache metrics reset', source: getSource('resetCacheMetrics'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 app.post('/utils/cache/memory-optimized', (req, res) => {
@@ -1029,45 +1111,34 @@ app.get('/utils/cache/memory-optimized/stats', (req, res) => {
   });
 });
 
-// ============ STREAMING ============
-app.post('/utils/streaming/json/parse', (req, res) => {
+// ============ STREAMING (real library) ============
+app.post('/utils/streaming/json/parse', async (req, res) => {
   const { input } = req.body;
   try {
-    const parsed = JSON.parse(input);
-    res.json({
-      success: true,
-      parsed,
-      type: typeof parsed,
-      isArray: Array.isArray(parsed),
-      keys: typeof parsed === 'object' && parsed !== null ? Object.keys(parsed) : [],
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    res.json({
-      success: false,
-      error: error.message,
-      input,
-      timestamp: new Date().toISOString(),
-    });
+    const library = await getLib();
+    const result = library.safeJsonParse(input);
+    if (result.success) {
+      res.json({ success: true, parsed: result.data, type: typeof result.data, isArray: Array.isArray(result.data), keys: typeof result.data === 'object' && result.data !== null ? Object.keys(result.data) : [], source: getSource('safeJsonParse'), timestamp: new Date().toISOString() });
+    } else {
+      res.json({ success: false, error: result.error, input, source: getSource('safeJsonParse'), timestamp: new Date().toISOString() });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
 });
 
-app.post('/utils/streaming/json/stringify', (req, res) => {
+app.post('/utils/streaming/json/stringify', async (req, res) => {
   const { input } = req.body;
   try {
-    const stringified = JSON.stringify(input, null, 2);
-    res.json({
-      success: true,
-      stringified,
-      length: stringified.length,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    res.json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    });
+    const library = await getLib();
+    const result = library.safeJsonStringify(input, null, 2);
+    if (result.success) {
+      res.json({ success: true, stringified: result.data, length: result.data.length, source: getSource('safeJsonStringify'), timestamp: new Date().toISOString() });
+    } else {
+      res.json({ success: false, error: result.error, source: getSource('safeJsonStringify'), timestamp: new Date().toISOString() });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
 });
 
@@ -1113,157 +1184,103 @@ app.post('/utils/streaming/lines', (req, res) => {
   });
 });
 
-// ============ FIELD UTILITIES ============
-app.post('/utils/fields/normalize', (req, res) => {
+// ============ FIELD UTILITIES (real library) ============
+app.post('/utils/fields/normalize', async (req, res) => {
   const { fieldName } = req.body;
-  const normalized = fieldName
-    .replace(/([A-Z])/g, '_$1')
-    .toLowerCase()
-    .replace(/^_/, '')
-    .replace(/-/g, '_');
-  
-  res.json({
-    original: fieldName,
-    normalized,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const normalized = library.normalizeFieldName(fieldName);
+    res.json({ original: fieldName, normalized, source: getSource('normalizeFieldName'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/fields/denormalize', (req, res) => {
+app.post('/utils/fields/denormalize', async (req, res) => {
   const { fieldName } = req.body;
-  const denormalized = fieldName
-    .split('_')
-    .map((word, index) => index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
-    .join('');
-  
-  res.json({
-    original: fieldName,
-    denormalized,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-app.post('/utils/fields/normalize-object', (req, res) => {
-  const { object } = req.body;
-  const normalized = {};
-  
-  for (const [key, value] of Object.entries(object)) {
-    const normalizedKey = key
-      .replace(/([A-Z])/g, '_$1')
-      .toLowerCase()
-      .replace(/^_/, '');
-    normalized[normalizedKey] = value;
+  try {
+    const library = await getLib();
+    const denormalized = library.denormalizeFieldName(fieldName);
+    res.json({ original: fieldName, denormalized, source: getSource('denormalizeFieldName'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  
-  res.json({
-    original: object,
-    normalized,
-    timestamp: new Date().toISOString(),
-  });
 });
 
-app.post('/utils/fields/denormalize-object', (req, res) => {
+app.post('/utils/fields/normalize-object', async (req, res) => {
   const { object } = req.body;
-  const denormalized = {};
-  
-  for (const [key, value] of Object.entries(object)) {
-    const denormalizedKey = key
-      .split('_')
-      .map((word, index) => index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
-      .join('');
-    denormalized[denormalizedKey] = value;
+  try {
+    const library = await getLib();
+    const normalized = library.normalizeObjectFields(object);
+    res.json({ original: object, normalized, source: getSource('normalizeObjectFields'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  
-  res.json({
-    original: object,
-    denormalized,
-    timestamp: new Date().toISOString(),
-  });
 });
 
-app.post('/utils/fields/collection-name', (req, res) => {
+app.post('/utils/fields/denormalize-object', async (req, res) => {
+  const { object } = req.body;
+  try {
+    const library = await getLib();
+    const denormalized = library.denormalizeObjectFields(object);
+    res.json({ original: object, denormalized, source: getSource('denormalizeObjectFields'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
+});
+
+app.post('/utils/fields/collection-name', async (req, res) => {
   const { modelName } = req.body;
-  const collectionName = modelName
-    .replace(/([A-Z])/g, '_$1')
-    .toLowerCase()
-    .replace(/^_/, '') + 's';
-  
-  res.json({
-    modelName,
-    collectionName,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const collectionName = library.getCollectionName(modelName);
+    res.json({ modelName, collectionName, source: getSource('getCollectionName'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/fields/mongo-type', (req, res) => {
+app.post('/utils/fields/mongo-type', async (req, res) => {
   const { typeName } = req.body;
-  const typeMap = {
-    string: 'String',
-    number: 'Number',
-    boolean: 'Boolean',
-    date: 'Date',
-    objectId: 'ObjectId',
-    array: 'Array',
-    object: 'Mixed',
-    buffer: 'Buffer',
-    map: 'Map',
-  };
-  
-  res.json({
-    typeName,
-    mongoType: typeMap[typeName] || 'Mixed',
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const mongoType = library.getMongoType(typeName);
+    res.json({ typeName, mongoType, source: getSource('getMongoType'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.get('/utils/fields/supported-types', (req, res) => {
-  res.json({
-    types: [
-      { name: 'string', mongoType: 'String', description: 'Text data' },
-      { name: 'number', mongoType: 'Number', description: 'Numeric data' },
-      { name: 'boolean', mongoType: 'Boolean', description: 'True/false values' },
-      { name: 'date', mongoType: 'Date', description: 'Date and time' },
-      { name: 'objectId', mongoType: 'ObjectId', description: 'MongoDB ObjectId' },
-      { name: 'array', mongoType: 'Array', description: 'List of items' },
-      { name: 'object', mongoType: 'Mixed', description: 'Nested object' },
-      { name: 'buffer', mongoType: 'Buffer', description: 'Binary data' },
-      { name: 'map', mongoType: 'Map', description: 'Key-value pairs' },
-    ],
-    timestamp: new Date().toISOString(),
-  });
+app.get('/utils/fields/supported-types', async (req, res) => {
+  try {
+    const library = await getLib();
+    const types = library.getSupportedTypes();
+    res.json({ types, source: getSource('getSupportedTypes'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/fields/serialize', (req, res) => {
+app.post('/utils/fields/serialize', async (req, res) => {
   const { document } = req.body;
-  const serialized = { ...document };
-  
-  if (serialized._id) {
-    serialized.id = serialized._id;
-    delete serialized._id;
+  try {
+    const library = await getLib();
+    const serialized = library.serializeDocument(document);
+    res.json({ original: document, serialized, source: getSource('serializeDocument'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  delete serialized.__v;
-  
-  res.json({
-    original: document,
-    serialized,
-    timestamp: new Date().toISOString(),
-  });
 });
 
-app.post('/utils/fields/serialize-without', (req, res) => {
+app.post('/utils/fields/serialize-without', async (req, res) => {
   const { document, excludeFields } = req.body;
-  const serialized = { ...document };
-  
-  for (const field of excludeFields) {
-    delete serialized[field];
+  try {
+    const library = await getLib();
+    const serialized = library.serializeWithoutFields(document, excludeFields);
+    res.json({ original: document, excludeFields, serialized, source: getSource('serializeWithoutFields'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  
-  res.json({
-    original: document,
-    excludeFields,
-    serialized,
-    timestamp: new Date().toISOString(),
-  });
 });
 
 // ============ SECURITY ============
@@ -1429,49 +1446,56 @@ app.get('/validation/rules', (req, res) => {
   });
 });
 
-// ============ BASIC UTILITIES (existing) ============
-app.get('/utils/greet', (req, res) => {
+// ============ BASIC UTILITIES (real library) ============
+app.get('/utils/greet', async (req, res) => {
   const name = req.query.name || 'World';
-  res.json({
-    greeting: `Hello, ${name}!`,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-app.post('/utils/math', (req, res) => {
-  const { a, b, operation } = req.body;
-  let result;
-  switch (operation) {
-    case 'add': result = a + b; break;
-    case 'subtract': result = a - b; break;
-    case 'multiply': result = a * b; break;
-    case 'divide': result = b !== 0 ? a / b : 'undefined'; break;
-    default: result = a + b;
+  try {
+    const library = await getLib();
+    const greeting = library.greet(name);
+    res.json({ greeting, source: getSource('greet'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
-  res.json({
-    a, b, operation, result,
-    timestamp: new Date().toISOString(),
-  });
 });
 
-app.get('/utils/even/:num', (req, res) => {
+app.post('/utils/math', async (req, res) => {
+  const { a, b, operation } = req.body;
+  try {
+    const library = await getLib();
+    let result;
+    switch (operation) {
+      case 'add': result = library.add(a, b); break;
+      case 'subtract': result = a - b; break;
+      case 'multiply': result = a * b; break;
+      case 'divide': result = b !== 0 ? a / b : 'undefined'; break;
+      default: result = library.add(a, b);
+    }
+    res.json({ a, b, operation, result, source: getSource('add'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
+});
+
+app.get('/utils/even/:num', async (req, res) => {
   const num = parseInt(req.params.num);
-  res.json({
-    number: num,
-    isEven: num % 2 === 0,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const isEven = library.isEven(num);
+    res.json({ number: num, isEven, source: getSource('isEven'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
-app.post('/utils/dedupe', (req, res) => {
+app.post('/utils/dedupe', async (req, res) => {
   const { items } = req.body;
-  const deduped = [...new Set(items)];
-  res.json({
-    original: items,
-    deduped,
-    removed: items.length - deduped.length,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const library = await getLib();
+    const deduped = library.dedupe(items);
+    res.json({ original: items, deduped, removed: items.length - deduped.length, source: getSource('dedupe'), timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 // 404 handler
