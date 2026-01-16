@@ -19,7 +19,7 @@ info:
     - Stateless for horizontal scaling
     - Type-safe TypeScript implementation
     - Production-grade security measures
-  version: 2.1.0
+  version: 1.0.2
   contact:
     name: QMemory Development Team
     email: support@qmemory.dev

@@ -43,8 +43,7 @@ The library adheres to a strict modular design following the Single Responsibili
 -   **Database Utilities (`lib/database-utils.js`)**: Manages MongoDB connection validation and utilities.
 -   **Document Operations (`lib/document-ops.js`)**: Offers high-level CRUD operations with integrated user ownership checks.
 -   **In-Memory Storage (`lib/storage.js`)**: Handles in-memory storage for user data.
--   **Binary Storage (`lib/binary-storage.js`)**: Defines an interface for binary data storage.
--   **Object Storage Binary (`lib/object-storage-binary.js`)**: Implements cloud-based binary storage using Replit Object Storage.
+-   **Binary Storage (`lib/binary-storage.ts`)**: Provides memory, filesystem, and configurable backends for storing Buffer-based payloads with shared interfaces
 -   **Utility Functions (`lib/utils.js`)**: Contains basic, general-purpose utility functions.
 -   **Logging Utilities (`lib/logging-utils.js`)**: Centralizes logging patterns for consistent output.
 -   **Pagination Utilities (`lib/pagination-utils.js`)**: Validates pagination parameters and formats responses.

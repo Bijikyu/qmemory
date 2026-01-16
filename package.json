@@ -1,10 +1,20 @@
 {
-  "name": "qmemory",
-  "version": "1.0.2",
+  "name": "@bijikyu/qmemory",
+  "version": "2.0.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
   "description": "A comprehensive production-ready Node.js utility library with MongoDB document operations, user ownership enforcement, Express.js HTTP utilities, environment-aware logging, and in-memory storage. Features 96%+ test coverage with comprehensive error handling and security patterns.",
   "type": "module",
   "main": "dist/index.js",
   "types": "index.d.ts",
+  "files": [
+    "dist",
+    "lib",
+    "types",
+    "index.d.ts"
+  ],
   "scripts": {
     "test": "node qtests-runner.mjs",
     "test:watch": "jest --watch",
@@ -79,7 +89,6 @@
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
     "agentsqripts": "^1.1.0",
-    "arqitect": "^1.1.1",
     "babel-jest": "^30.2.0",
     "commoncontext": "^1.0.3",
     "eslint": "^9.39.2",
@@ -94,7 +103,6 @@
     "opencode-ai": "^1.1.19",
     "prettier": "^3.7.4",
     "qtests": "^2.0.0",
-    "quantumagent": "^1.0.5",
     "supertest": "^6.3.4",
     "ts-jest": "^29.4.6",
     "ts-node": "^1.7.1",
@@ -103,10 +111,11 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/Bijikyu/qmemory.git"
   },
   "bugs": {
-    "url": ""
+    "url": "https://github.com/Bijikyu/qmemory/issues"
   },
-  "homepage": ""
+  "homepage": "https://github.com/Bijikyu/qmemory#readme",
+  "funding": "https://github.com/sponsors/Bijikyu"
 }

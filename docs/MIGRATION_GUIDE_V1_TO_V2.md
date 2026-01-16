@@ -1,96 +1,111 @@
-# QMemory Library - Migration Guide v1.0 to v2.1.0
+# QMemory Library - Migration Guide to v1.0.2
 
 ## Overview
 
-This migration guide helps existing QMemory library users upgrade from version 1.0 to the enhanced version 2.1.0 with full scalability features. The migration includes breaking changes but provides significant performance improvements and new capabilities.
+This migration guide helps existing QMemory library users upgrade from version 1.0 to the current `v1.0.2` release with refreshed scalability features. The migration covers the security-by-default enforcement updates, observability improvements, and configuration adjustments that ship with this release.
 
 ## Breaking Changes
 
 ### 1. Node.js Version Requirement
 
-**Before**: Node.js 16.0+
-**After**: Node.js 18.0+ (LTS recommended)
+**Before**: Node.js 16.x
+**After**: Node.js 18.x or higher
 
-**Migration Required**: Yes
+**Migration Required**: Yes—this release takes advantage of modern ESM support and platform APIs introduced in Node 18.
 
 ```bash
-# Check current Node.js version
-node --version  # Must be >= 18.0.0
-
-# Upgrade if needed
-# Using nvm
-nvm install 20
-nvm use 20
-
-# Using package manager
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
+# Verify runtime version
+node --version  # Should be >= 18.0.0
 ```
 
-### 2. Database Connection Changes
+### 2. Database Connection Pooling
 
-**Before**: Direct MongoDB connections
-**After**: Database connection pooling with circuit breaker
+**Before**: Per-request `MongoClient` instances
+**After**: Shared connection pool via `DatabaseConnectionPool`
 
-**Migration Required**: Yes
+**Migration Required**: Yes—use the pool to enforce user ownership and resiliency in production workloads.
 
 ```javascript
-// v1.0 - Direct Connection
-import { MongoClient } from 'mongodb';
-const client = new MongoClient(url);
-await client.connect();
+import { DatabaseConnectionPool } from '@bijikyu/qmemory/lib/database-pool.js';
 
-// v2.1.0 - Connection Pooling
-import { DatabaseConnectionPool } from 'qmemory/lib/database-pool.js';
 const pool = new DatabaseConnectionPool();
-await pool.createPool(url, {
-  maxConnections: 20,
-  minConnections: 2,
-  acquireTimeout: 10000,
+await pool.createPool(process.env.MONGODB_URI || 'mongodb://localhost:27017/qmemory', {
+  maxConnections: Number(process.env.DEFAULT_POOL_MAX_CONNECTIONS || 20),
+  minConnections: Number(process.env.DEFAULT_POOL_MIN_CONNECTIONS || 5),
+  acquireTimeout: Number(process.env.DEFAULT_POOL_ACQUIRE_TIMEOUT || 10000),
+  idleTimeout: Number(process.env.DEFAULT_POOL_IDLE_TIMEOUT || 300000),
+});
+
+const connection = await pool.acquireConnection(process.env.MONGODB_URI!);
+await pool.releaseConnection(process.env.MONGODB_URI!, connection);
+```
+
+### 3. Module Imports & Entry Point
+
+The library still exports everything through the barrel entry point (`index.js`), but the runtime now ships as ESM, so explicit `.js` file extensions or direct `lib/` imports are required for Node consumers.
+
+```javascript
+// Preferred: barrel exports via package entry point
+import { MemStorage, sendSuccess } from '@bijikyu/qmemory';
+
+// Explicit file imports also work
+import { MemStorage } from '@bijikyu/qmemory/lib/storage.js';
+import { sendSuccess } from '@bijikyu/qmemory/lib/http-utils.js';
+```
+
+### 4. Security & Observability
+
+#### Rate Limiting & Security Middleware
+
+`setupSecurity` now applies a `BasicRateLimiter` that respects `RATE_LIMIT_WINDOW` and `RATE_LIMIT_MAX` (default 15 min / 100 requests). Callers can also instantiate `BasicRateLimiter` directly when custom limits are required.
+
+```javascript
+import express from 'express';
+import { setupSecurity, BasicRateLimiter } from '@bijikyu/qmemory/lib/security-middleware.js';
+
+const app = express();
+setupSecurity(app);
+
+// Custom limiter for public endpoints
+const heavyEndpointLimiter = new BasicRateLimiter(60000, 1000);
+app.use('/public', heavyEndpointLimiter.middleware());
+```
+
+#### Request Tracing & Logging
+
+Responses now include a `requestId` via the shared `http-response-factory` and `logging-utils` so observability spans remain correlated. `ENABLE_REQUEST_ID`, `ENABLE_CORS`, and `LOG_LEVEL` control runtime behavior.
+
+```javascript
+import { sendSuccess } from '@bijikyu/qmemory/lib/http-utils.js';
+import { logFunctionEntry, logFunctionExit } from '@bijikyu/qmemory/lib/logging-utils.js';
+import { generateUniqueId } from '@bijikyu/qmemory/lib/common-patterns.js';
+
+app.get('/posts/:id', (req, res) => {
+  const requestId = req.get('X-Request-ID') ?? generateUniqueId();
+  res.set('X-Request-ID', requestId);
+  logFunctionEntry('getPost', { requestId, id: req.params.id });
+
+  // ... perform work ...
+
+  logFunctionExit('getPost', { requestId, status: 'completed' });
+  sendSuccess(res, 'Post retrieved', { requestId });
 });
 ```
 
-### 3. Import Path Changes
+#### Performance Monitoring
 
-**Before**: Simple imports
-**After**: Module restructuring
-
-**Migration Required**: Yes
+Use `PerformanceMonitor` to capture system, request, and database metrics; `getMiddleware()` can be attached globally while `getHealthCheck()` provides a rich health payload.
 
 ```javascript
-// v1.0 Imports
-import { MemStorage, sendSuccess } from 'qmemory';
+import { PerformanceMonitor } from '@bijikyu/qmemory/lib/performance/performance-monitor.js';
 
-// v2.1.0 Imports
-import { MemStorage, sendSuccess } from 'qmemory/index.js';
-// OR using individual modules
-import { MemStorage } from 'qmemory/lib/storage.js';
-import { sendSuccess } from 'qmemory/lib/http-utils.js';
-```
+const monitor = new PerformanceMonitor();
+app.use(monitor.getMiddleware());
 
-### 4. Configuration Changes
-
-**Before**: Basic environment variables
-**After**: Enhanced production configuration
-
-**Migration Required**: Yes
-
-```bash
-# v1.0 Environment
-NODE_ENV=production
-PORT=5000
-MONGODB_URL=mongodb://localhost:27017/qmemory
-
-# v2.1.0 Environment (Required)
-NODE_ENV=production
-PORT=5000
-MONGODB_URL=mongodb://localhost:27017/qmemory
-MONGODB_MIN_POOL_SIZE=10
-MONGODB_MAX_POOL_SIZE=50
-RATE_LIMIT_WINDOW=60000
-RATE_LIMIT_MAX_REQUESTS=1000
-CACHE_TTL=300000
-METRICS_ENABLED=true
+app.get('/health', (req, res) => {
+  const health = monitor.getHealthCheck();
+  sendSuccess(res, 'Health check', health);
+});
 ```
 
 ## Step-by-Step Migration
@@ -131,7 +146,7 @@ npm --version   # Should show v10.2.4 or later
 
 ```bash
 # Update to latest package version
-npm update qmemory@latest
+npm update @bijikyu/qmemory@latest
 
 # Update package.json if manually managing
 # Add new production dependencies
@@ -151,7 +166,7 @@ const express = require('express');
 const app = express();
 
 // New: Use enhanced demo app or integrate features
-const { app } = require('qmemory/scalability-demo-app.js');
+const { app } = require('@bijikyu/qmemory/scalability-demo-app.js');
 // OR enhance existing app with new features
 ```
 
@@ -165,18 +180,19 @@ await client.connect();
 const db = client.db('qmemory');
 
 // New code
-import { DatabaseConnectionPool } from 'qmemory/lib/database-pool.js';
+import { DatabaseConnectionPool } from '@bijikyu/qmemory/lib/database-pool.js';
+
 const pool = new DatabaseConnectionPool();
+const mongodbUrl = process.env.MONGODB_URI || 'mongodb://localhost:27017/qmemory';
 await pool.createPool(mongodbUrl, {
-  maxConnections: process.env.MONGODB_MAX_POOL_SIZE || 50,
-  minConnections: process.env.MONGODB_MIN_POOL_SIZE || 10,
-  acquireTimeout: 10000,
-  idleTimeout: 30000,
+  maxConnections: Number(process.env.DEFAULT_POOL_MAX_CONNECTIONS || 20),
+  minConnections: Number(process.env.DEFAULT_POOL_MIN_CONNECTIONS || 5),
+  acquireTimeout: Number(process.env.DEFAULT_POOL_ACQUIRE_TIMEOUT || 10000),
+  idleTimeout: Number(process.env.DEFAULT_POOL_IDLE_TIMEOUT || 300000),
 });
 
-// Update database operations to use pool
-const db = await pool.acquire(mongodbUrl);
-await pool.release(mongodbUrl, db);
+const connection = await pool.acquireConnection(mongodbUrl);
+await pool.releaseConnection(mongodbUrl, connection);
 ```
 
 #### 2.3 Add Rate Limiting
@@ -188,23 +204,14 @@ app.post('/users', async (req, res) => {
 });
 
 // New: Add rate limiting middleware
-import { RateLimiter } from 'qmemory/lib/rate-limiter.js';
+import { setupSecurity, BasicRateLimiter } from '@bijikyu/qmemory/lib/security-middleware.js';
 
-const rateLimiter = new RateLimiter({
-  windowMs: 60000,
-  maxRequests: 1000,
-});
+setupSecurity(app); // Applies BasicRateLimiter with RATE_LIMIT_WINDOW and RATE_LIMIT_MAX
 
-app.use(rateLimiter.middleware());
+const customLimiter = new BasicRateLimiter(Number(process.env.RATE_LIMIT_WINDOW || 60000), Number(process.env.RATE_LIMIT_MAX || 1000));
 
-app.post('/users', async (req, res) => {
-  if (req.rateLimited) {
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-    });
-  }
-  // Process request
+app.post('/users', customLimiter.middleware(), async (req, res) => {
+  // Process request with custom headers already set by the limiter
 });
 ```
 
@@ -218,15 +225,25 @@ app.use((req, res, next) => {
 });
 
 // New: Enhanced tracing
-import { RequestTracker } from 'qmemory/lib/request-tracker.js';
+import { sendSuccess } from '@bijikyu/qmemory/lib/http-utils.js';
+import { logFunctionEntry, logFunctionExit } from '@bijikyu/qmemory/lib/logging-utils.js';
+import { generateUniqueId } from '@bijikyu/qmemory/lib/common-patterns.js';
 
-const tracker = new RequestTracker();
-app.use(tracker.middleware());
+app.use((req, res, next) => {
+  const requestId = req.get('X-Request-ID') ?? generateUniqueId();
+  res.set('X-Request-ID', requestId);
+  (req as any).requestId = requestId;
+  next();
+});
 
-// All responses will now have:
-// X-Request-ID header
-// X-Response-Time header
-// Correlation ID in logs
+app.get('/posts/:id', async (req, res) => {
+  logFunctionEntry('getPost', { requestId: req.get('X-Request-ID'), id: req.params.id });
+
+  // ... fetch data ...
+
+  logFunctionExit('getPost', { requestId: req.get('X-Request-ID'), status: 'success' });
+  sendSuccess(res, 'Post retrieved', { requestId: req.get('X-Request-ID') });
+});
 ```
 
 #### 2.5 Add Performance Monitoring
@@ -238,20 +255,12 @@ app.get('/health', (req, res) => {
 });
 
 // New: Enhanced monitoring
-import { PerformanceMonitor } from 'qmemory/lib/performance-monitor.js';
+import { PerformanceMonitor } from '@bijikyu/qmemory/lib/performance-monitor.js';
 
 const monitor = new PerformanceMonitor();
 app.get('/health', async (req, res) => {
-  const metrics = await monitor.getHealthMetrics();
-  res.json({
-    success: true,
-    data: {
-      status: 'healthy',
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      performance: metrics,
-    },
-  });
+  const health = monitor.getHealthCheck();
+  sendSuccess(res, 'Service health', health);
 });
 ```
 
@@ -260,13 +269,43 @@ app.get('/health', async (req, res) => {
 #### 3.1 Environment Variables
 
 ```bash
-# Add to existing .env file
-echo "MONGODB_MIN_POOL_SIZE=10" >> .env
-echo "MONGODB_MAX_POOL_SIZE=50" >> .env
+# Core settings
+echo "NODE_ENV=production" >> .env
+echo "PORT=5000" >> .env
+echo "MONGODB_URI=mongodb://localhost:27017/qmemory" >> .env
+echo "MONGODB_DB_NAME=qmemory" >> .env
+
+# Connection pooling tuning (defaults provided via DEFAULT_POOL_* vars)
+echo "DEFAULT_POOL_MAX_CONNECTIONS=40" >> .env
+echo "DEFAULT_POOL_MIN_CONNECTIONS=5" >> .env
+echo "DEFAULT_POOL_ACQUIRE_TIMEOUT=10000" >> .env
+echo "DEFAULT_POOL_IDLE_TIMEOUT=300000" >> .env
+echo "DEFAULT_POOL_HEALTH_CHECK_INTERVAL=60000" >> .env
+
+# Redis cache settings
+echo "REDIS_HOST=redis-host" >> .env
+echo "REDIS_PORT=6379" >> .env
+echo "REDIS_DB=0" >> .env
+echo "REDIS_PASSWORD=your-redis-password" >> .env
+
+# Rate limiting / observability
 echo "RATE_LIMIT_WINDOW=60000" >> .env
-echo "RATE_LIMIT_MAX_REQUESTS=1000" >> .env
-echo "METRICS_ENABLED=true" >> .env
-echo "CACHE_TTL=300000" >> .env
+echo "RATE_LIMIT_MAX=1000" >> .env
+echo "ENABLE_REQUEST_ID=true" >> .env
+echo "ENABLE_PERFORMANCE_MONITORING=true" >> .env
+echo "ENABLE_CORS=true" >> .env
+echo "LOG_LEVEL=info" >> .env
+echo "API_REQUEST_TIMEOUT=30000" >> .env
+echo "HEALTH_CHECK_INTERVAL=30000" >> .env
+echo "MEMORY_THRESHOLD_WARNING=0.85" >> .env
+echo "CPU_THRESHOLD_WARNING=0.8" >> .env
+echo "MAX_MEMORY_STORAGE_USERS=10000" >> .env
+echo "PERFORMANCE_SAMPLE_RATE=0.1" >> .env
+
+# Optional cloud storage
+echo "GCS_BUCKET_NAME=your-bucket" >> .env
+echo "GCS_PROJECT_ID=your-project" >> .env
+echo "GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json" >> .env
 ```
 
 #### 3.2 PM2 Configuration
@@ -283,17 +322,21 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 5000,
-        MONGODB_MIN_POOL_SIZE: 10,
-        MONGODB_MAX_POOL_SIZE: 50,
+        MONGODB_URI: 'mongodb://localhost:27017/qmemory',
+        DEFAULT_POOL_MAX_CONNECTIONS: 40,
+        DEFAULT_POOL_MIN_CONNECTIONS: 5,
         RATE_LIMIT_WINDOW: 60000,
-        RATE_LIMIT_MAX_REQUESTS: 1000,
+        RATE_LIMIT_MAX: 1000,
+        ENABLE_PERFORMANCE_MONITORING: true,
+        ENABLE_REQUEST_ID: true,
+        ENABLE_CORS: true,
       },
       // Add new monitoring
       error_file: './logs/qmemory-error.log',
       out_file: './logs/qmemory-out.log',
       log_file: './logs/qmemory-combined.log',
       time: true,
-      // Enhanced for v2.1.0
+      // Tailored for v1.0.2
       max_memory_restart: '1G',
       node_args: '--max-old-space-size=4096',
     },
@@ -306,14 +349,17 @@ module.exports = {
 #### 4.1 Unit Testing
 
 ```bash
-# Run new test suite
+# Run all tests
 npm test
 
-# Run scalability-specific tests
-npm run test:scalability
+# Run focused unit suites
+npm run test:unit
 
-# Run integration tests
+# Run integration suites
 npm run test:integration
+
+# Produce coverage report
+npm run test:coverage
 ```
 
 #### 4.2 Load Testing
@@ -322,7 +368,7 @@ npm run test:integration
 # Test with Artillery
 artillery run test/load-test-config.yml
 
-# Expected v2.1.0 results:
+# Expected convergence metrics:
 # - 1000+ RPS sustained
 # - <50ms p95 response time
 # - <1% error rate
@@ -488,49 +534,43 @@ pm2 start ecosystem.config.js --env production
 
 ```bash
 # Error: "Too many connections"
-Solution: Increase MONGODB_MAX_POOL_SIZE in .env
+Solution: Raise DEFAULT_POOL_MAX_CONNECTIONS or add additional nodes to your MongoDB cluster
 
 # Error: "Connection timeout"
-Solution: Increase MONGODB_ACQUIRE_TIMEOUT to 15000
+Solution: Increase DEFAULT_POOL_ACQUIRE_TIMEOUT to accommodate longer waits
 ```
 
 #### 2. Rate Limiting Issues
 
 ```bash
 # Error: "Rate limit exceeded"
-Solution: Increase RATE_LIMIT_MAX_REQUESTS temporarily
+Solution: Increase RATE_LIMIT_MAX or widen RATE_LIMIT_WINDOW via .env, or attach a custom BasicRateLimiter for specific endpoints
 
-# Error: "Rate limit memory leak"
-Solution: Set RATE_LIMIT_MEMORY_CLEANUP lower
+# Error: "Rate limit state persists"
+Solution: Call destroySecurity() during graceful shutdown or manually destroy the BasicRateLimiter instance before restarting to reset internal counters
 ```
 
 #### 3. Performance Degradation
 
 ```bash
 # Error: "Response time increased"
-Solution: Check database indexes and pool configuration
+Solution: Review DEFAULT_POOL_MAX_CONNECTIONS, DEFAULT_POOL_MAX_QUERY_TIME, and MongoDB indexes
 
 # Error: "Memory usage high"
-Solution: Reduce max connections or increase instance memory
+Solution: Reduce DEFAULT_POOL_MAX_CONNECTIONS, lower sampling rates (PERFORMANCE_SAMPLE_RATE), or scale vertically with more RAM
 ```
 
 ## Support Resources
 
 ### Documentation
 
-- [API Docs](docs/openapi.yaml) - Complete API documentation
-- [Deployment Guide](docs/PRODUCTION_DEPLOYMENT_GUIDE.md) - Production deployment
-- [Performance Report](agentRecords/FINAL_PERFORMANCE_BENCHMARKS.md) - Performance benchmarks
+- [API Docs](docs/openapi.yaml) - Complete API contract
+- [Deployment Guide](docs/PRODUCTION_DEPLOYMENT_GUIDE.md) - Production readiness checklist
+- [Architecture Notes](agentRecords/SUMMARY.md) - Design rationale and workflow summaries
 
 ### Migration Tools
 
-```bash
-# Automated migration script (when available)
-npm run migrate:v1-to-v2
-
-# Validation script
-npm run validate:migration
-```
+There is no automated migration script; follow the manual phases above and validate with `npm test` (or `npm run test:integration`, `npm run test:coverage`).
 
 ### Support Channels
 
@@ -565,4 +605,4 @@ Migration is considered successful when:
 9. ✅ Zero downtime during deployment
 10. ✅ Rollback procedure tested and documented
 
-This comprehensive migration guide ensures a smooth transition from QMemory v1.0 to v2.1.0 with minimal disruption and maximum performance improvement.
+This comprehensive migration guide ensures a smooth transition from QMemory v1.0 to v1.0.2 with minimal disruption and maximum performance improvement.

@@ -15,8 +15,19 @@ A comprehensive Node.js utility library with full TypeScript support providing M
 ## Installation
 
 ```bash
-npm install qmemory
+npm install @bijikyu/qmemory
 ```
+
+### GitHub Package Registry
+
+`@bijikyu/qmemory` is published to GitHub Packages. Add these lines to your project-level `.npmrc` (or run `npm config set` for each entry) so `npm` authenticates automatically:
+
+```ini
+@bijikyu:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_NODE_TOKEN}
+```
+
+Make sure `${GITHUB_NODE_TOKEN}` (or your chosen secret) has at least `read:packages` when installing or `write:packages` when publishing from CI.
 
 ### TypeScript Setup
 
@@ -106,14 +117,14 @@ import {
   logFunctionEntry,
   logFunctionExit,
   logFunctionError
-} from 'qmemory';
+} from '@bijikyu/qmemory';
 ```
 
 ### PostgreSQL Quickstart (DBTYPE=postgres)
 
 ```typescript
 import { Pool } from 'pg';
-import { createPostgresResource, createCrudService } from 'qmemory';
+import { createPostgresResource, createCrudService } from '@bijikyu/qmemory';
 
 // Prefer configuring DBTYPE via environment variables in production.
 process.env.DBTYPE = 'postgres';
@@ -145,7 +156,7 @@ const {
   sendNotFound,
   sendConflict,
   // ... other imports
-} = require('qmemory');
+} = require('@bijikyu/qmemory');
 ```
 
 ## TypeScript Examples
@@ -162,7 +173,7 @@ import {
   logFunctionEntry,
   logFunctionExit,
   logFunctionError
-} from 'qmemory';
+} from '@bijikyu/qmemory';
 
 interface UserRequest extends Request {
   user?: { username: string };
@@ -199,7 +210,7 @@ app.get('/posts/:id', async (req: Request, res: Response) => {
 ### TypeScript with Storage
 
 ```typescript
-import { MemStorage, storage } from 'qmemory';
+import { MemStorage, storage } from '@bijikyu/qmemory';
 
 interface User {
   id: number;
@@ -228,7 +239,7 @@ import {
   createCrudService, 
   CrudServiceOptions,
   validateUniqueField 
-} from 'qmemory';
+} from '@bijikyu/qmemory';
 import { Model } from 'mongoose';
 
 interface BlogPost {
@@ -289,11 +300,10 @@ Sends a 500 Internal Server Error response with logging.
 - **Usage**: `sendInternalServerError(res, 'Database operation failed')`
 
 #### sendServiceUnavailable(res, message)
-Sends a 503 Service Unavailable response for dependency failures.
+Standardized 503 response for dependency failures without leaking internal details.
 
 - `res` (Express Response): Express response object
 - `message` (string): Custom unavailable message
-- Returns JSON with `retryAfter` set to `'300'` seconds informing clients when to retry
 - **Usage**: `sendServiceUnavailable(res, 'Database temporarily offline')`
 
 ### Database Utilities
@@ -408,7 +418,7 @@ Volatile user storage for development and testing environments.
 Constructor accepts optional `maxUsers` to limit stored records. The default limit is `10000` users.
 
 ```javascript
-const { MemStorage } = require('qmemory');
+const { MemStorage } = require('@bijikyu/qmemory');
 const userStorage = new MemStorage(); // defaults to 10000 users
 // Optionally pass a different limit: new MemStorage(5000)
 ```
@@ -469,7 +479,7 @@ await storage.clear();
 A ready-to-use storage instance is exported for application-wide use:
 
 ```javascript
-const { storage } = require('qmemory');
+const { storage } = require('@bijikyu/qmemory');
 
 // Use immediately without instantiation
 const user = await storage.createUser({ username: 'bob' });
@@ -540,7 +550,7 @@ const {
   logFunctionEntry,
   logFunctionExit,
   logFunctionError
-} = require('qmemory');
+} = require('@bijikyu/qmemory');
 const BlogPost = require('./models/BlogPost'); // Your Mongoose model
 
 const app = express();

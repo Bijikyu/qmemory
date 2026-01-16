@@ -28,7 +28,7 @@ This guide provides comprehensive instructions for deploying the QMemory Node.js
 
 ```bash
 # Core dependencies (automatically installed)
-npm install qmemory@latest
+ npm install @bijikyu/qmemory@latest
 
 # Optional production dependencies
 npm install pm2           # Process management
@@ -50,37 +50,46 @@ PORT=5000
 HOST=0.0.0.0
 
 # Database Configuration
-MONGODB_URL=mongodb://username:password@prod-cluster.mongodb.net/qmemory?retryWrites=true&w=majority
-MONGODB_MIN_POOL_SIZE=10
-MONGODB_MAX_POOL_SIZE=50
-MONGODB_ACQUIRE_TIMEOUT=10000
-MONGODB_IDLE_TIMEOUT=30000
+MONGODB_URI=mongodb://username:password@prod-cluster.mongodb.net/qmemory?retryWrites=true&w=majority
+MONGODB_DB_NAME=qmemory
+DEFAULT_POOL_MAX_CONNECTIONS=50
+DEFAULT_POOL_MIN_CONNECTIONS=5
+DEFAULT_POOL_ACQUIRE_TIMEOUT=10000
+DEFAULT_POOL_IDLE_TIMEOUT=300000
+DEFAULT_POOL_HEALTH_CHECK_INTERVAL=60000
+DEFAULT_POOL_MAX_QUERY_TIME=30000
+DEFAULT_POOL_RETRY_ATTEMPTS=3
+DEFAULT_POOL_RETRY_DELAY=1000
 
-# Caching Configuration (Optional)
-REDIS_URL=redis://prod-redis-cluster.redis.ports.net:6379
+# Redis Configuration (Optional, used for caching/backfills)
+REDIS_HOST=prod-redis-cluster.redis.ports.net
+REDIS_PORT=6379
 REDIS_PASSWORD=your-redis-password
-REDIS_CLUSTER_MODE=true
+REDIS_DB=0
 
-# Rate Limiting
+# Rate Limiting & Security
 RATE_LIMIT_WINDOW=60000
-RATE_LIMIT_MAX_REQUESTS=1000
-RATE_LIMIT_MEMORY_CLEANUP=300000
-
-# Security Configuration
-JWT_SECRET=your-super-secret-jwt-key
-API_KEY_SECRET=your-api-secret-key
-CORS_ORIGIN=https://yourdomain.com
+RATE_LIMIT_MAX=1000
+ENABLE_REQUEST_ID=true
+ENABLE_CORS=true
 
 # Monitoring and Logging
 LOG_LEVEL=info
-METRICS_ENABLED=true
+ENABLE_PERFORMANCE_MONITORING=true
 HEALTH_CHECK_INTERVAL=30000
-PERFORMANCE_MONITORING=true
+API_REQUEST_TIMEOUT=30000
+PERFORMANCE_SAMPLE_RATE=0.1
+SLOW_QUERY_THRESHOLD=100
 
-# I/O Optimization
-CACHE_TTL=300000
-BATCH_OPERATION_TIMEOUT=5000
-BACKGROUND_QUEUE_SIZE=10000
+# Resource Safety
+MAX_MEMORY_STORAGE_USERS=10000
+MEMORY_THRESHOLD_WARNING=0.85
+CPU_THRESHOLD_WARNING=0.8
+
+# Optional Cloud Storage
+GCS_BUCKET_NAME=your-bucket
+GCS_PROJECT_ID=your-project
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
 ```
 
 ### Production Configuration Files
@@ -387,8 +396,10 @@ redis-cli --cluster create 127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 \
     --cluster-replicas 1
 
 # Configure QMemory to use Redis
-echo "REDIS_URL=redis://prod-redis-cluster.redis.ports.net:6379" >> .env
-echo "CACHE_STRATEGY=redis" >> .env
+echo "REDIS_HOST=prod-redis-cluster.redis.ports.net" >> .env
+echo "REDIS_PORT=6379" >> .env
+echo "REDIS_PASSWORD=your-redis-password" >> .env
+echo "REDIS_DB=0" >> .env
 ```
 
 ## Security Configuration
