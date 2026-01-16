@@ -443,6 +443,15 @@ function memoizedFibonacci(n, cache = new Map()) {
 
 app.post('/utils/memoize/fibonacci', (req, res) => {
   const { n, memoized } = req.body;
+  if (typeof n !== 'number' || !Number.isInteger(n)) {
+    return res.status(400).json({ error: 'Parameter n must be an integer', timestamp: new Date().toISOString() });
+  }
+  if (n < 0) {
+    return res.status(400).json({ error: 'Parameter n must be non-negative', timestamp: new Date().toISOString() });
+  }
+  if (n > 40) {
+    return res.status(400).json({ error: 'Parameter n must be <= 40 to prevent timeout', timestamp: new Date().toISOString() });
+  }
   const start = process.hrtime.bigint();
   let result;
   if (memoized) {
@@ -754,6 +763,9 @@ app.post('/utils/queue/enforce-limit', (req, res) => {
 // ============ FAST OPERATIONS (real library) ============
 app.post('/utils/fast/math', async (req, res) => {
   const { a, b } = req.body;
+  if (typeof a !== 'number' || typeof b !== 'number' || isNaN(a) || isNaN(b)) {
+    return res.status(400).json({ error: 'Parameters a and b must be valid numbers', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const FM = library.FastMath;
@@ -762,15 +774,15 @@ app.post('/utils/fast/math', async (req, res) => {
         add: FM.add(a, b),
         subtract: FM.sub(a, b),
         multiply: FM.mul(a, b),
-        divide: b !== 0 ? FM.div(a, b) : 'undefined',
-        modulo: b !== 0 ? FM.mod(a, b) : 'undefined',
+        divide: b !== 0 ? FM.div(a, b) : 'undefined (division by zero)',
+        modulo: b !== 0 ? FM.mod(a, b) : 'undefined (division by zero)',
         power: FM.pow(a, Math.min(b, 10)),
         max: FM.max(a, b),
         min: FM.min(a, b),
         abs_a: FM.abs(a),
         floor_a: FM.floor(a),
         ceil_a: FM.ceil(a),
-        sqrt_a: a >= 0 ? FM.sqrt(a) : 'undefined',
+        sqrt_a: a >= 0 ? FM.sqrt(a) : 'undefined (negative number)',
       },
       source: getSource('FastMath'),
       timestamp: new Date().toISOString(),
@@ -782,6 +794,9 @@ app.post('/utils/fast/math', async (req, res) => {
 
 app.post('/utils/fast/string', async (req, res) => {
   const { input } = req.body;
+  if (typeof input !== 'string') {
+    return res.status(400).json({ error: 'Parameter input must be a string', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const FS = library.FastString;
@@ -792,10 +807,10 @@ app.post('/utils/fast/string', async (req, res) => {
         lowercase: FS.lower(input),
         reversed: FS.reverse(input),
         trimmed: FS.trim(input),
-        words: input.split(/\s+/).length,
+        words: input.trim() ? input.trim().split(/\s+/).length : 0,
         chars: input.replace(/\s/g, '').length,
-        firstChar: FS.charAt(input, 0),
-        lastChar: FS.charAt(input, input.length - 1),
+        firstChar: input.length > 0 ? FS.charAt(input, 0) : '',
+        lastChar: input.length > 0 ? FS.charAt(input, input.length - 1) : '',
         isPalindrome: FS.lower(input).replace(/\s/g, '') === FS.reverse(FS.lower(input).replace(/\s/g, '')),
       },
       source: getSource('FastString'),
@@ -808,6 +823,9 @@ app.post('/utils/fast/string', async (req, res) => {
 
 app.post('/utils/fast/hash', async (req, res) => {
   const { input } = req.body;
+  if (typeof input !== 'string') {
+    return res.status(400).json({ error: 'Parameter input must be a string', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const FH = library.FastHash;
@@ -1022,31 +1040,39 @@ app.delete('/utils/cache/lru/delete/:key', (req, res) => {
 
 app.post('/utils/cache/bounded-queue', async (req, res) => {
   const { maxSize, itemCount } = req.body;
+  if (typeof maxSize !== 'number' || maxSize < 1) {
+    return res.status(400).json({ error: 'Parameter maxSize must be a positive number', timestamp: new Date().toISOString() });
+  }
+  const count = typeof itemCount === 'number' ? itemCount : 5;
   try {
     const library = await getLib();
     const queue = new library.BoundedQueue(maxSize);
     const evicted = [];
-    for (let i = 0; i < itemCount; i++) {
+    for (let i = 0; i < count; i++) {
       const result = queue.enqueue(`item-${i + 1}`);
       if (result && result.evicted) evicted.push(result.evicted);
     }
-    res.json({ maxSize, itemsAdded: itemCount, itemsEvicted: evicted.length, evictedItems: evicted, finalQueue: queue.toArray(), source: getSource('BoundedQueue'), timestamp: new Date().toISOString() });
+    res.json({ maxSize, itemsAdded: count, itemsEvicted: evicted.length, evictedItems: evicted, finalQueue: queue.toArray(), source: getSource('BoundedQueue'), timestamp: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
 });
 
 app.post('/utils/cache/bounded-map', async (req, res) => {
-  const { maxSize } = req.body;
+  const { maxSize, entryCount } = req.body;
+  if (typeof maxSize !== 'number' || maxSize < 1) {
+    return res.status(400).json({ error: 'Parameter maxSize must be a positive number', timestamp: new Date().toISOString() });
+  }
+  const count = typeof entryCount === 'number' ? entryCount : maxSize + 5;
   try {
     const library = await getLib();
     const map = new library.BoundedMap(maxSize);
     const evicted = [];
-    for (let i = 0; i < maxSize + 5; i++) {
+    for (let i = 0; i < count; i++) {
       const result = map.set(`key-${i + 1}`, `value-${i + 1}`);
       if (result && result.evicted) evicted.push(result.evicted);
     }
-    res.json({ maxSize, entriesAdded: maxSize + 5, entriesEvicted: evicted.length, evictedEntries: evicted, finalMap: Object.fromEntries(map.entries()), source: getSource('BoundedMap'), timestamp: new Date().toISOString() });
+    res.json({ maxSize, entriesAdded: count, entriesEvicted: evicted.length, evictedEntries: evicted, finalMap: Object.fromEntries(map.entries()), source: getSource('BoundedMap'), timestamp: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
@@ -1114,6 +1140,9 @@ app.get('/utils/cache/memory-optimized/stats', (req, res) => {
 // ============ STREAMING (real library) ============
 app.post('/utils/streaming/json/parse', async (req, res) => {
   const { input } = req.body;
+  if (typeof input !== 'string') {
+    return res.status(400).json({ error: 'Parameter input must be a JSON string to parse', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const result = library.safeJsonParse(input);
@@ -1129,6 +1158,9 @@ app.post('/utils/streaming/json/parse', async (req, res) => {
 
 app.post('/utils/streaming/json/stringify', async (req, res) => {
   const { input } = req.body;
+  if (input === undefined) {
+    return res.status(400).json({ error: 'Parameter input is required (object/array to stringify)', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const result = library.safeJsonStringify(input, null, 2);
@@ -1187,6 +1219,9 @@ app.post('/utils/streaming/lines', (req, res) => {
 // ============ FIELD UTILITIES (real library) ============
 app.post('/utils/fields/normalize', async (req, res) => {
   const { fieldName } = req.body;
+  if (typeof fieldName !== 'string') {
+    return res.status(400).json({ error: 'Parameter fieldName must be a string', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const normalized = library.normalizeFieldName(fieldName);
@@ -1198,6 +1233,9 @@ app.post('/utils/fields/normalize', async (req, res) => {
 
 app.post('/utils/fields/denormalize', async (req, res) => {
   const { fieldName } = req.body;
+  if (typeof fieldName !== 'string') {
+    return res.status(400).json({ error: 'Parameter fieldName must be a string', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const denormalized = library.denormalizeFieldName(fieldName);
@@ -1209,6 +1247,9 @@ app.post('/utils/fields/denormalize', async (req, res) => {
 
 app.post('/utils/fields/normalize-object', async (req, res) => {
   const { object } = req.body;
+  if (!object || typeof object !== 'object') {
+    return res.status(400).json({ error: 'Parameter object must be an object', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const normalized = library.normalizeObjectFields(object);
@@ -1220,6 +1261,9 @@ app.post('/utils/fields/normalize-object', async (req, res) => {
 
 app.post('/utils/fields/denormalize-object', async (req, res) => {
   const { object } = req.body;
+  if (!object || typeof object !== 'object') {
+    return res.status(400).json({ error: 'Parameter object must be an object', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
     const denormalized = library.denormalizeObjectFields(object);
