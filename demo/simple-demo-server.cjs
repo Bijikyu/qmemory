@@ -49,6 +49,8 @@ const mockLib = {
   validateSorting: (field, order, allowedFields) => ({ isValid: allowedFields.includes(field) && ['asc', 'desc'].includes(order), isValidField: allowedFields.includes(field), isValidOrder: ['asc', 'desc'].includes(order) }),
   getCacheMetrics: () => ({ hits: 0, misses: 0, sets: 0 }),
   resetCacheMetrics: () => {},
+  dedupe: (arr) => [...new Set(arr)],
+  generateId: () => 'id_' + Math.random().toString(36).slice(2, 11),
   FastMath: { add: (a, b) => a + b, sub: (a, b) => a - b, mul: (a, b) => a * b, div: (a, b) => a / b, mod: (a, b) => a % b, pow: Math.pow, max: Math.max, min: Math.min, abs: Math.abs, floor: Math.floor, ceil: Math.ceil, sqrt: Math.sqrt },
   FastString: { len: (s) => s.length, upper: (s) => s.toUpperCase(), lower: (s) => s.toLowerCase(), reverse: (s) => s.split('').reverse().join(''), trim: (s) => s.trim(), charAt: (s, i) => s.charAt(i) },
   FastHash: { djb2: (s) => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h = h & h; } return Math.abs(h); } },
@@ -1199,8 +1201,12 @@ app.post('/utils/streaming/chunked', (req, res) => {
 });
 
 app.post('/utils/streaming/lines', (req, res) => {
-  const { input } = req.body;
-  const lines = input.split('\n');
+  const { input, text } = req.body;
+  const data = input || text;
+  if (typeof data !== 'string') {
+    return res.status(400).json({ error: 'Parameter input must be a string', timestamp: new Date().toISOString() });
+  }
+  const lines = data.split('\n');
   
   res.json({
     totalLines: lines.length,
@@ -1211,7 +1217,7 @@ app.post('/utils/streaming/lines', (req, res) => {
       isEmpty: line.trim().length === 0,
     })),
     nonEmptyLines: lines.filter(l => l.trim().length > 0).length,
-    totalCharacters: input.length,
+    totalCharacters: data.length,
     timestamp: new Date().toISOString(),
   });
 });
@@ -1532,11 +1538,15 @@ app.get('/utils/even/:num', async (req, res) => {
 });
 
 app.post('/utils/dedupe', async (req, res) => {
-  const { items } = req.body;
+  const { items, array } = req.body;
+  const input = items || array;
+  if (!Array.isArray(input)) {
+    return res.status(400).json({ error: 'Parameter items must be an array', timestamp: new Date().toISOString() });
+  }
   try {
     const library = await getLib();
-    const deduped = library.dedupe(items);
-    res.json({ original: items, deduped, removed: items.length - deduped.length, source: getSource('dedupe'), timestamp: new Date().toISOString() });
+    const deduped = library.dedupe(input);
+    res.json({ original: input, deduped, removed: input.length - deduped.length, source: getSource('dedupe'), timestamp: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: err.message, timestamp: new Date().toISOString() });
   }
