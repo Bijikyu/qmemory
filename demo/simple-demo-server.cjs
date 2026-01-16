@@ -97,23 +97,34 @@ const getStorage = async () => {
   return memStorage;
 };
 
-// Mock storage fallback for testing
-let users = [];
-let userId = 1;
-
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    userCount: users.length,
-    timestamp: new Date().toISOString(),
-  });
+// Health check endpoint - uses REAL storage
+app.get('/health', async (req, res) => {
+  try {
+    const storage = await getStorage();
+    const allUsers = await storage.getAllUsers();
+    res.json({
+      status: 'healthy',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      userCount: allUsers.length,
+      source: getSource('MemStorage'),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.json({
+      status: 'healthy',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      userCount: 0,
+      source: 'error',
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // Serve demo.html at root
@@ -186,178 +197,157 @@ app.get('/api', (req, res) => {
   });
 });
 
-// User management endpoints
-app.get('/users', (req, res) => {
-  // Strict validation for pagination parameters
+// User management endpoints - ALL use REAL library storage
+app.get('/users', async (req, res) => {
   const pageStr = req.query.page || '1';
   const limitStr = req.query.limit || '10';
   
   if (!/^\d+$/.test(pageStr) || !/^\d+$/.test(limitStr)) {
     return res.status(400).json({
-      error: {
-        type: 'VALIDATION_ERROR',
-        message: 'Pagination parameters must be positive integers',
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+      error: { type: 'VALIDATION_ERROR', message: 'Pagination parameters must be positive integers', timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
     });
   }
   
-  const page = parseInt(pageStr, 10);
-  const limit = parseInt(limitStr, 10);
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
+  try {
+    const storage = await getStorage();
+    const allUsers = await storage.getAllUsers();
+    const page = parseInt(pageStr, 10);
+    const limit = parseInt(limitStr, 10);
+    const startIndex = (page - 1) * limit;
+    const paginatedUsers = allUsers.slice(startIndex, startIndex + limit);
 
-  const paginatedUsers = users.slice(startIndex, endIndex);
-
-  res.json({
-    success: true,
-    timestamp: new Date().toISOString(),
-    data: {
-      users: paginatedUsers,
-      pagination: {
-        page: page,
-        limit: limit,
-        total: users.length,
-        totalPages: Math.ceil(users.length / limit),
+    res.json({
+      success: true,
+      source: getSource('MemStorage.getAllUsers'),
+      timestamp: new Date().toISOString(),
+      data: {
+        users: paginatedUsers,
+        pagination: { page, limit, total: allUsers.length, totalPages: Math.ceil(allUsers.length / limit) },
       },
-    },
-  });
+    });
+  } catch (err) {
+    res.status(500).json({ error: { type: 'INTERNAL_ERROR', message: err.message, timestamp: new Date().toISOString() } });
+  }
 });
 
-app.post('/users', (req, res) => {
+app.post('/users', async (req, res) => {
   const { username, displayName } = req.body;
 
   if (!username || typeof username !== 'string' || !username.trim()) {
     return res.status(400).json({
-      error: {
-        type: 'VALIDATION_ERROR',
-        message: 'Username is required and must be a non-empty string',
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+      error: { type: 'VALIDATION_ERROR', message: 'Username is required and must be a non-empty string', timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
     });
   }
 
-  // Check for existing username
-  if (users.find(u => u.username === username.trim())) {
-    return res.status(400).json({
-      error: {
-        type: 'CONFLICT',
-        message: `Username '${username.trim()}' already exists`,
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+  try {
+    const storage = await getStorage();
+    const existing = await storage.getUserByUsername(username.trim());
+    if (existing) {
+      return res.status(400).json({
+        error: { type: 'CONFLICT', message: `Username '${username.trim()}' already exists`, timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
+      });
+    }
+
+    const user = await storage.createUser({ username: username.trim(), displayName: displayName || null, createdAt: new Date().toISOString() });
+
+    res.status(201).json({
+      message: 'User created successfully',
+      source: getSource('MemStorage.createUser'),
+      timestamp: new Date().toISOString(),
+      data: user,
     });
+  } catch (err) {
+    res.status(500).json({ error: { type: 'INTERNAL_ERROR', message: err.message, timestamp: new Date().toISOString() } });
   }
-
-  const user = {
-    id: userId++,
-    username: username.trim(),
-    displayName: displayName || null,
-    createdAt: new Date().toISOString(),
-  };
-
-  users.push(user);
-
-  res.status(201).json({
-    message: 'User created successfully',
-    timestamp: new Date().toISOString(),
-    data: user,
-  });
 });
 
-app.get('/users/:id', (req, res) => {
+app.get('/users/:id', async (req, res) => {
   const id = parseInt(req.params.id, 10);
 
-  // Strict validation to prevent numeric injection
   if (!Number.isInteger(id) || id <= 0 || !/^\d+$/.test(req.params.id)) {
     return res.status(400).json({
-      error: {
-        type: 'VALIDATION_ERROR',
-        message: 'User ID must be a positive integer',
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+      error: { type: 'VALIDATION_ERROR', message: 'User ID must be a positive integer', timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
     });
   }
 
-  const user = users.find(u => u.id === id);
+  try {
+    const storage = await getStorage();
+    const user = await storage.getUser(id);
 
-  if (!user) {
-    return res.status(404).json({
-      error: {
-        type: 'NOT_FOUND',
-        message: 'User not found',
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+    if (!user) {
+      return res.status(404).json({
+        error: { type: 'NOT_FOUND', message: 'User not found', timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
+      });
+    }
+
+    res.json({
+      message: 'User found',
+      source: getSource('MemStorage.getUser'),
+      timestamp: new Date().toISOString(),
+      data: user,
     });
+  } catch (err) {
+    res.status(500).json({ error: { type: 'INTERNAL_ERROR', message: err.message, timestamp: new Date().toISOString() } });
   }
-
-  res.json({
-    message: 'User found',
-    timestamp: new Date().toISOString(),
-    data: user,
-  });
 });
 
-app.delete('/users/:id', (req, res) => {
+app.delete('/users/:id', async (req, res) => {
   const id = parseInt(req.params.id, 10);
 
-  // Strict validation to prevent numeric injection
   if (!Number.isInteger(id) || id <= 0 || !/^\d+$/.test(req.params.id)) {
     return res.status(400).json({
-      error: {
-        type: 'VALIDATION_ERROR',
-        message: 'User ID must be a positive integer',
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+      error: { type: 'VALIDATION_ERROR', message: 'User ID must be a positive integer', timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
     });
   }
 
-  const userIndex = users.findIndex(u => u.id === id);
+  try {
+    const storage = await getStorage();
+    const user = await storage.getUser(id);
 
-  if (userIndex === -1) {
-    return res.status(404).json({
-      error: {
-        type: 'NOT_FOUND',
-        message: 'User not found',
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+    if (!user) {
+      return res.status(404).json({
+        error: { type: 'NOT_FOUND', message: 'User not found', timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
+      });
+    }
+
+    // Delete from storage (MemStorage uses Map internally)
+    if (storage.users && storage.users.delete) {
+      storage.users.delete(id);
+    }
+
+    res.json({
+      message: 'User deleted successfully',
+      source: getSource('MemStorage'),
+      timestamp: new Date().toISOString(),
+      data: user,
     });
+  } catch (err) {
+    res.status(500).json({ error: { type: 'INTERNAL_ERROR', message: err.message, timestamp: new Date().toISOString() } });
   }
-
-  const deletedUser = users.splice(userIndex, 1)[0];
-
-  res.json({
-    message: 'User deleted successfully',
-    timestamp: new Date().toISOString(),
-    data: deletedUser,
-  });
 });
 
-app.post('/users/clear', (req, res) => {
+app.post('/users/clear', async (req, res) => {
   if (process.env.NODE_ENV === 'production') {
     return res.status(400).json({
-      error: {
-        type: 'VALIDATION_ERROR',
-        message: 'Clear operation not allowed in production',
-        timestamp: new Date().toISOString(),
-        requestId: 'req-' + Date.now(),
-      },
+      error: { type: 'VALIDATION_ERROR', message: 'Clear operation not allowed in production', timestamp: new Date().toISOString(), requestId: 'req-' + Date.now() },
     });
   }
 
-  users = [];
-  userId = 1;
+  try {
+    const storage = await getStorage();
+    if (storage.users && storage.users.clear) {
+      storage.users.clear();
+      storage.id = 0;
+    }
 
-  res.json({
-    message: 'All users cleared successfully',
-    timestamp: new Date().toISOString(),
-  });
+    res.json({
+      message: 'All users cleared successfully',
+      source: getSource('MemStorage'),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: { type: 'INTERNAL_ERROR', message: err.message, timestamp: new Date().toISOString() } });
+  }
 });
 
 // ============ DEMO STATE FOR UTILITIES ============
@@ -1578,18 +1568,22 @@ app.use((error, req, res, next) => {
 });
 
 // Start server
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, '0.0.0.0', async () => {
   console.log(`🚀 QMemory Demo Server running on port ${port}`);
   console.log(`📱 Open http://localhost:${port}/demo.html to test the interface`);
   console.log(`🔧 API endpoints available at http://localhost:${port}`);
 
-  // Create demo user
-  const demoUser = {
-    id: userId++,
-    username: 'demo',
-    displayName: 'Demo User',
-    createdAt: new Date().toISOString(),
-  };
-  users.push(demoUser);
-  console.log('✅ Created demo user for testing');
+  // Create demo user using REAL library storage
+  try {
+    const storage = await getStorage();
+    const existing = await storage.getUserByUsername('demo');
+    if (!existing) {
+      await storage.createUser({ username: 'demo', displayName: 'Demo User', createdAt: new Date().toISOString() });
+      console.log('✅ Created demo user using library.MemStorage');
+    } else {
+      console.log('ℹ️ Demo user already exists in library.MemStorage');
+    }
+  } catch (err) {
+    console.log('⚠️ Could not create demo user:', err.message);
+  }
 });
