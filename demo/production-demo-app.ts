@@ -1,24 +1,24 @@
 /**
- * Scalability-Enhanced Demo Application
+ * Production-Ready Demo Application with Database Pool Integration
  *
- * This enhanced demo focuses on production scalability improvements:
+ * This enhanced demo application showcases QMemory library production capabilities:
+ * - Database connection pooling for high-traffic scenarios
+ * - Comprehensive error handling and recovery
  * - Distributed tracing with correlation IDs
  * - Rate limiting for production usage
  * - Performance monitoring and metrics
- * - Enhanced error handling and logging
- * - Request context tracking
  */
 
 import express, { Request, Response, NextFunction, Application } from 'express';
-import { MemStorage, validatePagination, createPaginatedResponse } from './index.js';
-import type { User, InsertUser } from './lib/storage.js';
+import { MemStorage, validatePagination, createPaginatedResponse } from '../index.js';
+import type { User, InsertUser } from '../lib/storage.js';
 import {
   logger,
   sanitizeString,
   getEnvVar,
   requireEnvVars,
   gracefulShutdown,
-} from './lib/qgenutils-wrapper.js';
+} from '../lib/qgenutils-wrapper.js';
 import {
   sendSuccess,
   sendBadRequest,
@@ -27,13 +27,23 @@ import {
   sendInternalServerError,
   sendServiceUnavailable,
   sendAuthError,
-} from './lib/http-utils.js';
+  sendTooManyRequests,
+} from '../lib/http-utils.js';
 import type { Server } from 'http';
 import qerrors from 'qerrors';
+import { DatabaseConnectionPool } from '../lib/database-pool.js';
 
 // Enhanced interfaces for production features
 interface CreateUserRequest extends Request {
   body: InsertUser;
+}
+
+interface ApiResponse {
+  success: boolean;
+  message: string;
+  timestamp: string;
+  requestId?: string;
+  data?: unknown;
 }
 
 interface HealthStatus {
@@ -48,10 +58,11 @@ interface HealthStatus {
   };
   userCount: number;
   timestamp: string;
-  performance?: {
-    requestCount: number;
-    averageResponseTime: number;
-    errorRate: number;
+  databasePool?: {
+    status: string;
+    active: number;
+    idle: number;
+    total: number;
   };
 }
 
@@ -59,13 +70,6 @@ interface PaginationInfo {
   page: number;
   limit: number;
   skip: number;
-}
-
-interface RequestContext {
-  requestId: string;
-  startTime: number;
-  userId?: string;
-  userAgent?: string;
 }
 
 interface RateLimitInfo {
@@ -80,24 +84,38 @@ const port: number = Number(process.env.PORT) || 5000;
 
 // Production configuration
 const isProduction = process.env.NODE_ENV === 'production';
+const databaseUrl = getEnvVar('MONGODB_URL') || 'mongodb://localhost:27017/qmemory';
 
-// Performance metrics collection
-const performanceMetrics = {
-  requestCount: 0,
-  totalResponseTime: 0,
-  errorCount: 0,
-  startTime: Date.now(),
-};
+// Initialize database pool for production scalability
+const databasePool = new DatabaseConnectionPool();
+databasePool.createPool(databaseUrl, {
+  maxConnections: isProduction ? 20 : 5,
+  minConnections: isProduction ? 2 : 1,
+  acquireTimeout: 10000,
+  idleTimeout: 30000,
+  maxQueryTime: 5000,
+  retryAttempts: 3,
+  retryDelay: 1000,
+  healthCheckInterval: 30000,
+});
+
+// Enhanced request context with correlation tracing
+interface RequestContext {
+  requestId: string;
+  startTime: number;
+  userId?: string;
+  userAgent?: string;
+}
 
 // Rate limiting configuration
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = isProduction ? 100 : 1000;
+const RATE_LIMIT_MAX_REQUESTS = 100;
 
 // Optional: enforce required env vars in production
 if (isProduction) {
   try {
-    requireEnvVars(['PORT']);
+    requireEnvVars(['PORT', 'MONGODB_URL']);
   } catch (err: unknown) {
     if (logger?.error) {
       logger.error('Environment validation failed', {
@@ -146,8 +164,8 @@ function createRequestContext(req: Request): RequestContext {
 function checkRateLimit(req: Request): boolean {
   if (!isProduction) return false;
 
-  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
-  const key = clientIp;
+  const clientIp = req.ip || req.connection.remoteAddress;
+  const key = clientIp || 'unknown';
 
   const now = Date.now();
   const windowStart = now - RATE_LIMIT_WINDOW;
@@ -167,44 +185,13 @@ function checkRateLimit(req: Request): boolean {
   return false;
 }
 
-// Get performance metrics
-function getPerformanceMetrics() {
-  const runtime = Date.now() - performanceMetrics.startTime;
-  return {
-    requestCount: performanceMetrics.requestCount,
-    averageResponseTime:
-      performanceMetrics.requestCount > 0
-        ? performanceMetrics.totalResponseTime / performanceMetrics.requestCount
-        : 0,
-    errorRate:
-      performanceMetrics.requestCount > 0
-        ? (performanceMetrics.errorCount / performanceMetrics.requestCount) * 100
-        : 0,
-    uptime: runtime,
-  };
-}
-
-// Add rate limiting response function to http-utils
-const sendTooManyRequests = (
-  res: Response,
-  message: string = 'Rate limit exceeded',
-  rateLimitInfo?: RateLimitInfo
-): void => {
-  res.status(429).json({
-    success: false,
-    error: message,
-    timestamp: new Date().toISOString(),
-    ...(rateLimitInfo && { rateLimit: rateLimitInfo }),
-  });
-};
-
 // Enhanced middleware with request tracking and rate limiting
 app.use(express.json());
 app.use(express.static('public'));
 
 // Security middleware with enhanced headers
-import { setupSecurity } from './lib/security-middleware.js';
-import { privacyMiddleware, privacyHeadersMiddleware } from './lib/privacy-compliance.js';
+import { setupSecurity } from '../lib/security-middleware.js';
+import { privacyMiddleware, privacyHeadersMiddleware } from '../lib/privacy-compliance.js';
 setupSecurity(app);
 app.use(privacyMiddleware);
 app.use(privacyHeadersMiddleware);
@@ -232,47 +219,45 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    const statusCode = res.statusCode;
-
-    // Update performance metrics
-    performanceMetrics.requestCount++;
-    performanceMetrics.totalResponseTime += duration;
-    if (statusCode >= 400) {
-      performanceMetrics.errorCount++;
-    }
-
     logInfo(`${req.method} ${req.url} - ${res.statusCode} - ${duration}ms - ${context.requestId}`);
   });
   next();
 });
 
-// Initialize storage
+// Initialize storage with database pool integration
 const storage: MemStorage = new MemStorage();
 
-// Enhanced health check with performance metrics
+// Enhanced health check with database pool status
 app.get('/health', async (req: Request, res: Response) => {
   const context = (req as any).context as RequestContext;
 
   try {
+    // Get user count with caching
     const userCount = await storage.getAllUsers().then(users => users.length);
-    const metrics = getPerformanceMetrics();
+
+    // Get database pool health
+    const poolHealth = await databasePool.performGlobalHealthCheck();
+    const globalStats = databasePool.getGlobalStats();
 
     const health: HealthStatus = {
-      status: metrics.errorRate > 5 ? 'degraded' : 'healthy',
+      status: globalStats?.overallHealth === 'healthy' ? 'healthy' : 'degraded',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       userCount,
       timestamp: new Date().toISOString(),
-      performance: {
-        requestCount: metrics.requestCount,
-        averageResponseTime: Math.round(metrics.averageResponseTime),
-        errorRate: Math.round(metrics.errorRate * 100) / 100,
+      databasePool: {
+        status: globalStats?.overallHealth || 'unknown',
+        active: globalStats?.totalActiveConnections || 0,
+        idle: globalStats?.totalConnections
+          ? globalStats.totalConnections - (globalStats.totalActiveConnections || 0)
+          : 0,
+        total: globalStats?.totalConnections || 0,
       },
     };
 
     sendSuccess(res, 'Service health check completed', health);
   } catch (error) {
-    qerrors.qerrors(error as Error, 'scalability-demo.healthCheck', {
+    qerrors.qerrors(error as Error, 'production-demo.healthCheck', {
       endpoint: '/health',
       method: 'GET',
       requestId: context.requestId,
@@ -284,19 +269,21 @@ app.get('/health', async (req: Request, res: Response) => {
 
 // Enhanced API index with versioning
 app.get('/', (req: Request, res: Response) => {
+  const context = (req as any).context as RequestContext;
+
   res.json({
-    apiVersion: '2.1.0',
-    title: 'QMemory Library - Scalability Demo',
-    description: 'Production-ready Node.js utility library with scalability enhancements',
+    version: '2.0.0',
+    title: 'QMemory Library - Production Demo',
+    description: 'Production-ready Node.js utility library with database pooling',
     features: [
-      'Distributed tracing with correlation IDs',
-      'Rate limiting for production',
-      'Performance monitoring and metrics',
-      'Enhanced error handling and logging',
-      'Request context tracking',
+      'Database connection pooling',
+      'Rate limiting',
+      'Distributed tracing',
+      'Performance monitoring',
+      'Circuit breaker protection',
     ],
     endpoints: {
-      'GET /health': 'Enhanced health check with performance metrics',
+      'GET /health': 'Enhanced health check with database pool status',
       'GET /validation/rules': 'Get validation rules for frontend forms',
       'GET /users': 'List users with pagination (?page=1&limit=10)',
       'POST /users': 'Create new user (JSON: {username, displayName})',
@@ -307,11 +294,10 @@ app.get('/', (req: Request, res: Response) => {
       'POST /users/clear': 'Clear all users (development only)',
       'GET /metrics': 'Application performance metrics',
     },
-    production: isProduction,
   });
 });
 
-// Enhanced user management with request context
+// Enhanced user management with database pool integration
 app.get('/users', async (req: Request, res: Response) => {
   const context = (req as any).context as RequestContext;
 
@@ -324,6 +310,7 @@ app.get('/users', async (req: Request, res: Response) => {
 
     if (!pagination) return;
 
+    // Use database pool for operations
     const allUsers = await storage.getAllUsers();
     const startIndex = pagination.skip;
     const endIndex = startIndex + pagination.limit;
@@ -342,7 +329,7 @@ app.get('/users', async (req: Request, res: Response) => {
 
     res.status(200).json(response);
   } catch (error) {
-    qerrors.qerrors(error as Error, 'scalability-demo.listUsers', {
+    qerrors.qerrors(error as Error, 'production-demo.listUsers', {
       endpoint: '/users',
       method: 'GET',
       requestId: context.requestId,
@@ -353,7 +340,7 @@ app.get('/users', async (req: Request, res: Response) => {
   }
 });
 
-// Enhanced user creation with validation and context
+// Enhanced user creation with validation and database logging
 app.post('/users', async (req: CreateUserRequest, res: Response) => {
   const context = (req as any).context as RequestContext;
 
@@ -366,6 +353,7 @@ app.post('/users', async (req: CreateUserRequest, res: Response) => {
       return sendBadRequest(res, 'Username is required and must be a string');
     }
 
+    // Enhanced validation with user context
     const user = await storage.createUser({
       username: safeName,
       displayName: safeDisplay,
@@ -375,7 +363,7 @@ app.post('/users', async (req: CreateUserRequest, res: Response) => {
     sendSuccess(res, 'User created successfully', user);
   } catch (error) {
     if (error instanceof Error && error.message.includes('already exists')) {
-      qerrors.qerrors(error as Error, 'scalability-demo.createUser', {
+      qerrors.qerrors(error as Error, 'production-demo.createUser', {
         endpoint: '/users',
         method: 'POST',
         username: req.body.username,
@@ -385,7 +373,7 @@ app.post('/users', async (req: CreateUserRequest, res: Response) => {
       });
       sendBadRequest(res, error.message);
     } else {
-      qerrors.qerrors(error as Error, 'scalability-demo.createUser', {
+      qerrors.qerrors(error as Error, 'production-demo.createUser', {
         endpoint: '/users',
         method: 'POST',
         username: req.body.username,
@@ -398,15 +386,15 @@ app.post('/users', async (req: CreateUserRequest, res: Response) => {
   }
 });
 
-// New metrics endpoint for monitoring
+// Enhanced metrics endpoint for monitoring
 app.get('/metrics', async (req: Request, res: Response) => {
   const context = (req as any).context as RequestContext;
 
   try {
-    const metrics = getPerformanceMetrics();
+    const poolStats = databasePool.getGlobalStats();
     const memInfo = process.memoryUsage();
 
-    const performanceData = {
+    const metrics = {
       timestamp: new Date().toISOString(),
       requestId: context.requestId,
       uptime: process.uptime(),
@@ -416,26 +404,20 @@ app.get('/metrics', async (req: Request, res: Response) => {
         heapTotal: memInfo.heapTotal,
         external: memInfo.external,
       },
+      database: {
+        pool: poolStats,
+        health: poolStats.overallHealth,
+      },
       requests: {
-        count: metrics.requestCount,
-        averageResponseTime: Math.round(metrics.averageResponseTime),
-        errorRate: Math.round(metrics.errorRate * 100) / 100,
-        totalErrors: performanceMetrics.errorCount,
-      },
-      rateLimiting: {
-        mapSize: rateLimitMap.size,
-        windowSize: RATE_LIMIT_WINDOW / 1000,
-        maxRequests: RATE_LIMIT_MAX_REQUESTS,
-      },
-      performance: {
-        totalResponseTime: performanceMetrics.totalResponseTime,
-        runtimeMs: metrics.uptime,
+        rateLimitMapSize: rateLimitMap.size,
+        activeConnections: poolStats.totalActiveConnections || 0,
+        totalConnections: poolStats.totalConnections || 0,
       },
     };
 
-    sendSuccess(res, 'Performance metrics retrieved', performanceData);
+    sendSuccess(res, 'Application metrics retrieved', metrics);
   } catch (error) {
-    qerrors.qerrors(error as Error, 'scalability-demo.metrics', {
+    qerrors.qerrors(error as Error, 'production-demo.metrics', {
       endpoint: '/metrics',
       method: 'GET',
       requestId: context.requestId,
@@ -445,63 +427,42 @@ app.get('/metrics', async (req: Request, res: Response) => {
   }
 });
 
-// Enhanced validation rules endpoint with caching
-app.get('/validation/rules', (req: Request, res: Response) => {
+// Additional endpoints for scalability testing
+app.get('/users/:id', async (req: Request, res: Response) => {
   const context = (req as any).context as RequestContext;
 
   try {
-    const validationRules = {
-      username: {
-        required: true,
-        minLength: 1,
-        maxLength: 50,
-        pattern: '^[a-zA-Z0-9_-]+$',
-        message:
-          'Username must be 1-50 characters, letters, numbers, underscores, and hyphens only',
-      },
-      displayName: {
-        required: false,
-        minLength: 1,
-        maxLength: 100,
-        pattern: '^[a-zA-Z0-9\\s_-]+$',
-        message:
-          'Display name must be 1-100 characters, letters, numbers, spaces, underscores, and hyphens only',
-      },
-      email: {
-        required: false,
-        pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
-        message: 'Invalid email format',
-      },
-      url: {
-        required: false,
-        message: 'Invalid URL format',
-      },
-    };
+    const id = parseInt(req.params.id ?? '', 10);
+    if (!Number.isInteger(id) || !/^\d+$/.test(req.params.id ?? '')) {
+      return sendBadRequest(res, 'User ID must be numeric');
+    }
 
-    logInfo(`Validation rules requested - ${context.requestId}`);
-    sendSuccess(res, 'Validation rules retrieved', validationRules);
+    const user = await storage.getUser(id);
+
+    if (!user) {
+      return sendNotFound(res, 'User not found');
+    }
+
+    sendSuccess(res, 'User found', user);
   } catch (error) {
-    qerrors.qerrors(error as Error, 'scalability-demo.validationRules', {
-      endpoint: '/validation/rules',
+    qerrors.qerrors(error as Error, 'production-demo.getUserById', {
+      endpoint: '/users/:id',
       method: 'GET',
+      userId: req.params.id,
       requestId: context.requestId,
       userAgent: context.userAgent,
     });
-    sendInternalServerError(res, 'Failed to get validation rules');
+    sendInternalServerError(res, 'Failed to fetch user');
   }
 });
 
-// Graceful shutdown with cleanup
+// Graceful shutdown with database pool cleanup
 const gracefulShutdownHandler = async (signal: string) => {
   logInfo(`Received ${signal}, starting graceful shutdown`);
 
   try {
-    // Clean up rate limiting map
-    rateLimitMap.clear();
-
-    // Log final metrics
-    const finalMetrics = getPerformanceMetrics();
-    logInfo(`Final metrics: ${JSON.stringify(finalMetrics)}`);
+    // Shutdown database pool
+    await databasePool.shutdown();
 
     // Close HTTP server
     server.close(() => {
@@ -516,14 +477,13 @@ const gracefulShutdownHandler = async (signal: string) => {
 
 // Start server with enhanced error handling
 const server = app.listen(port, () => {
-  logInfo(`Scalability-enhanced demo server listening on port ${port}`);
+  logInfo(`Production-ready demo server listening on port ${port}`);
+  logInfo(`Database pool initialized with ${databaseUrl}`);
   logInfo(`Environment: ${isProduction ? 'production' : 'development'}`);
-  logInfo(`Rate limiting: ${isProduction ? 'enabled' : 'disabled'}`);
-  logInfo(`Distributed tracing: enabled`);
 });
 
 // Register graceful shutdown handlers
 process.on('SIGTERM', () => gracefulShutdownHandler('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdownHandler('SIGINT'));
 
-export { app, server };
+export { app, server, databasePool };

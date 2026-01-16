@@ -45,15 +45,15 @@ import { setImmediate } from 'timers';
  */
 
 import express, { Request, Response, NextFunction, Application } from 'express';
-import { MemStorage, validatePagination, createPaginatedResponse } from './index.js';
-import type { User, InsertUser } from './lib/storage.js';
+import { MemStorage, validatePagination, createPaginatedResponse } from '../index.js';
+import type { User, InsertUser } from '../lib/storage.js';
 import {
   logger,
   sanitizeString,
   getEnvVar,
   requireEnvVars,
   gracefulShutdown,
-} from './lib/qgenutils-wrapper.js';
+} from '../lib/qgenutils-wrapper.js';
 import {
   sendSuccess,
   sendBadRequest,
@@ -62,7 +62,7 @@ import {
   sendInternalServerError,
   sendServiceUnavailable,
   sendAuthError,
-} from './lib/http-utils.js';
+} from '../lib/http-utils.js';
 import type { Server } from 'http';
 import qerrors from 'qerrors';
 
@@ -250,8 +250,8 @@ app.use(express.static('public'));
  *
  * Order: Security → Privacy (privacy may need to process after security)
  */
-import { setupSecurity } from './lib/security-middleware.js';
-import { privacyMiddleware, privacyHeadersMiddleware } from './lib/privacy-compliance.js';
+import { setupSecurity } from '../lib/security-middleware.js';
+import { privacyMiddleware, privacyHeadersMiddleware } from '../lib/privacy-compliance.js';
 
 setupSecurity(app); // Apply security headers and protections
 app.use(privacyMiddleware); // Apply privacy compliance checks

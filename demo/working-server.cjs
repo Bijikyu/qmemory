@@ -4,21 +4,21 @@
  */
 
 const express = require('express');
-const { greet, add, isEven, dedupe } = require('./lib/utils.ts');
+const { greet, add, isEven, dedupe } = require('../dist/lib/utils.js');
 const {
   sendSuccess,
   sendNotFound,
   sendBadRequest,
   sendInternalServerError,
   getTimestamp,
-} = require('./lib/http-utils.ts');
+} = require('../dist/lib/http-utils.js');
 const {
   performHealthCheck,
   getRequestMetrics,
   getMemoryUsage,
   getCpuUsage,
   getFilesystemUsage,
-} = require('./lib/health-check.ts');
+} = require('../dist/lib/health-check.js');
 
 const app = express();
 const PORT = process.env.PORT || 5000;

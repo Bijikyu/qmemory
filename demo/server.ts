@@ -4,22 +4,22 @@
  */
 
 import express from 'express';
-import { storage, User } from './lib/storage.js';
-import { greet, add, isEven, dedupe } from './lib/utils.js';
+import { storage, User } from '../lib/storage.js';
+import { greet, add, isEven, dedupe } from '../lib/utils.js';
 import {
   sendSuccess,
   sendNotFound,
   sendBadRequest,
   sendInternalServerError,
   getTimestamp,
-} from './lib/http-utils.js';
+} from '../lib/http-utils.js';
 import {
   performHealthCheck,
   getRequestMetrics,
   getMemoryUsage,
   getCpuUsage,
   getFilesystemUsage,
-} from './lib/health-check.js';
+} from '../lib/health-check.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
