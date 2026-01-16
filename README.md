@@ -1,13 +1,15 @@
 
 # qmemory
 
-A comprehensive Node.js utility library with full TypeScript support providing MongoDB document operations, HTTP utilities, and in-memory storage for development and testing.
+A comprehensive Node.js utility library with full TypeScript support providing MongoDB (Mongoose) and PostgreSQL database operations, HTTP utilities, and in-memory storage for development and testing.
 
 ## Requirements
 
 - Node.js 18+
-- MongoDB 4.4+ (for production mode)
-- Mongoose 8+ (peer dependency)
+- MongoDB 4.4+ (when using `DBTYPE=mongodb`)
+- Mongoose 8+ (for MongoDB operations)
+- PostgreSQL 12+ (when using `DBTYPE=postgres`)
+- A Postgres client/pool that supports `query(text, params)` (e.g. `pg.Pool`)
 - TypeScript 4.5+ (for TypeScript projects)
 
 ## Installation
@@ -34,7 +36,9 @@ Ensure your `tsconfig.json` includes the following for proper ESM support:
 
 ## Features
 
+- **Dual Database Routing**: Set `DBTYPE` to route DB-centric exports to MongoDB or PostgreSQL
 - **MongoDB Document Operations**: High-level utilities for user-owned document CRUD operations
+- **PostgreSQL Table Operations**: Postgres equivalents using allowlisted columns and parameterized SQL
 - **HTTP Utilities**: Express.js response helpers for consistent API responses
 - **Database Utilities**: MongoDB connection validation and uniqueness checking
 - **In-Memory Storage**: Volatile user storage for development and testing environments
@@ -43,10 +47,29 @@ Ensure your `tsconfig.json` includes the following for proper ESM support:
 
 ## Usage
 
+### DBTYPE Selection
+
+`DBTYPE` controls which DB implementation is used by DB-centric exports like `findUserDoc`, `createUniqueDoc`, `createCrudService`, and `ensureUnique`.
+
+- `DBTYPE` unset (default): MongoDB/Mongoose behavior (backward compatible)
+- `DBTYPE=postgres`: PostgreSQL behavior
+
+If you want deterministic behavior without environment switching, use the explicit namespaces:
+- `mongo.*` for MongoDB/Mongoose implementations
+- `postgres.*` for PostgreSQL implementations
+
 ### TypeScript Import (Recommended)
 
 ```typescript
 import {
+  // DBTYPE helpers + explicit namespaces
+  getDbType,
+  mongo,
+  postgres,
+
+  // PostgreSQL resource helper (for DBTYPE=postgres)
+  createPostgresResource,
+
   // HTTP utilities
   sendNotFound,
   sendConflict,
@@ -84,6 +107,34 @@ import {
   logFunctionExit,
   logFunctionError
 } from 'qmemory';
+```
+
+### PostgreSQL Quickstart (DBTYPE=postgres)
+
+```typescript
+import { Pool } from 'pg';
+import { createPostgresResource, createCrudService } from 'qmemory';
+
+// Prefer configuring DBTYPE via environment variables in production.
+process.env.DBTYPE = 'postgres';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const posts = createPostgresResource({
+  pool,
+  tableName: 'posts',
+  allowedColumns: ['id', 'user', 'title', 'createdAt', 'deleted', 'deletedAt'],
+  ownerColumn: 'user',
+  idColumn: 'id',
+  createdAtColumn: 'createdAt',
+  deletedColumn: 'deleted',
+  deletedAtColumn: 'deletedAt',
+});
+
+const service = createCrudService(posts, 'post', {
+  uniqueField: 'title',
+  searchableFields: ['title'],
+});
 ```
 
 ### JavaScript Import (CommonJS)
@@ -611,7 +662,9 @@ docker-compose up -d
 ### Environment Configuration
 ```bash
 NODE_ENV=production
+DBTYPE=mongodb               # or postgres
 MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/database
+DATABASE_URL=postgres://user:pass@host:5432/dbname
 PORT=3000
 ```
 
@@ -635,6 +688,7 @@ app.get('/health', (req, res) => {
 ## Dependencies
 
 - `mongoose`: Required for MongoDB operations
+- `pg` (or compatible client): Required by consuming apps for PostgreSQL operations (not bundled)
 - `@types/node`: TypeScript definitions
 - `qtests`: Testing utilities used by this library
 

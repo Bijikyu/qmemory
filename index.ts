@@ -17,14 +17,70 @@ import {
 // Database utilities
 import {
   ensureMongoDB,
-  ensureUnique,
   handleMongoError,
+} from './lib/database-utils';
+
+// Dual DB (MongoDB + PostgreSQL) selector exports
+import {
+  getDbType,
+  mongo,
+  postgres,
   safeDbOperation,
   retryDbOperation,
+  ensureUnique,
   ensureIdempotency,
   optimizeQuery,
   createAggregationPipeline,
-} from './lib/database-utils';
+  // Document helpers
+  findDocumentById,
+  updateDocumentById,
+  deleteDocumentById,
+  cascadeDeleteDocument,
+  createDocument,
+  findDocuments,
+  findOneDocument,
+  bulkUpdateDocuments,
+  findManyByFieldIgnoreCase,
+  existsByField,
+  getDistinctValues,
+  bulkDeleteDocuments,
+  aggregateDocuments,
+  getByDateRange,
+  softDeleteDocument,
+  getActiveDocuments,
+  textSearchDocuments,
+  getPaginatedDocuments,
+  // User-owned document ops
+  performUserDocOp,
+  findUserDoc,
+  deleteUserDoc,
+  userDocActionOr404,
+  fetchUserDocOr404,
+  deleteUserDocOr404,
+  listUserDocs,
+  listUserDocsLean,
+  createUniqueDoc,
+  updateUserDoc,
+	  validateDocumentUniqueness,
+	  hasUniqueFieldChanges,
+	  // CRUD service factory + unique validator
+	  createPaginatedService,
+	  createValidatedService,
+	  findByFieldIgnoreCase,
+	  checkDuplicateByField,
+  validateUniqueField,
+  validateUniqueFields,
+  createUniqueValidator,
+  handleDuplicateKeyError,
+  withDuplicateKeyHandling,
+  createUniqueFieldMiddleware,
+  createUniqueFieldsMiddleware,
+  isDuplicateError,
+	  createBatchUniqueChecker,
+	} from './lib/db/dual';
+
+// Postgres-specific helpers (explicit exports)
+import { createPostgresResource, ensurePostgresDB, handlePostgresError } from './lib/db/postgres';
 
 // Storage utilities
 import { MemStorage, storage, User, InsertUser } from './lib/storage';
@@ -50,41 +106,7 @@ import {
   isSuccessRead,
   isSuccessWrite,
 } from './lib/types/result-types';
-// Document helpers
-import {
-  findDocumentById,
-  updateDocumentById,
-  deleteDocumentById,
-  cascadeDeleteDocument,
-  createDocument,
-  findDocuments,
-  findOneDocument,
-  bulkUpdateDocuments,
-  findManyByFieldIgnoreCase,
-  existsByField,
-  getDistinctValues,
-  bulkDeleteDocuments,
-  aggregateDocuments,
-  getByDateRange,
-  softDeleteDocument,
-  getActiveDocuments,
-  textSearchDocuments,
-  getPaginatedDocuments,
-} from './lib/document-helpers';
-// Document operations
-import {
-  performUserDocOp,
-  findUserDoc,
-  deleteUserDoc,
-  userDocActionOr404,
-  fetchUserDocOr404,
-  deleteUserDocOr404,
-  listUserDocsLean,
-  createUniqueDoc,
-  updateUserDoc,
-  validateDocumentUniqueness,
-  hasUniqueFieldChanges,
-} from './lib/document-ops';
+// Document helpers + ops are provided via the dual DB selector import above.
 // Storage
 // MemStorage and storage imported above
 // Utils
@@ -171,29 +193,8 @@ import {
 // //   getDatabasePoolHealth,
 // //   shutdownDatabasePools,
 // // } from './lib/database-pool.ts.js';
-// CRUD service factory
-import {
-  createCrudService,
-  createPaginatedService,
-  createValidatedService,
-  findByFieldIgnoreCase,
-  createDuplicateError,
-  escapeRegex as escapeRegexCrud,
-  validateData,
-} from './lib/crud-service-factory';
-// Unique validator
-import {
-  checkDuplicateByField,
-  validateUniqueField,
-  validateUniqueFields,
-  createUniqueValidator,
-  handleDuplicateKeyError,
-  withDuplicateKeyHandling,
-  createUniqueFieldMiddleware,
-  createUniqueFieldsMiddleware,
-  isDuplicateError,
-  createBatchUniqueChecker,
-} from './lib/unique-validator';
+// CRUD service factory (DB-agnostic helpers) - selector-based CRUD functions come from dual DB import.
+import { createDuplicateError, escapeRegex as escapeRegexCrud, validateData } from './lib/crud-service-factory';
 // Streaming JSON
 import { safeJsonStringify, safeJsonParse, SafeJSON } from './lib/streaming-json';
 // Streaming utilities
@@ -335,10 +336,10 @@ import {
 } from './lib/privacy-compliance';
 import { BasicRateLimiter } from './lib/security-middleware';
 // Serialization utilities
-import {
-  serializeDocument,
-  serializeMongooseDocument,
-  mapAndSerialize,
+	import {
+	  serializeDocument,
+	  serializeMongooseDocument,
+	  mapAndSerialize,
   saveAndSerialize,
   mapAndSerializeObj,
   serializeDocumentObj,
@@ -347,8 +348,17 @@ import {
   safeSerializeDocument,
   safeMapAndSerialize,
   serializeFields,
-  serializeWithoutFields,
-} from './lib/serialization-utils';
+	  serializeWithoutFields,
+	} from './lib/serialization-utils';
+
+// DBTYPE-selected CRUD service wrapper.
+// Rationale: route via the already-exported `mongo`/`postgres` namespaces at call time to avoid
+// brittle destructured-import edge cases under some test runners/transpilers (CJS interop).
+function createCrudService(modelOrResource: unknown, resourceType: string, options: unknown = {}): unknown {
+  const dbType = getDbType(); // Read DBTYPE at call time so consumers can configure per-process.
+  const impl = dbType === 'postgres' ? postgres : mongo; // Keep MongoDB as the default for backward compatibility.
+  return (impl as any).createCrudService(modelOrResource, resourceType, options);
+}
 // Export everything
 export {
   // HTTP utilities
@@ -372,6 +382,14 @@ export {
   handleDataExportRequest,
   setupDataRetention,
   // Database utilities
+  // Dual-DB selection and explicit namespaces
+  getDbType,
+  mongo,
+  postgres,
+  // Postgres-specific helpers
+  createPostgresResource,
+  ensurePostgresDB,
+  handlePostgresError,
   ensureMongoDB,
   ensureUnique,
   handleMongoError,
@@ -412,6 +430,7 @@ export {
   userDocActionOr404,
   fetchUserDocOr404,
   deleteUserDocOr404,
+  listUserDocs,
   listUserDocsLean,
   createUniqueDoc,
   updateUserDoc,
@@ -658,5 +677,12 @@ export type {
   LineReaderOptions,
 } from './lib/streaming/streaming-utils';
 export type { MemoizeOptions } from './lib/memoize';
+export type { DbType } from './lib/db/dbtype';
+export type {
+  PostgresResource,
+  PostgresPoolLike,
+  PostgresClientLike,
+  PostgresResourceConfig,
+} from './lib/db/postgres/types';
 // No BasicRateLimiter export here to avoid duplicate
 export type { Application, Request, Response, NextFunction } from 'express';

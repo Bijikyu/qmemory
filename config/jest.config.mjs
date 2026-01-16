@@ -52,7 +52,8 @@ export default {
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   transformIgnorePatterns: [
-    'node_modules/(?!(?:qtests|@tanstack|@radix-ui|lucide-react|react-resizable-panels|cmdk|vaul)/)',
+    // Allowlisted ESM deps must be transformed so Jest can execute them under CommonJS.
+    'node_modules/(?!(?:qtests|@tanstack|@radix-ui|lucide-react|react-resizable-panels|cmdk|vaul|change-case|pluralize)/)',
   ],
   moduleNameMapper: {
     // ts-jest ESM: allow TS sources to import local modules using `.js` extension.

@@ -12,7 +12,17 @@
 
 import qerrors from 'qerrors';
 
-const { logInfo, logWarn } = qerrors;
+// qerrors is consumed through multiple module systems (ESM/CJS via Jest/ts-jest),
+// so we defensively resolve logging functions to avoid runtime interop mismatches.
+// Rationale: cache functionality must not crash simply because logging wiring differs.
+const logInfo =
+  typeof (qerrors as any)?.logInfo === 'function'
+    ? ((qerrors as any).logInfo as (...args: unknown[]) => void)
+    : (...args: unknown[]) => console.info(...args);
+const logWarn =
+  typeof (qerrors as any)?.logWarn === 'function'
+    ? ((qerrors as any).logWarn as (...args: unknown[]) => void)
+    : (...args: unknown[]) => console.warn(...args);
 
 interface CacheNode<V> {
   key: string;
@@ -78,6 +88,8 @@ export class MemoryOptimizedCache<V = unknown> {
     this.cleanupTimer = setInterval(() => {
       this.performCleanup();
     }, this.config.cleanupIntervalMs);
+    // Prevent the cleanup timer from keeping the Node.js event loop alive in short-lived processes (e.g., tests/CLIs).
+    this.cleanupTimer && typeof (this.cleanupTimer as any).unref === 'function' && (this.cleanupTimer as any).unref();
 
     logInfo('Memory-optimized cache initialized', {
       maxSize: this.config.maxSize,
