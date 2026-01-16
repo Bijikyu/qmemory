@@ -23,8 +23,13 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API info endpoint
+// Serve demo.html at root
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'demo.html'));
+});
+
+// API info endpoint
+app.get('/api', (req, res) => {
   res.json({
     title: 'QMemory Library Demo',
     description: 'Production-ready Node.js utility library demonstration',
